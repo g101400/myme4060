@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>myme 便携播放器（离线）</title>
+<style>
+:root{--bg:#0b1020;--panel:#151a2e;--line:#2a3352;--fg:#e8ecf6;--mut:#9aa5c4;--acc:#4f8cff;--ok:#22c55e;--warn:#f59e0b}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
+  font-family:"Microsoft YaHei","PingFang SC",system-ui,-apple-system,sans-serif}
+body{display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;gap:8px;align-items:center;padding:8px 12px;background:var(--panel);
+  border-bottom:1px solid var(--line);flex-wrap:wrap}
+header .t{font-weight:700;font-size:15px;margin-right:4px}
+header select,header button{background:#1e2540;color:var(--fg);border:1px solid var(--line);
+  border-radius:8px;padding:6px 10px;font-size:13px}
+header button:hover{border-color:var(--acc)}
+header .sp{flex:1}
+.tag{font-size:12px;color:var(--mut)}
+main{flex:1;display:flex;min-height:0}
+#stage{flex:1.4;position:relative;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden}
+#stage img,#stage video{max-width:100%;max-height:100%;object-fit:contain}
+#ph{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+  flex-direction:column;gap:10px;color:var(--mut);font-size:15px;text-align:center;padding:20px}
+#ph.on{display:flex}
+/* 分身视频画中画：默认右下角缩小显示，可关闭（只显示 PPT） */
+#pip{position:absolute;right:14px;bottom:14px;width:30%;max-width:360px;min-width:150px;
+  aspect-ratio:16/9;background:#000;border:2px solid rgba(255,255,255,.28);border-radius:10px;
+  overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.55);z-index:6}
+#pip.hide{display:none}
+#pip video{width:100%;height:100%;object-fit:cover;display:block}
+#pip .x{position:absolute;top:4px;right:4px;width:22px;height:22px;border:0;border-radius:6px;
+  background:rgba(0,0,0,.55);color:#fff;font-size:13px;line-height:1;cursor:pointer}
+#side{width:38%;min-width:260px;max-width:520px;background:var(--panel);border-left:1px solid var(--line);
+  padding:14px 16px;overflow:auto}
+#side h2{margin:0 0 10px;font-size:17px;line-height:1.4}
+#side .txt{white-space:pre-wrap;line-height:1.75;font-size:14px;color:#d8def0}
+#side .notes{margin-top:12px;padding:10px;border-left:3px solid var(--acc);color:var(--mut);font-size:13px}
+#side .na{color:var(--mut);font-size:13px}
+footer{background:var(--panel);border-top:1px solid var(--line);padding:8px 12px;
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+footer button{background:#1e2540;color:var(--fg);border:1px solid var(--line);border-radius:8px;
+  padding:7px 12px;font-size:13px;cursor:pointer}
+footer button:hover{border-color:var(--acc)}
+footer button.p{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+#bar{flex:1;min-width:120px;height:6px;background:#0e1428;border-radius:4px;overflow:hidden}
+#bar i{display:block;height:100%;width:0;background:var(--ok)}
+.pg{font-variant-numeric:tabular-nums;font-size:13px;color:var(--mut)}
+select#rate{background:#1e2540;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+#list{position:fixed;right:0;top:0;bottom:0;width:280px;background:#10162c;border-left:1px solid var(--line);
+  transform:translateX(100%);transition:.2s;overflow:auto;padding:10px;z-index:9}
+#list.on{transform:none}
+#list .it{padding:8px 10px;border-radius:8px;cursor:pointer;font-size:13px;line-height:1.4}
+#list .it:hover{background:#1b2340}
+#list .it.cur{background:var(--acc);color:#fff}
+#toast{position:fixed;left:50%;top:16px;transform:translateX(-50%);background:#1e2540;border:1px solid var(--line);
+  padding:8px 14px;border-radius:10px;font-size:13px;opacity:0;transition:.2s;pointer-events:none;z-index:20}
+#toast.on{opacity:1}
+@media (max-width:820px){main{flex-direction:column}#side{width:auto;max-width:none;border-left:0;border-top:1px solid var(--line);max-height:40%}#list{width:80%}#pip{width:42%;min-width:120px}}
+</style>
+</head>
+<body>
+<header>
+  <span class="t">▶ myme 便携播放器</span>
+  <select id="ver" title="选择播放文件（版本）"></select>
+  <select id="langSel" title="配音语言"><option value="zh">中文</option><option value="en">English</option></select>
+  <select id="avSel" title="分身形象" style="display:none"></select>
+  <button id="btnPip" title="显示/隐藏分身画中画">🧑 分身：开</button>
+  <span class="sp"></span>
+  <label class="tag"><input type="checkbox" id="auto" checked> 自动连播</label>
+  <button id="btnList">☰ 目录</button>
+  <button id="btnFs">⛶ 全屏</button>
+</header>
+
+<main>
+  <div id="stage">
+    <video id="vid" playsinline webkit-playsinline></video>
+    <img id="page" alt="">
+    <div id="ph">
+      <div style="font-size:34px">📦</div>
+      <div id="phMsg">未找到播放包</div>
+      <div style="font-size:12px;max-width:420px">把完整版导出的「便携播放包 zip」解压到本播放器同一目录
+        （manifest.json / slides.json / audio / video / images 与之并列）后刷新页面即可。</div>
+    </div>
+    <!-- 分身视频画中画：默认右下角缩小显示，可关闭（只显示 PPT） -->
+    <div id="pip" class="hide">
+      <video id="pipVid" playsinline webkit-playsinline muted></video>
+      <button class="x" id="pipClose" title="关闭分身">✕</button>
+    </div>
+  </div>
+  <aside id="side">
+    <h2 id="sTitle">—</h2>
+    <div class="txt" id="sText"></div>
+    <div class="notes" id="sNotes" style="display:none"></div>
+  </aside>
+</main>
+
+<footer>
+  <button id="bPrev">⏮ 上一页</button>
+  <button class="p" id="bPlay">▶ 播放</button>
+  <button id="bStop">⏹ 停止</button>
+  <button id="bNext">下一页 ⏭</button>
+  <button id="bFull">🎬 整场视频</button>
+  <span id="bar"><i></i></span>
+  <span class="pg" id="pg">0 / 0</span>
+  <select id="rate" title="倍速">
+    <option value="0.75">0.75x</option><option value="1" selected>1x</option>
+    <option value="1.25">1.25x</option><option value="1.5">1.5x</option><option value="2">2x</option>
+  </select>
+</footer>
+
+<div id="list"></div>
+<div id="toast"></div>
+
+<!-- 便携包导出时会生成 manifest.js（内联清单），file:// 场景下唯一零请求的读取路径；
+     没有此文件时 onerror 静默，由后续 fetch/XHR 兜底 -->
+<script src="manifest.js" onerror="void 0"></script>
+<script>
+/* ============================================================
+   myme 便携播放器（纯静态 · 离线 · 零依赖） v2.6.1
+   ------------------------------------------------------------
+   布局（按播放端反馈重做）：
+     · 默认以「PPT 演示页图」为主视图（大图）；
+     · 数字分身视频缩在右下角画中画（可关闭，只看法图）；
+     · 顶部可选：播放文件（版本）/ 配音语言（中·英）/ 分身形象；
+     · 配音按所选语言切换（audio / audio_en），分身视频静音播放，
+       避免与配音重复出声，口型仍与配音对齐（视频本就由同一段配音驱动）。
+   ============================================================ */
+var M=null, VER=null, IDX=0, AUTO=true, FULLMODE=false, TIMELINE=null;
+var LANG="zh", AV_SEL="default", PIP_ON=true;
+var $ = function(id){ return document.getElementById(id); };
+function toast(m){ var t=$('toast'); t.textContent=m; t.classList.add('on');
+  clearTimeout(t._h); t._h=setTimeout(function(){t.classList.remove('on');},2200); }
+function enc(s){ return (s==null?'':String(s)); }
+function base(u){ return enc(u).split('?name=').pop().split('/').pop(); }
+
+/* ---------- 加载数据 ----------
+   ⚠ 安卓 / 统信便携端的血泪教训：**不能用 fetch 读本地 JSON**。
+     - 安卓 WebView 加载 file:///android_asset/player.html 时，fetch 走的是网络栈，
+       对 file:// 一律返回 "Failed to fetch"，页面只会白屏提示"读取播放包失败"。
+     - 桌面浏览器直接双击 player.html（file://）同理，被同源策略拦掉。
+   因此这里做「四级兜底」，从最可靠的到最兼容的依次尝试：
+     ① window.__MYME_MANIFEST__ —— 导出时内联进 manifest.js，零请求，任何环境都能读；
+     ② fetch —— 有 http 服务时（统信 serve.py / 本地预览）最快；
+     ③ XMLHttpRequest —— 部分老 WebView 允许 XHR 读 file:// 而 fetch 不行；
+     ④ slides.json 旧包 —— 早期导出的包只有 slides.json，按约定拼媒体名。            */
+function get(u){
+  return fetch(u,{cache:'no-store'}).then(function(r){
+    if(!r.ok) throw new Error(u+' '+r.status);
+    return r.json();
+  });
+}
+/* XHR 版（file:// 下比 fetch 更宽容；WebView setAllowFileAccessFromFileURLs 后可用） */
+function getXhr(u){
+  return new Promise(function(res, rej){
+    try{
+      var x=new XMLHttpRequest();
+      x.open('GET',u,true);
+      x.onreadystatechange=function(){
+        if(x.readyState!==4) return;
+        if((x.status>=200&&x.status<300)||(x.status===0&&x.responseText)){
+          try{ res(JSON.parse(x.responseText)); }catch(e){ rej(e); }
+        } else { rej(new Error(u+' '+x.status)); }
+      };
+      x.onerror=function(){ rej(new Error('xhr error')); };
+      x.send();
+    }catch(e){ rej(e); }
+  });
+}
+/* 动态插 <script src="xxx.js">（在 file:// 下不受同源限制，是最后一张底牌） */
+function getJsonp(u){
+  return new Promise(function(res, rej){
+    var s=document.createElement('script');
+    s.src=u;
+    var done=false;
+    s.onload=function(){ done=true;
+      if(window.__MYME_FILE__){ res(window.__MYME_FILE__); }
+      else if(window.__MYME_MANIFEST__){ res(window.__MYME_MANIFEST__); }
+      else { rej(new Error('no data')); } };
+    s.onerror=function(){ if(!done) rej(new Error('script error')); };
+    document.head.appendChild(s);
+  });
+}
+function fromSlides(d){
+  // 回退：直接吃 slides.json（版本 -> 页），媒体名靠约定拼
+  var vs = d.versions || {}, out=[];
+  Object.keys(vs).forEach(function(k){
+    var v = vs[k]||{}, slides=v.slides||v||[];
+    out.push({ id:k, name:v.name||k, created:v.created||'', personas:[],
+      full: guessFull(k), slides: slides.map(function(s){
+        return { idx:s.idx, title:s.title||'', text:s.text||'', notes:s.notes||'',
+          img: s.img ? ('images/'+base(s.img)) : (s.images&&s.images[0] ? ('images/'+base(s.images[0])) : ''),
+          audio: s.audio ? ('audio/'+base(s.audio)) : guessAudio(s.idx),
+          audio_en: s.audio_en ? ('audio/'+base(s.audio_en)) : '',
+          video: guessVideo(k, s.idx), videoAlt:{} };
+      }) });
+  });
+  return { app:'myme', personas:[], versions: out };
+}
+function pad(n){ n=parseInt(n,10)||0; return (n<10?'0':'')+n; }
+function guessAudio(i){ return 'audio/narr-'+pad(i)+'.wav'; }
+function guessVideo(v,i){ return 'video/demo_av_'+v+'_'+i+'.mp4'; }
+function guessFull(v){ return { video:'video/demo_av_full_'+v+'.mp4', dur:'video/demo_av_full_'+v+'_dur.json' }; }
+
+function load(){
+  /* ① 内联清单（安卓 assets / 任意 file:// 场景的最可靠路径，零请求） */
+  if(window.__MYME_MANIFEST__){ M = window.__MYME_MANIFEST__; return Promise.resolve(M); }
+  /* ② fetch（有 http 服务时最快）→ ③ XHR（部分 WebView 允许 XHR 读 file://）
+     → ④ <script> 注入 manifest.js → ⑤ 旧包 slides.json */
+  return get('manifest.json')
+    .catch(function(){ return getXhr('manifest.json'); })
+    .catch(function(){ return getJsonp('manifest.js'); })
+    .then(function(m){ M = m; return M; })
+    .catch(function(){
+      return get('slides.json')
+        .catch(function(){ return getXhr('slides.json'); })
+        .then(function(d){ M = fromSlides(d); return M; });
+    });
+}
+
+/* ---------- 渲染 ---------- */
+function renderVers(){
+  var sel=$('ver'); sel.innerHTML='';
+  (M.versions||[]).forEach(function(v,i){
+    var o=document.createElement('option'); o.value=v.id; o.textContent=v.name||v.id; sel.appendChild(o);
+  });
+  // 分身下拉：由清单 personas 渲染（默认分身 + 各形象）
+  var as=$('avSel');
+  if(M.personas && M.personas.length){
+    as.style.display=''; as.innerHTML='';
+    M.personas.forEach(function(p){
+      var o=document.createElement('option'); o.value=p.id; o.textContent=p.name||p.id; as.appendChild(o);
+    });
+    AV_SEL = as.value || 'default';
+  } else { as.style.display='none'; AV_SEL='default'; }
+  if(!M.versions||!M.versions.length){ $('ph').classList.add('on'); $('phMsg').textContent='播放包里没有可用版本'; return; }
+  VER = M.versions[0]; IDX=0; $('ph').classList.remove('on');
+  $('meta').textContent = (VER.name||'') + ' · ' + (VER.slides||[]).length + ' 页' + (VER.created?(' · '+VER.created):'');
+  renderList(); show();
+}
+function cur(){ return (VER && VER.slides && VER.slides[IDX]) || null; }
+function renderList(){
+  var l=$('list'); l.innerHTML='<div style="font-size:12px;color:#9aa5c4;margin:4px 0 8px">点击跳页</div>';
+  (VER.slides||[]).forEach(function(s,i){
+    var d=document.createElement('div'); d.className='it'+(i===IDX?' cur':'');
+    d.textContent = (i+1)+'. '+(s.title||('第 '+(i+1)+' 页'));
+    d.onclick=function(){ go(i, true); };
+    l.appendChild(d);
+  });
+}
+/* 当前分身应播的视频：优先 videoAlt[所选分身]，否则默认 video */
+function curAvatarVideo(s){
+  if(!s) return "";
+  if(AV_SEL && s.videoAlt && s.videoAlt[AV_SEL]) return s.videoAlt[AV_SEL];
+  return s.video || "";
+}
+/* 渲染右下角分身画中画（仅当开启且本页有视频） */
+function renderPip(s){
+  var pip=$('pip'), pv=$('pipVid');
+  if(!PIP_ON){ pip.classList.add('hide'); return; }
+  var u = curAvatarVideo(s);
+  if(u){ pip.classList.remove('hide'); if(pv.getAttribute('src')!==u) pv.src=u; }
+  else { pip.classList.add('hide'); }
+}
+function show(){
+  var s=cur(); if(!s) return;
+  $('sTitle').textContent = s.title || ('第 '+(IDX+1)+' 页');
+  $('sText').textContent  = s.text || '（本页无文本）';
+  var n=$('sNotes'); if(s.notes){ n.style.display=''; n.textContent='备注：'+s.notes; } else { n.style.display='none'; }
+  $('pg').textContent = (IDX+1)+' / '+(VER.slides||[]).length;
+  var v=$('vid'), im=$('page');
+  if(FULLMODE){ im.style.display='none'; $('pip').classList.add('hide'); v.style.display=''; }
+  else {
+    v.style.display='none';
+    if(s.img){ im.style.display=''; im.src=s.img; im.onerror=function(){ im.style.visibility='hidden'; }; im.onload=function(){ im.style.visibility=''; }; }
+    else { im.style.display=''; im.removeAttribute('src'); im.style.visibility=''; }
+    renderPip(s);
+  }
+  [].forEach.call(document.querySelectorAll('#list .it'),function(e,i){ e.classList.toggle('cur', i===IDX); });
+}
+
+/* ---------- 播放控制 ---------- */
+function stopMedia(){
+  var v=$('vid'), pv=$('pipVid'), a=$('aud');
+  try{ v.pause(); }catch(e){}
+  try{ pv.pause(); }catch(e){}
+  try{ a.pause(); }catch(e){}
+  $('bPlay').textContent='▶ 播放';
+}
+function play(){
+  var s=cur(); if(!s) return;
+  stopMedia();
+  var a=$('aud'), pv=$('pipVid');
+  a.playbackRate=parseFloat($('rate').value);
+  pv.playbackRate=a.playbackRate;
+  if(FULLMODE){
+    if(!VER.full||!VER.full.video){ toast('本版本没有整场视频'); FULLMODE=false; show(); return; }
+    v=$('vid'); v.src=VER.full.video; v.currentTime=0; v.play().catch(function(){ toast('视频无法播放（格式/编码不支持）'); });
+    $('bPlay').textContent='⏸ 暂停'; bindBar(v); return;
+  }
+  // 分身视频（静音，避免与配音重复出声）+ 配音（按所选语言）
+  renderPip(s);
+  if(!$('pip').classList.contains('hide')){
+    pv.muted=true; pv.currentTime=0;
+    pv.play().catch(function(){ /* 静音视频自动播放通常被允许 */ });
+  }
+  var au = (LANG==='en' && s.audio_en) ? s.audio_en : s.audio;
+  if(au){
+    a.src=au; a.currentTime=0;
+    a.play().catch(function(){ toast('本页配音无法播放：'+au); });
+    bindBar(a);
+  } else {
+    if(!$('pip').classList.contains('hide')){
+      toast('本页没有配音，仅播放分身画面');
+    } else {
+      toast('本页没有配音（可只看法图）');
+    }
+  }
+  $('bPlay').textContent='⏸ 暂停';
+}
+function bindBar(m){
+  var bar=$('bar').firstElementChild;
+  if(m._bound) return; m._bound=true;
+  m.addEventListener('timeupdate',function(){
+    if(!m.duration) return;
+    bar.style.width = (m.currentTime/m.duration*100)+'%';
+    if(FULLMODE && TIMELINE) syncTimeline(m.currentTime);
+  });
+  m.addEventListener('ended',function(){
+    bar.style.width='100%';
+    $('bPlay').textContent='▶ 播放';
+    if(FULLMODE){ FULLMODE=false; show(); return; }
+    if(AUTO && IDX < VER.slides.length-1){ go(IDX+1, true); }
+  });
+}
+function syncTimeline(t){
+  // 整场视频按 dur.json 时间轴自动翻页
+  for(var i=TIMELINE.length-1;i>=0;i--){ if(t+0.05 >= TIMELINE[i]){ if(IDX!==i){ IDX=i; show(); } return; } }
+}
+function loadTimeline(){
+  TIMELINE=null;
+  if(!VER || !VER.full || !VER.full.dur) return Promise.resolve();
+  return get(VER.full.dur).then(function(d){
+    var arr = d.timeline || d.durs || d.durations || d.pages || null;
+    if(Array.isArray(arr)){ TIMELINE=arr.map(Number); }
+    else if(d && typeof d==='object'){ TIMELINE=Object.keys(d).sort(function(a,b){return (+a)-(+b);}).map(function(k){return +d[k];}); }
+  }).catch(function(){ TIMELINE=null; });
+}
+function go(i, autoplay){
+  if(!VER) return;
+  IDX = Math.max(0, Math.min((VER.slides||[]).length-1, i));
+  stopMedia(); show();
+  if(autoplay) setTimeout(play, 60);
+}
+function toggle(){
+  var v=$('vid'), pv=$('pipVid'), a=$('aud');
+  var playing = (!v.paused && v.src) || (!a.paused && a.src) || (!pv.paused && pv.src);
+  if(playing){ stopMedia(); } else { play(); }
+}
+
+/* ---------- 事件 ---------- */
+$('bPrev').onclick=function(){ go(IDX-1, AUTO); };
+$('bNext').onclick=function(){ go(IDX+1, AUTO); };
+$('bPlay').onclick=toggle;
+$('bStop').onclick=function(){ stopMedia(); $('bar').firstElementChild.style.width='0'; };
+$('bFull').onclick=function(){
+  if(!VER) return;
+  if(!VER.full || !VER.full.video){ toast('本版本没有整场视频（需在完整版先生成）'); return; }
+  FULLMODE=!FULLMODE; stopMedia(); show();
+  if(FULLMODE){ loadTimeline().then(play); toast('整场视频模式（时间轴同步翻页）'); }
+  else toast('已切回逐页模式');
+};
+$('rate').onchange=function(){ var r=parseFloat(this.value); $('vid').playbackRate=r; $('aud').playbackRate=r; $('pipVid').playbackRate=r; };
+$('auto').onchange=function(){ AUTO=this.checked; };
+$('btnList').onclick=function(){ $('list').classList.toggle('on'); };
+$('btnFs').onclick=function(){
+  var el=document.documentElement;
+  if(!document.fullscreenElement){ (el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el); }
+  else { (document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document); }
+};
+$('btnPip').onclick=function(){
+  PIP_ON=!PIP_ON; this.textContent = PIP_ON ? '🧑 分身：开' : '🧑 分身：关';
+  renderPip(cur());
+  if(PIP_ON && !$('aud').paused){ play(); }   // 正在播则立即把分身画面接上
+};
+$('pipClose').onclick=function(){ $('btnPip').click(); };
+$('langSel').onchange=function(){ LANG=this.value; if(!$('aud').paused || !$('pipVid').paused) play(); };
+$('avSel').onchange=function(){ AV_SEL=this.value; renderPip(cur()); if(!$('pipVid').paused) $('pipVid').play().catch(function(){}); };
+$('ver').onchange=function(){
+  VER = (M.versions||[]).filter(function(v){ return v.id===this.value; }.bind(this))[0] ||
+        (M.versions||[])[parseInt(this.selectedIndex,10)];
+  IDX=0; FULLMODE=false; stopMedia();
+  $('meta').textContent=(VER.name||'')+' · '+(VER.slides||[]).length+' 页';
+  renderList(); show();
+};
+document.addEventListener('keydown',function(e){
+  if(e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+  if(e.key==='ArrowRight'){ go(IDX+1, AUTO); }
+  else if(e.key==='ArrowLeft'){ go(IDX-1, AUTO); }
+  else if(e.key===' '){ e.preventDefault(); toggle(); }
+  else if(e.key==='Escape' && $('list').classList.contains('on')){ $('list').classList.remove('on'); }
+});
+
+/* ---------- 启动 ---------- */
+load().then(function(){
+  if(!M || !(M.versions||[]).length){ $('ph').classList.add('on'); return; }
+  renderVers(); toast('已载入 '+(M.versions||[]).length+' 个版本，点▶开始');
+}).catch(function(e){
+  $('ph').classList.add('on');
+  $('phMsg').innerHTML = '读取播放包失败：'+enc(e.message)
+    +'<br><span style="font-size:12px">提示：请把完整版导出的「便携播放包」整个解压后再打开本页；'
+    +'解压后目录里应有 manifest.json、audio、video、images。'
+    +'<br>若仍失败，请用随包的启动方式（安卓点图标 / 统信开始菜单），不要直接用浏览器打开文件。</span>';
+});
+</script>
+<audio id="aud" style="display:none"></audio>
+</body>
+</html>

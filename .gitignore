@@ -1,0 +1,77 @@
+# ============ myme4060 · 源码仓裁剪规则 ============
+# 原则（2026-10-03 立）：只收源码，运行时重依赖 / 个人数据 / 构建产物一律不入 git。
+# 公开仓前已做过密钥与隐私扫描：无 PAT / API key / 私钥，无声纹、无项目数据。
+
+# ---- 个人生物特征（声纹样本）：绝不入库 ----
+voice/
+
+# ---- 运行时重依赖（数百 MB，克隆后用绿色伴随目录补）----
+LivePortrait/
+ts_deps/
+
+# ---- 构建产物 ----
+dist/
+build/
+_pkg/
+*.exe
+*.msi
+*.apk
+*.deb
+*.7z
+*.zip
+myme.spec.bak
+myme_portable.spec.bak
+
+# ---- 运行时数据（项目化后全部归 projects/）----
+projects/
+kb_data/
+kb_src/
+narrations/
+avatar_out/
+test_out/
+demo_avatar/
+output/
+data/
+
+# ---- 运行时状态文件 ----
+settings.json
+persons.json
+portraits.json
+slides.json
+slides_ai_demo_backup.json
+qa_log.json
+resource_history.json
+slides_*.json
+*.json.bak_*
+
+# ---- 模板（可选自带，大二进制不入库）----
+templates/
+
+# ---- Android 构建产物 ----
+android-player/assets/
+android-player/dex/
+android-player/obj/
+android-player/*.keystore
+*.keystore
+keystore.properties
+
+# ---- Python 字节码 / 环境 ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# ---- Agent 工作区内部数据 ----
+.workbuddy/
+
+# ---- 其它大二进制 / 样本 ----
+icon-192.png
+icon-512.png
+config_sfx.txt
+build_full_v261.rc
+build_portable_v261.rc
+choose
+go
+.batin
+.bat.log

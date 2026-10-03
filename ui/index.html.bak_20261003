@@ -1,0 +1,3569 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>__APP__</title>
+<link rel="manifest" href="/manifest.json">
+<style>
+:root{
+  --accent:#1d4ed8; --accent-soft:#e8effc; --accent-deep:#12307d;
+  --bg:#f4f6fa; --panel:#ffffff; --line:#e3e8f0; --line-soft:#eef2f8;
+  --text:#1f2937; --muted:#6b7280; --ok:#15803d; --warn:#b45309; --err:#b91c1c;
+  --radius:10px; --shadow:0 1px 2px rgba(16,24,40,.04),0 6px 18px rgba(16,24,40,.06);
+  --font-size:15px; --scale:1; --font-color:#1f2937;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--font-color);
+  font-family:"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Source Han Sans SC",
+    -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-size:calc(var(--font-size) * var(--scale));
+  line-height:1.6; -webkit-font-smoothing:antialiased;
+}
+/* ============ 顶栏 + 菜单 ============ */
+header{position:sticky;top:0;z-index:60;background:var(--panel);
+  border-bottom:1px solid var(--line);box-shadow:0 1px 3px rgba(16,24,40,.04)}
+.brand{display:flex;align-items:center;gap:12px;padding:12px 18px 8px}
+.brand .logo{width:34px;height:34px;border-radius:8px;flex:0 0 auto;
+  background:linear-gradient(135deg,var(--accent),#3b82f6);
+  display:grid;place-items:center;color:#fff;font-weight:700;font-size:15px;
+  box-shadow:0 2px 8px rgba(29,78,216,.28)}
+.brand h1{margin:0;font-size:17px;font-weight:700;letter-spacing:.3px}
+.brand .sub{font-size:12px;color:var(--muted);margin-top:1px}
+.menubar{display:flex;gap:2px;padding:0 14px;flex-wrap:wrap}
+.menu{position:relative}
+.menu>button{background:none;border:0;cursor:pointer;padding:7px 13px;border-radius:7px;
+  font:inherit;font-size:13.5px;color:var(--text)}
+.menu>button:hover{background:var(--accent-soft);color:var(--accent-deep)}
+.menu.open>button{background:var(--accent);color:#fff}
+.submenu{display:none;position:absolute;top:100%;left:0;min-width:212px;background:var(--panel);
+  border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
+  padding:6px;z-index:80;max-height:70vh;overflow:auto}
+.menu.open .submenu{display:block}
+.submenu button,.submenu label{display:flex;width:100%;align-items:center;gap:8px;
+  background:none;border:0;text-align:left;padding:7px 10px;border-radius:6px;
+  font:inherit;font-size:13.5px;color:var(--text);cursor:pointer;white-space:nowrap}
+.submenu button:hover,.submenu label:hover{background:var(--accent-soft)}
+.submenu .sep{height:1px;background:var(--line-soft);margin:5px 4px}
+.submenu .title{font-size:11px;color:var(--muted);padding:6px 10px 3px;letter-spacing:.5px}
+.submenu .check{margin-left:auto;color:var(--accent);font-weight:700}
+.submenu .hint{margin-left:auto;color:var(--muted);font-size:11.5px}
+
+/* ============ 导出播放文件对话框 ============ */
+.exSec{border:1px solid var(--line-soft);border-radius:10px;padding:10px 12px;margin:10px 0;background:var(--panel-2)}
+.exHead{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
+.exIndent{display:flex;flex-direction:column;gap:4px;margin:8px 0 2px 22px}
+.chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer;padding:2px 0}
+.chk input{width:auto}
+/* ============ 布局 ============ */
+main{max-width:1480px;margin:0 auto;padding:16px 18px 40px}
+.tabs{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--radius);padding:5px;margin-bottom:14px;box-shadow:var(--shadow)}
+.tabs .tab{flex:1;text-align:center;padding:9px 6px;border-radius:7px;cursor:pointer;
+  font-size:14px;color:var(--muted);border:0;background:none;font-family:inherit}
+.tabs .tab.on{background:var(--accent);color:#fff;font-weight:600}
+/* ---- 页签分组：按「流程 / 模式」把 ①~⑧ 分段展示 ---- */
+.tabs{flex-wrap:wrap}
+.tabs .tgroup{display:flex;align-items:center;padding:0 8px 0 10px;font-size:12px;color:var(--muted);
+  font-weight:700;letter-spacing:.5px;white-space:nowrap}
+.tabs .tgroup:before{content:'';display:inline-block;width:3px;height:12px;border-radius:2px;
+  background:var(--accent);margin-right:6px;opacity:.65}
+.tabs .tsep{width:1px;align-self:stretch;margin:7px 6px;background:var(--line)}
+@media(max-width:900px){.tabs .tgroup,.tabs .tsep{display:none}}
+/* ---- 顶部项目切换条（所有资源归属于当前项目） ---- */
+.projbar{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--radius);padding:8px 12px;margin-bottom:12px;box-shadow:var(--shadow);flex-wrap:wrap}
+.projbar .plabel{font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap}
+.projbar select{flex:0 1 240px;padding:6px 8px;border-radius:7px;border:1px solid var(--line);
+  background:var(--panel);color:var(--font-color);font-family:inherit;font-size:14px}
+.projbar .pbtn{padding:5px 10px;border-radius:7px;border:1px solid var(--line);background:none;
+  color:var(--muted);cursor:pointer;font-size:13px;font-family:inherit}
+.projbar .pbtn:hover{color:var(--accent);border-color:var(--accent)}
+.projbar .phint{font-size:12px;color:var(--muted);margin-left:auto}
+/* ---- 启动引导（播放版首次进入） ---- */
+.guide{display:flex;flex-direction:column;gap:10px}
+.guide .gstep{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);
+  border-radius:10px;background:var(--bg)}
+.guide .gno{flex:0 0 26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.guide .gtxt{flex:1;font-size:13px;color:var(--muted)}
+.guide .gtxt b{display:block;margin-bottom:2px;color:var(--font-color);font-size:14px}
+.guide .gact{margin-top:7px}
+/* ---- 清单列表（帮助 / 导出示例文件清单） ---- */
+.flist{margin:6px 0 0;padding-left:0;list-style:none;font-size:13px}
+.flist li{padding:5px 0;border-bottom:1px dashed var(--line);display:flex;gap:8px;align-items:baseline}
+.flist li:last-child{border-bottom:0}
+.flist .fk{flex:0 0 190px;color:var(--muted);font-weight:700}
+.flist .fv{flex:1;color:var(--muted)}
+.panel{display:none}.panel.on{display:block}
+.grid{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;align-items:start}
+@media(max-width:1080px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px 16px;box-shadow:var(--shadow);margin-bottom:14px}
+.card h3{margin:0 0 10px;font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:7px}
+.card h3 .dot{width:6px;height:16px;border-radius:3px;background:var(--accent)}
+label{display:block;font-size:13px;color:var(--muted);margin:9px 0 4px}
+input[type=file],textarea,select,input[type=text]{
+  width:100%;font:inherit;font-size:13.5px;padding:8px 10px;border:1px solid var(--line);
+  border-radius:7px;background:#fbfcfe;color:var(--text);font-family:inherit}
+textarea{resize:vertical;min-height:64px}
+select{cursor:pointer}
+button.btn{background:var(--accent);color:#fff;border:0;border-radius:7px;padding:9px 16px;
+  font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;box-shadow:0 2px 6px rgba(29,78,216,.22)}
+button.btn:hover{background:var(--accent-deep)}
+button.btn:disabled{background:#9aa4b8;cursor:not-allowed;box-shadow:none}
+button.ghost{background:#fff;color:var(--text);border:1px solid var(--line);box-shadow:none;font-weight:500}
+button.ghost:hover{background:var(--accent-soft)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.muted{color:var(--muted);font-size:12.5px}
+.out{margin-top:10px;padding:10px 12px;background:#f8fafc;border:1px solid var(--line-soft);
+  border-radius:7px;font-size:13px;min-height:20px;white-space:pre-wrap}
+.ok{color:var(--ok);font-weight:600}
+.bad{color:var(--err);font-weight:600}
+/* ============ PPT 舞台（同步展示） ============ */
+.stage{background:linear-gradient(180deg,#fbfcfe,#f6f8fc);border:1px solid var(--line);
+  border-radius:var(--radius);min-height:330px;padding:18px;display:flex;flex-direction:column;
+  box-shadow:inset 0 1px 0 #fff}
+.stage .pgno{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;
+  align-items:center;margin-bottom:8px}
+.stage .pgno b{color:var(--accent);font-size:13px}
+.slide-title{margin:0 0 10px;font-size:20px;font-weight:700;line-height:1.35;color:var(--text)}
+.slide-orig{width:100%;height:auto;border:1px solid var(--line);border-radius:8px;
+  background:#fff;box-shadow:0 2px 10px rgba(15,26,46,.08);display:block}
+.slide-fallback .slide-title{margin:0 0 10px;font-size:20px;font-weight:700;line-height:1.35;color:var(--text)}
+.slide-fallback .slide-body{font-size:14.5px;white-space:pre-wrap;color:#374151}
+.slide-body ul{margin:6px 0;padding-left:20px}
+.slide-notes{margin-top:10px;padding:9px 11px;background:#fffbeb;border-left:3px solid #f59e0b;
+  border-radius:0 6px 6px 0;font-size:12.5px;color:#78350f;white-space:pre-wrap}
+.slide-imgs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.slide-imgs img{max-width:160px;max-height:110px;border:1px solid var(--line);
+  border-radius:6px;background:#fff;object-fit:contain}
+.stage.empty{display:grid;place-items:center;color:var(--muted);font-size:13.5px;text-align:center}
+.pager{display:flex;gap:6px;align-items:center;justify-content:center;margin-top:10px;flex-wrap:wrap}
+.pager button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:4px 10px;
+  cursor:pointer;font:inherit;font-size:12.5px;color:var(--text)}
+.pager button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+/* ============ 分身视频区 ============ */
+.avatarbox{position:relative;background:#0f172a;border-radius:var(--radius);overflow:hidden;
+  min-height:260px;display:grid;place-items:center}
+.avatarbox video,.avatarbox img{width:100%;display:block;max-height:420px;object-fit:contain}
+.avatarwrap.pip{position:absolute;right:16px;bottom:120px;width:240px;max-width:38vw;z-index:8;box-shadow:0 6px 24px rgba(0,0,0,.55);border-radius:12px;overflow:hidden;background:#0f172a}
+.avatarwrap.pip video{width:100%;display:block}
+.avatarbox .ph{color:#94a3b8;font-size:13px;text-align:center;padding:30px}
+.avatarwrap{transform-origin:center center}
+/* ================= 全屏四布局（按 S.fsMode: 1 PPT+分身 / 2 仅PPT / 3 仅分身 / 4 PPT+分身小窗） ================= */
+.demo-wrap:fullscreen.fs-m2 .avatarwrap.pip{display:none}
+.demo-wrap:fullscreen.fs-m1 .avatarwrap.pip{width:340px;max-width:42vw;right:18px;bottom:18px}
+.demo-wrap:fullscreen.fs-m4 .avatarwrap.pip{width:172px;max-width:30vw;right:12px;bottom:66px;opacity:.82}
+.demo-wrap:fullscreen.fs-m3 .avatarwrap.pip{position:absolute;inset:0;width:100%;height:100%;max-width:none;right:0;bottom:0;opacity:1;border-radius:0;box-shadow:none}
+.demo-wrap:fullscreen.fs-m3 .stage,.demo-wrap:fullscreen.fs-m3 .pager,
+.demo-wrap:fullscreen.fs-m3 .statusbar,.demo-wrap:fullscreen.fs-m3 .fs-controls{display:none}
+/* 全屏极简：控件自动隐身，鼠标移动再显示 */
+.demo-wrap:fullscreen .fs-controls,.demo-wrap:fullscreen .fs-btn{transition:opacity .3s}
+.demo-wrap:fullscreen.fs-auto-hide .fs-controls,.demo-wrap:fullscreen.fs-auto-hide .fs-btn{opacity:0;pointer-events:none}
+/* 全屏极简字幕：单栏浮条，最多两行 */
+.demo-wrap:fullscreen .statusbar .sb-text{font-size:16px;line-height:1.5;max-height:3em;overflow:hidden;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;text-overflow:ellipsis}
+.demo-wrap:fullscreen .statusbar{padding:8px 14px}
+/* ============ 进度 ============ */
+.bar{height:9px;background:#e8edf5;border-radius:6px;overflow:hidden;margin:10px 0 6px}
+.bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),#60a5fa);
+  transition:width .4s}
+/* ============ 列表 ============ */
+.list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.item{border:1px solid var(--line-soft);border-radius:8px;padding:9px 11px;background:#fbfcfe}
+.item .t{font-weight:600;font-size:13.5px}
+.item .d{font-size:12.5px;color:var(--muted);margin-top:2px}
+.item audio{width:100%;margin-top:7px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.chip{border:1px solid var(--line);background:#fff;border-radius:20px;padding:4px 12px;
+  font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:6px}
+.chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+/* ============ 弹窗 ============ */
+.mask{display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:100;
+  align-items:center;justify-content:center;padding:20px}
+.mask.on{display:flex}
+.modal{background:var(--panel);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.28);
+  width:min(680px,100%);max-height:86vh;overflow:auto}
+.modal header{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;
+  align-items:center;justify-content:space-between}
+.modal header b{font-size:15px}
+.modal .body{padding:16px 18px}
+.modal footer{padding:12px 18px;border-top:1px solid var(--line);display:flex;
+  gap:8px;justify-content:flex-end;background:#fbfcfe;border-radius:0 0 14px 14px}
+.x{background:none;border:0;font-size:20px;cursor:pointer;color:var(--muted);line-height:1}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:640px){.fgrid{grid-template-columns:1fr}}
+.sw{display:flex;align-items:center;justify-content:space-between;padding:7px 0;
+  border-bottom:1px dashed var(--line-soft);font-size:13.5px}
+.sw:last-child{border-bottom:0}
+input[type=range]{width:170px}
+input[type=color]{width:52px;height:30px;padding:1px;border:1px solid var(--line);border-radius:6px}
+.kbd{display:inline-block;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;
+  padding:1px 6px;font-size:12px;background:#f8fafc;color:var(--muted)}
+/* ============ ⑤ 正式演示：全屏 + 底部状态栏字幕 ============ */
+.demo-wrap{position:relative;background:#0f1420;border-radius:var(--radius);overflow:hidden;padding:14px 14px 8px}
+.demo-wrap .stage{background:linear-gradient(180deg,#0f172a,#0f1420);border-color:#1e293b}
+.demo-wrap .stage .slide-orig{margin:0 auto}
+.statusbar{margin-top:10px;background:#0f1420;color:#e2e8f0;border-radius:8px;padding:9px 12px;border:1px solid #1e293b}
+.sb-lang{display:flex;gap:6px;margin-bottom:6px}
+.sb-lang .chip{padding:3px 10px;font-size:12.5px}
+.sb-text{font-size:15px;line-height:1.7;min-height:22px;white-space:pre-wrap;word-break:break-word}
+.sb-text .en{color:#94a3b8;font-size:13.5px;margin-top:5px;display:block;line-height:1.6}
+.fs-btn{position:absolute;top:10px;right:10px;z-index:6;background:rgba(15,23,42,.7);color:#e2e8f0;
+  border:1px solid #334155;border-radius:7px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}
+.fs-btn:hover{background:rgba(29,78,216,.85)}
+.fs-controls{display:none;position:absolute;left:0;right:0;bottom:0;z-index:6;justify-content:center;
+  gap:8px;padding:10px;background:linear-gradient(0deg,rgba(15,23,42,.85),rgba(15,23,42,0))}
+.fs-controls button{background:rgba(15,23,42,.72);color:#e2e8f0;border:1px solid #334155;border-radius:8px;
+  padding:8px 14px;font:inherit;font-size:15px;cursor:pointer}
+.fs-controls button:hover{background:rgba(29,78,216,.85)}
+/* 全屏态：幻灯片铺满，状态栏固定在底部；分身（右栏）被覆盖即隐藏，当前分身语音继续后台播放 */
+.demo-wrap:fullscreen{display:flex;flex-direction:column;width:100vw;height:100vh;padding:0;background:#0f1420}
+.demo-wrap:fullscreen .stage{flex:1;min-height:0;border:0;border-radius:0;align-items:center;background:#0f1420;padding:18px}
+.demo-wrap:fullscreen .slide-orig{max-height:100%;object-fit:contain;margin:auto}
+.demo-wrap:fullscreen .pager{position:absolute;top:12px;left:12px;z-index:6;background:rgba(15,23,42,.6);padding:4px 8px;border-radius:8px}
+.demo-wrap:fullscreen .fs-btn{top:12px;right:12px}
+.demo-wrap:fullscreen .statusbar{position:absolute;left:0;right:0;bottom:0;margin:0;border-radius:0;
+  border-left:0;border-right:0;border-bottom:0;background:rgba(15,23,42,.92);font-size:18px;padding:14px 20px}
+.demo-wrap:fullscreen .fs-controls{display:flex;bottom:96px}
+
+/* ============================================================
+   v2.6.1 商务主题精修（问题7b：层次鲜明 / 正式商务 / 告别小作坊观感）
+   ------------------------------------------------------------
+   只做覆盖，不改原规则：同样的选择器写在文件末尾即胜出，风险最低。
+   设计语言：深藏青主导航 + 青绿主色（#0f766e）+ 克制的留白与投影。
+   ============================================================ */
+:root{
+  --accent:#0f766e;          /* 主色：青绿（teal-700），比纯蓝更稳、更有辨识度 */
+  --accent-deep:#0b4f4a;
+  --accent-soft:#e6f2f1;
+  --navy:#0f172a;            /* 顶栏 / 侧栏主色：藏青 */
+  --navy-2:#1e293b;
+  --bg:#f1f5f9;              /* 页面底色：冷灰，衬托白卡片 */
+  --panel:#ffffff;
+  --line:#e2e8f0;
+  --line-soft:#eef2f7;
+  --text:#0f172a; --muted:#64748b;
+  --ok:#15803d; --warn:#b45309; --err:#b91c1c;
+  --radius:12px;
+  --shadow:0 1px 2px rgba(15,23,42,.06),0 4px 16px rgba(15,23,42,.06);
+  --shadow-lg:0 8px 30px rgba(15,23,42,.10);
+}
+/* 顶栏：藏青底 + 主色高光条，品牌区独立，一眼知道"这是个正经产品" */
+header{background:linear-gradient(180deg,#0f172a,#131f38);border-bottom:0;
+  box-shadow:0 1px 0 rgba(255,255,255,.06) inset,0 2px 10px rgba(15,23,42,.22)}
+header::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;
+  background:linear-gradient(90deg,var(--accent),#14b8a6 55%,#0ea5e9)}
+header,header *{color:#e2e8f0}
+header .muted{color:#94a3b8!important}
+header select,header input[type="text"],header input[type="password"]{
+  background:#1b2740!important;color:#e2e8f0!important;border:1px solid #2f4062!important}
+header button{background:#1b2740;border:1px solid #2f4062;color:#e2e8f0}
+header button:hover{border-color:#14b8a6;background:#22314f}
+/* 顶栏里的品牌名加粗放大 */
+header b,header .brand,header .t{font-weight:700;letter-spacing:.02em}
+/* 第三层标签：白底胶囊 + 主色下划线指示器，分组名小号灰字不再抢戏 */
+.tabs{gap:6px;padding:10px 16px 0;background:var(--panel);border-bottom:1px solid var(--line);
+  box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.tabs .tgroup{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8;
+  font-weight:600;padding:0 6px;align-self:center}
+.tabs .tsep{width:1px;height:22px;background:var(--line);margin:0 4px;align-self:center}
+.tab{border:1px solid transparent;background:transparent;border-radius:9px 9px 0 0;
+  padding:10px 14px 12px;font-weight:600;color:#475569;position:relative;
+  transition:background .15s,color .15s}
+.tab:hover{background:#f1f5f9;color:var(--accent)}
+.tab.on{color:var(--accent);background:var(--accent-soft)}
+.tab.on::after{content:"";position:absolute;left:10px;right:10px;bottom:-1px;height:3px;
+  border-radius:3px 3px 0 0;background:var(--accent)}
+/* 面板与卡片：白卡 + 细边 + 柔投影，层次靠"底色—卡片—内嵌"三级区分 */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:18px 20px;margin:16px}
+.card,.box,.sect{background:#fbfcfe;border:1px solid var(--line-soft);
+  border-radius:10px;padding:14px 16px}
+h1,h2,h3,h4{color:var(--text);letter-spacing:.01em}
+h4{font-weight:700;font-size:15px;margin:0 0 8px;display:flex;align-items:center;gap:8px}
+h4::before{content:"";width:4px;height:15px;border-radius:2px;background:var(--accent);
+  flex:none;opacity:.9}
+/* 按钮：主/次/危险三态，主按钮带轻渐变与按压反馈 */
+.btn{background:linear-gradient(180deg,#12857c,var(--accent));border:1px solid var(--accent-deep);
+  color:#fff;font-weight:600;border-radius:9px;box-shadow:0 1px 2px rgba(15,118,110,.25)}
+.btn:hover{background:linear-gradient(180deg,#15968c,#0f766e)}
+.btn:active{transform:translateY(1px)}
+.btn.ghost{background:#fff;border:1px solid var(--line);color:#334155;box-shadow:none;font-weight:500}
+.btn.ghost:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.btn.danger{background:#fff;border:1px solid #fecaca;color:var(--err);box-shadow:none}
+.btn.danger:hover{background:#fef2f2;border-color:var(--err)}
+/* 表格 / 列表：斑马纹 + 悬停，正式报表观感 */
+table{border-collapse:collapse;width:100%}
+th{background:#f8fafc;color:#475569;font-weight:600;font-size:13px}
+th,td{border-bottom:1px solid var(--line-soft);padding:9px 10px;text-align:left}
+tbody tr:nth-child(even){background:#fcfdff}
+tbody tr:hover{background:var(--accent-soft)}
+/* 表单控件统一：浅底、主色聚焦环 */
+select,input[type="text"],input[type="password"],input[type="number"],input[type="date"],textarea{
+  border:1px solid var(--line);border-radius:8px;background:#fff;padding:7px 10px;color:var(--text)}
+select:focus,input:focus,textarea:focus{outline:none;border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(15,118,110,.14)}
+/* 状态徽标 / 进度条 */
+.badge,.tagchip{border-radius:999px;font-size:12px;padding:2px 9px;font-weight:600}
+.bar,.progress{background:#e2e8f0;border-radius:999px}
+.bar>i,.progress>i{background:linear-gradient(90deg,#14b8a6,var(--accent));border-radius:999px}
+/* 滚动条：细、低调 */
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:999px;border:2px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:#94a3b8;background-clip:content-box}
+/* 模态：更深的遮罩 + 更明显的浮起 */
+#modal,#mWrap,.modal{box-shadow:var(--shadow-lg)}
+.muted{color:var(--muted)}
+code{background:#f1f5f9;border:1px solid var(--line-soft);border-radius:5px;padding:1px 5px;font-size:.92em}
+</style></head><body>
+<!-- ===== 导入进度条（上传 → 解压导入 → 清理临时文件 → 完成），全局可见 ===== -->
+<div id="impBar" style="display:none;position:fixed;left:0;right:0;top:0;z-index:99999;background:rgba(17,24,39,.92);padding:10px 16px;color:#fff;font-size:13px;box-shadow:0 2px 12px rgba(0,0,0,.35)">
+  <div id="impTxt" style="margin-bottom:6px">准备中…</div>
+  <div style="height:8px;background:rgba(255,255,255,.22);border-radius:6px;overflow:hidden">
+    <div id="impIn" style="height:100%;width:0%;background:#22c55e;transition:width .25s"></div>
+  </div>
+</div>
+
+<header>
+  <div class="brand">
+    <div class="logo">__APP__</div>
+    <div><h1>__APP__</h1>
+      <div class="sub">当前分身：__NAME__ · 本地运行 · 声音复刻 + 口型驱动 · 数据不出本机</div></div>
+  </div>
+  <nav class="menubar" id="menubar"></nav>
+</header>
+
+<main>
+  <!-- ======== 第二层 · 作用域栏（Scope Bar）========
+       职责单一：只回答"我现在在给哪个项目、用哪个分身、以哪个形象工作"。
+       本层不提供任何功能命令——所有功能一律走第一层菜单或第三层标签，避免出现同一动作多处入口。
+       项目切换会连带切换知识库/音频/分身/问答记录；分身与形象决定讲解音色与画面。 -->
+  <div class="projbar" id="projBar">
+    <span class="plabel">📁 项目</span>
+    <select id="projSel" onchange="onProjChange(this.value)" title="所有资源（讲稿/知识库/音频/分身/问答记录）都归属于所选项目"></select>
+    <button class="pbtn" onclick="dlgNewProject()">＋ 新建</button>
+    <button class="pbtn" onclick="dlgRenameProject()">✏️ 重命名</button>
+    <button class="pbtn" onclick="dlgDelProject()">🗑️ 删除</button>
+    <span class="tsep"></span>
+    <span class="plabel">🧑 分身</span>
+    <select id="selPerson" onchange="onPickPerson(this.value)" title="决定讲解音色与讲解人称"></select>
+    <span class="plabel">🖼️ 形象</span>
+    <select id="selAvatar" onchange="onPickAvatar(this.value)" title="决定演示画面中的数字分身形象"></select>
+    <span class="phint" id="projHint">项目 = 一套独立资料；分身 = 声音与人设；形象 = 画面上的样子</span>
+  </div>
+  <!-- ======== 第三层 · 模块标签（项目内的功能导航）========
+       单一入口原则：知识库 / 分身 / 播放文件 等功能【只在这里出现】，
+       第一层菜单不再重复挂载，避免"上面点一次、下面还能点一次"的困惑。
+       编号按演示的真实生命周期线性排列：先备料 → 出稿 → 沉淀知识 → 造分身 → 上台讲 → 答疑 → 总结 → 归档 → 交付。 -->
+  <div class="tabs" id="tabs">
+    <span class="tgroup">准备</span>
+    <button class="tab on" data-t="4">① 知识库 · 沉淀</button>
+    <button class="tab" data-t="1">② 素材与文稿</button>
+    <span class="tsep"></span>
+    <span class="tgroup">出稿</span>
+    <button class="tab" data-t="9">③ 制作 PPT · PDF</button>
+    <button class="tab" data-t="3">④ 制作视频</button>
+    <span class="tsep"></span>
+    <span class="tgroup">演示</span>
+    <button class="tab" data-t="5">⑤ 正式演示</button>
+    <button class="tab" data-t="2">⑥ 智能答疑</button>
+    <button class="tab" data-t="6">⑦ 答疑总结</button>
+    <span class="tsep"></span>
+    <span class="tgroup">交付</span>
+    <button class="tab" data-t="7">⑧ 导出交付</button>
+    <button class="tab" data-t="8" id="tab8" style="display:none">⑨ 播放文件</button>
+  </div>
+
+  <!-- ======== ① PPT 讲解 ======== -->
+  <div class="panel on" id="p1">
+    <div class="grid">
+      <div>
+        <div class="card"><h3><span class="dot"></span>PPT 页面（讲解时自动同步）</h3>
+          <div class="stage empty" id="stage">尚未上传 PPT —— 上传后此处按页展示，讲解播到哪一页就自动翻到哪一页</div>
+          <div class="pager" id="pager"></div>
+        </div>
+        <div class="card"><h3><span class="dot"></span>生成讲解</h3>
+          <label>上传演示文稿（.pptx / .ppt）· 必选</label>
+          <input type="file" id="f1" accept=".pptx,.ppt">
+          <label style="margin-top:10px">上传讲解文本（.md / .txt）· 可选</label>
+          <input type="file" id="f1n" accept=".md,.txt,.markdown">
+          <div class="muted" style="margin-top:6px;line-height:1.6">
+            可选。传了就<b>按你的讲稿讲</b>；没传则<b>按幻灯片内容自动生成</b>；
+            讲稿只覆盖了部分页时，缺失的页仍会自动补齐。<br>
+            讲稿写法：用「## 第 1 页」「第 2 页」这类标题分页即可，无标题时按段落顺序配页。
+          </div>
+          <div class="row" style="margin-top:8px">
+            <div style="flex:1;min-width:150px"><label>讲解语言</label>
+              <select id="lang1"><option>中文</option><option>英文</option></select></div>
+            <div style="flex:1;min-width:150px"><label>讲解长度（决定耗时）</label>
+              <select id="len1"><option value="70">精简 ·约70字/页（快）</option>
+                <option value="120" selected>标准 ·约120字/页</option>
+                <option value="200">详尽 ·约200字/页（慢）</option></select></div>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <button class="btn" id="b1">🎙️ 生成当前分身语音讲解</button>
+            <button class="btn ghost" id="b1s">停止</button>
+          </div>
+          <div class="card" style="margin-top:12px;background:rgba(46,125,255,.05)">
+            <h3 style="font-size:14px"><span class="dot"></span>备用方案 · 从素材目录直接取用</h3>
+            <div class="muted" style="font-size:12px;line-height:1.6">
+              上传通道不便时，可直接从备用素材目录 <b id="bkDir">D:/Users/ppt</b> 取用：
+              演示文稿 <b>必选</b>，讲解文本 <b>可选</b>（不选则按幻灯片自动生成）。
+            </div>
+            <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+              <div style="flex:2;min-width:190px"><label>演示文稿（必选）</label>
+                <select id="bkDeck"><option value="">（目录内暂无演示文稿）</option></select></div>
+              <div style="flex:2;min-width:190px"><label>讲解文本（可选）</label>
+                <select id="bkNarr"><option value="">（不指定 · 自动生成）</option></select></div>
+            </div>
+            <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+              <button class="btn ghost" id="bkRefresh">🔄 刷新目录</button>
+              <button class="btn ghost" id="bkGo">📥 用备用 PPT 生成讲解</button>
+              <button class="btn ghost" id="bkKb">📚 把选中文档并入知识库</button>
+            </div>
+            <div class="muted" id="bkHint" style="margin-top:6px;font-size:12px"></div>
+          </div>
+          <div class="bar" id="bar1" style="display:none"><i></i></div>
+          <div class="muted" id="pbt1"></div>
+          <div class="out" id="o1">待处理…</div>
+        </div>
+      </div>
+      <div>
+        <div class="card"><h3><span class="dot"></span>讲解音频（逐页）</h3>
+          <div class="list" id="narr"><div class="muted">生成后按页列出，点击即可播放，同时左侧自动翻到对应页。</div></div>
+          <div style="margin-top:10px"><label>全篇连播</label>
+            <audio id="full1" controls style="width:100%"></audio></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== ② 智能答疑 ======== -->
+  <div class="panel" id="p2">
+    <div class="grid">
+      <div>
+        <div class="card"><h3><span class="dot"></span>相关 PPT 页面（命中时自动定位）</h3>
+          <div class="stage empty" id="stage2">提问后，若与某页内容相关，此处自动展示该页</div>
+          <div class="pager" id="pager2"></div>
+        </div>
+        <div class="card"><h3><span class="dot"></span>提问</h3>
+          <label>打字提问（中文或英文都可以，都能听懂）</label>
+          <textarea id="q2" rows="3" placeholder="例：第三页提到的大模型趋势是什么？ / What are the AI trends?"></textarea>
+          <label>或上传语音提问</label>
+          <input type="file" id="a2" accept="audio/*">
+          <div class="row" style="margin-top:8px">
+            <div style="flex:1;min-width:150px"><label>回答语言</label>
+              <select id="lang2"><option>中文</option><option>英文</option></select></div>
+            <div style="flex:1;min-width:150px"><label>声音</label>
+              <select id="voice2"><option value="1">用当前分身声音朗读</option><option value="0">仅文字</option></select></div>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <button class="btn" id="b2">💬 提问</button>
+            <label style="margin:0;display:flex;align-items:center;gap:6px;font-size:13px">
+              <input type="checkbox" id="vid2"> 同时生成数字人视频</label>
+            <label style="margin:0;display:flex;align-items:center;gap:6px;font-size:13px">
+              <input type="checkbox" id="logQA" checked> 记入答疑记录</label>
+            <label style="margin:0;display:flex;align-items:center;gap:6px;font-size:13px">
+              <input type="checkbox" id="askCompress" checked> 🗜️ 压缩上下文（省 token）</label>
+          </div>
+          <div class="out" id="o2">等待提问…</div>
+          <audio id="ans2" controls style="width:100%;margin-top:8px"></audio>
+          <div class="muted" id="ctx2" style="margin-top:8px;white-space:pre-wrap"></div>
+        </div>
+      </div>
+      <div>
+        <div class="card"><h3><span class="dot"></span>数字人回答视频</h3>
+          <div class="avatarbox" id="ansvidbox"><div class="ph">勾选"同时生成数字人视频"后，此处播放</div></div>
+          <video id="ansvid" controls style="display:none;width:100%;margin-top:8px"></video>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== ③ 数字分身视频 ======== -->
+  <div class="panel" id="p3">
+    <div class="grid">
+      <div>
+        <div class="card"><h3><span class="dot"></span>生成数字分身视频</h3>
+          <label>台词（留空则用示例文本试跑）</label>
+          <textarea id="t3" rows="3" placeholder="输入要讲解的内容…">大家好，我是当前分身，今天由我来讲解。</textarea>
+          <div class="row" style="margin-top:8px">
+            <div style="flex:1;min-width:140px"><label>语言</label>
+              <select id="lang3"><option>中文</option><option>英文</option></select></div>
+            <div style="flex:1;min-width:140px"><label>分身形象</label>
+              <select id="avatarSel"><option value="">加载中…</option></select></div>
+          </div>
+          <label>或临时上传一张肖像（正面平视高清，可不填）</label>
+          <input type="file" id="vimg" accept="image/*">
+          <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:13px;color:var(--mut)">
+            <input type="checkbox" id="skipAudio3"> 跳过音频（仅生成画面，TTS 失败也能出视频）</label>
+          <div class="row" style="margin-top:12px"><button class="btn" id="b3">🎬 生成视频</button></div>
+          <div class="out" id="o3">待生成…</div>
+        </div>
+      </div>
+      <div>
+        <div class="card"><h3><span class="dot"></span>预览</h3>
+          <div class="avatarbox" id="box3"><div class="ph">尚未生成</div></div>
+          <video id="vid3" controls style="display:none;width:100%;margin-top:8px"></video>
+        </div>
+        <!-- 分身管理的唯一入口：原先挂在顶部「🧑 分身」菜单，造成与这里重复。
+             现在统一收敛到本标签页，谁要选/建/改/删分身都来这里。 -->
+        <div class="card"><h3><span class="dot"></span>分身管理（人 × 形象）</h3>
+          <p class="muted" style="font-size:12.5px;line-height:1.6">
+            一个「分身」是一个人：含音色样本与人设；一个分身可有多张「形象」，
+            换形象只是换画面上的样子，不用重新训练。<br>
+            选择入口在第二层作用域栏；这里负责增删改。
+          </p>
+          <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+            <button class="btn" onclick="dlgAddPerson()">➕ 新增分身</button>
+            <button class="btn ghost" onclick="dlgAddAvatar()">🖼️ 添加形象</button>
+            <button class="btn ghost" onclick="dlgManageAvatars()">🎛️ 管理形象</button>
+          </div>
+          <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+            <button class="btn ghost" onclick="dlgRenamePerson()">✏️ 重命名当前分身</button>
+            <button class="btn ghost" style="color:#dc2626" onclick="dlgDelPerson()">🗑️ 删除当前分身</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== ④ 知识库 ======== -->
+  <div class="panel" id="p4">
+    <div class="card"><h3><span class="dot"></span>导入文档</h3>
+      <label>支持 PDF / Word(doc,docx) / Excel(xls,xlsx) / PPT(pptx) / TXT / Markdown</label>
+      <input type="file" id="f4" accept=".pdf,.doc,.docx,.xls,.xlsx,.pptx,.ppt,.txt,.md">
+      <input type="file" id="fKb" accept=".mymekb" style="display:none">
+      <div class="row" style="margin-top:8px">
+        <div style="flex:1;min-width:150px"><label>分类标签（可选）</label>
+          <input type="text" id="cat4" placeholder="如：项目方案 / 规章制度"></div>
+        <div style="display:flex;align-items:flex-end">
+          <button class="btn" id="b4">导入并向量化</button></div>
+      </div>
+      <div class="out" id="o4">待导入…</div>
+    </div>
+    <div class="card"><h3><span class="dot"></span>知识库范围（勾选参与检索的来源）</h3>
+      <div class="row" style="margin-bottom:6px">
+        <button class="btn ghost" id="selAll">全选</button>
+        <button class="btn ghost" id="selNone">全不选</button>
+        <span class="muted" id="srcCount"></span>
+      </div>
+      <div class="chips" id="srcs"></div>
+      <div class="row" style="margin-top:10px"><button class="btn ghost" id="b4r">刷新列表</button></div>
+      <div class="out" id="srcOut"></div>
+    </div>
+    <div class="card"><h3><span class="dot"></span>知识库管理（备份 / 重建 / 统计）</h3>
+      <p class="muted">导出/导入备份用于迁移与还原；重建用于去重、剔除低质块、进一步压缩，提升检索质量。三层压缩原则：<b>存储层保留原文与向量</b>，检索层向量+BM25混合，<b>压缩只发生在「检索后、送模型前」的调用层</b>——所以重建不会把知识库存成「压缩结果」，后续仍可溯源、仍可二次检索。</p>
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <button class="btn" id="kbExport">📤 导出知识库备份</button>
+        <button class="btn ghost" id="kbImportBtn">📥 导入知识库备份</button>
+        <button class="btn ghost" id="kbRebuildBtn">🧹 知识库重建</button>
+        <button class="btn ghost" id="kbScopeBtn">🌐 公有 / 私有范围管理</button>
+        <button class="btn ghost" id="kbStatsBtn">📊 统计</button>
+      </div>
+      <div class="out" id="kbMgrOut" style="margin-top:8px">点击「📊 统计」查看知识库规模与重复情况；「🧹 重建」可一键去重/压缩。</div>
+    </div>
+  </div>
+
+  <!-- ======== ⑤ 正式演示 ======== -->
+  <div class="panel" id="p5">
+    <div class="grid">
+      <div>
+        <div class="card"><h3><span class="dot"></span>正式演示 · 数字分身讲解（PPT 同步）</h3>
+          <div id="demoStageWrap" class="demo-wrap">
+            <button class="fs-btn" id="demoFs" onclick="toggleFs()">⛶ 全屏演示</button>
+            <div class="stage empty" id="stage5">点击「开始演示」后，此处按页展示 PPT 原稿，并播放当前分身的声音讲解；讲解到哪页就翻到哪页。</div>
+            <div class="pager" id="pager5"></div>
+            <div id="demoStatusBar" class="statusbar">
+              <div class="sb-lang">
+                <span class="chip on" data-m="zh" onclick="setSbMode('zh')">中文</span>
+                <span class="chip" data-m="en" onclick="setSbMode('en')">English</span>
+                <span class="chip" data-m="both" onclick="setSbMode('both')">中英对照</span>
+              </div>
+              <div class="sb-text" id="sbText">（讲解字幕将在此同步显示）</div>
+            </div>
+            <div class="fs-controls" id="fsControls">
+              <button onclick="prevSlide()">⏮ 上一页</button>
+              <button id="fsPlayBtn" onclick="demoPaused?resumeDemo():pauseDemo()">⏸ 暂停 / ▶ 继续</button>
+              <button onclick="nextSlide()">下一页 ⏭</button>
+              <button onclick="stopDemo()">⏹ 结束</button>
+            </div>
+          </div>
+        </div>
+        <div class="card"><h3><span class="dot"></span>演示控制</h3>
+          <div class="row" style="gap:8px;flex-wrap:wrap">
+            <button class="btn" id="demoStart">▶ 开始演示</button>
+            <button class="btn ghost" id="demoPause">⏸ 领导提问（暂停）</button>
+            <button class="btn ghost" id="demoPrev">⏮ 上一页</button>
+            <button class="btn ghost" id="demoNext">下一页 ⏭</button>
+            <button class="btn ghost" id="demoStop">⏹ 结束</button>
+          </div>
+          <div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap">
+            <div style="flex:1;min-width:200px"><label>讲解版本（同一 PPT 可生成多个版本）</label>
+              <select id="verSel" onchange="switchVersion(this.value)"></select></div>
+            <button class="btn ghost" id="verNew">＋ 新增版本</button>
+            <button class="btn ghost" id="verTrans">🌐 生成英文讲稿</button>
+          </div>
+          <div class="bar"><i id="demoBar"></i></div>
+          <div class="muted" id="demoStatus">未开始。开始前请先在「② 素材与文稿」生成讲解。</div>
+          <div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap;align-items:center">
+            <label style="margin:0;display:flex;align-items:center;gap:6px;font-size:13px">
+              <input type="checkbox" id="demoAvatarVid"> 分身视频讲解（口型同步）</label>
+            <button class="btn ghost" id="genDemoVid">🎬 生成分身讲解视频</button>
+            <span class="muted" id="demoVidHint" style="font-size:12px"></span>
+          </div>
+          <audio id="demoAudio" style="width:100%;margin-top:8px"></audio>
+          <div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap;align-items:center">
+            <label style="margin:0;display:flex;align-items:center;gap:6px;font-size:13px">
+              <input type="checkbox" id="demoFullVid"> 🎬 整场连续分身（口型+表情+肢体，更自然）</label>
+            <button class="btn ghost" id="genFullVid">⏳ 生成整场分身视频</button>
+            <span class="muted" id="fullVidHint" style="font-size:12px"></span>
+          </div>
+          <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap;align-items:center">
+            <button class="btn" id="exportPlayback" style="display:none" onclick="exportPlayback()">📀 导出播放文件</button>
+            <span class="muted" id="exportPlaybackHint" style="font-size:12px"></span>
+          </div>
+          <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap;align-items:center">
+            <label style="font-size:13px;margin:0">全屏布局：</label>
+            <select id="fsModeSel" onchange="setFsMode(this.value)" style="flex:1;min-width:160px">
+              <option value="1">① PPT + 分身（并排可见）</option>
+              <option value="2">② 仅 PPT</option>
+              <option value="3">③ 仅分身</option>
+              <option value="4" selected>④ PPT + 分身小窗（右下角）</option>
+            </select>
+            <button class="btn ghost" id="demoFsBtn2" onclick="toggleFs()">⛶ 全屏演示</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="card" id="demoAvatarCard"><h3><span class="dot"></span>数字分身（当前形象）</h3>
+          <div class="avatarbox" id="demoAvatar"><div class="ph">当前分身形象</div></div>
+          <div class="avatarwrap" id="demoFullVidWrap" style="display:none"><video id="demoFullVidEl" playsinline controls style="width:100%"></video></div>
+        </div>
+        <div class="card" id="demoQAWrap" style="display:none">
+          <h3><span class="dot"></span>领导提问 · 答疑（答完点「继续演示」从此页续播）</h3>
+          <div class="out" id="demoQAOut">等待提问…</div>
+          <textarea id="demoQ" rows="2" placeholder="领导 / 听众提问（中文或英文均可）"></textarea>
+          <div class="row" style="margin-top:8px">
+            <div style="flex:1;min-width:150px"><label>回答语言</label>
+              <select id="demoLang"><option>中文</option><option>英文</option></select></div>
+          </div>
+          <div class="row" style="margin-top:10px;gap:8px">
+            <button class="btn" id="demoAsk">💬 回答</button>
+            <button class="btn ghost" id="demoResume">▶ 继续演示（从此页）</button>
+            <label style="margin:0;display:flex;align-items:center;gap:6px;font-size:13px">
+              <input type="checkbox" id="demoVid"> 生成数字人视频</label>
+          </div>
+          <audio id="demoAns" controls style="width:100%;margin-top:8px"></audio>
+          <div class="avatarbox" id="demoAnsVidBox" style="margin-top:8px;display:none">
+            <video id="demoAnsVid" controls style="width:100%"></video></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== ⑥ 答疑总结 ======== -->
+  <div class="panel" id="p6">
+    <div class="card"><h3><span class="dot"></span>答疑汇总（演示 / 答疑期间的问答沉淀）</h3>
+      <div class="row" style="margin-bottom:8px;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="genSummary">📝 生成《答疑汇总》</button>
+        <button class="btn ghost" id="exportSummary">💾 导出到磁盘</button>
+        <button class="btn ghost" id="storeSummary">📚 存入知识库</button>
+        <button class="btn ghost" id="clearLog">🗑️ 清空记录</button>
+        <span class="muted" id="logCount"></span>
+      </div>
+      <div class="out" id="summaryOut">尚未生成。先在②或⑤中产生问答，再点「生成《答疑汇总》」。</div>
+    </div>
+    <div class="card"><h3><span class="dot"></span>问答明细</h3>
+      <div class="list" id="qaList"><div class="muted">暂无记录。</div></div>
+    </div>
+  </div>
+  <!-- ======== ⑨ 制作 PPT ======== -->
+  <div class="panel" id="p9">
+    <div class="card"><h3><span class="dot"></span>制作 PPT（需求解析 → 本地知识库 → 大纲 → 版式/图表 → .pptx）</h3>
+      <p class="muted">输入主题即可；描述太简单时点「🔍 解析需求」，系统会给出追问与建议参数。生成时会先检索<b>本地知识库</b>并优先引用其中的事实与数据，没有依据的内容自动标注<b>【待补充】</b>、绝不编造；图表只在有可靠数据时才画。产出可下载，或一键导入「② 素材与文稿」。</p>
+      <div class="row" style="gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <div style="flex:1;min-width:260px"><label>主题（一句话也可以）</label>
+          <input type="text" id="mp_topic" placeholder="如：帮我做一份企业数字化转型汇报 / 智慧水利年度汇报"></div>
+        <div><label>受众</label>
+          <input type="text" id="mp_audience" placeholder="领导 / 客户 / 技术同事" style="width:150px"></div>
+        <div><label>场景</label>
+          <select id="mp_scene">
+            <option value="">（未指定）</option>
+            <option>工作汇报</option><option>立项汇报</option><option>阶段汇报</option>
+            <option>培训授课</option><option>产品发布</option><option>学术交流</option></select></div>
+        <div><label>行业</label>
+          <input type="text" id="mp_industry" placeholder="水利 / 制造 / 教育" style="width:120px"></div>
+        <div><label>风格</label>
+          <select id="mp_style">
+            <option>商务简洁</option><option>科技风</option><option>教育课件</option>
+            <option>扁平插画</option><option>极简</option></select></div>
+        <div><label>配色</label>
+          <select id="mp_theme">
+            <option value="blue">蓝白商务</option>
+            <option value="dark">深色科技</option>
+            <option value="gray">简约灰</option></select></div>
+        <div><label>语言</label>
+          <select id="mp_lang"><option>中文</option><option>English</option></select></div>
+        <div><label>页数</label>
+          <input type="number" id="mp_pages" min="3" max="40" value="8" style="width:70px"></div>
+      </div>
+      <div class="row" style="gap:12px;flex-wrap:wrap;align-items:center;margin-top:8px">
+        <label class="ck"><input type="checkbox" id="mp_kb" checked> 引用本地知识库（事实/数据优先，无依据标【待补充】）</label>
+        <label class="ck"><input type="checkbox" id="mp_img"> 为每页配图（需本机 ComfyUI）</label>
+        <button class="btn ghost" id="mp_analyze">🔍 解析需求</button>
+        <button class="btn" id="mp_go">🎯 生成 PPT</button>
+      </div>
+      <div class="out" id="mp_need" style="margin-top:10px;display:none"></div>
+      <div class="out" id="mp_out" style="margin-top:10px">填写主题后点「生成 PPT」，大模型将构思大纲并生成 .pptx。</div>
+      <div class="row" style="gap:8px;margin-top:8px;display:none" id="mp_actions">
+        <button class="btn" id="mp_dl">⬇️ 下载 .pptx</button>
+        <button class="btn ghost" id="mp_import">📥 导入到「② 素材与文稿」</button>
+      </div>
+    </div>
+    <div class="card"><h3><span class="dot"></span>根据知识库生成文字材料（总结报告 / 半年汇报 / 工作总结 / 项目汇报 / 季度汇报）</h3>
+      <p class="muted">不依赖 PPT 提纲——直接拿<b>本地知识库</b>检索到的素材，按所选模板起草一份可打印的书面汇报材料；无依据处自动标【待补充】、绝不编造。产出可预览并下载 .docx。</p>
+      <div class="row" style="gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <div style="flex:1;min-width:220px"><label>主题/对象（可选）</label>
+          <input type="text" id="kd_topic" placeholder="如：2026 上半年智慧水利建设"></div>
+        <div><label>材料类型</label>
+          <select id="kd_tpl">
+            <option value="summary">总结报告</option>
+            <option value="halfyear">半年汇报</option>
+            <option value="work">工作总结</option>
+            <option value="project">项目汇报</option>
+            <option value="quarter">季度汇报</option>
+            <option value="custom">自定义</option></select></div>
+        <div><label>语言</label>
+          <select id="kd_lang"><option>中文</option><option>English</option></select></div>
+        <button class="btn" id="kd_go">📝 生成文字材料</button>
+      </div>
+      <div class="out" id="kd_custom" style="margin-top:8px;display:none">
+        <label class="muted">自定义章节结构（用 ；或换行分隔，如：背景；主要工作；问题与改进；下一步）</label>
+        <textarea id="kd_custom_prompt" rows="2" placeholder="背景；主要工作与成效；关键数据；存在问题；下一步计划" style="width:100%"></textarea>
+      </div>
+      <div class="out" id="kd_out" style="margin-top:10px">选择类型后点「生成文字材料」，大模型将检索知识库并按模板起草。</div>
+      <div class="row" style="gap:8px;margin-top:8px;display:none" id="kd_actions">
+        <button class="btn" id="kd_dl">⬇️ 下载 .docx</button>
+        <button class="btn ghost" id="kd_copy">📋 复制全文</button>
+      </div>
+    </div>
+  </div>
+  <!-- ======== ⑦ 资源管理 ======== -->
+  <div class="panel" id="p7">
+    <div class="card"><h3><span class="dot"></span>导出交付 · 源文件 / 形象 / 方案 / 音频 / 视频 / 数字分身</h3>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <button class="btn ghost on" data-rcat="versions" onclick="setResCat('versions')">方案（版本）</button>
+        <button class="btn ghost" data-rcat="personas" onclick="setResCat('personas')">个人形象</button>
+        <button class="btn ghost" data-rcat="audio" onclick="setResCat('audio')">音频</button>
+        <button class="btn ghost" data-rcat="video" onclick="setResCat('video')">视频</button>
+        <button class="btn ghost" data-rcat="avatar" onclick="setResCat('avatar')">数字分身</button>
+        <button class="btn ghost" data-rcat="source" onclick="setResCat('source')">源文件</button>
+        <button class="btn ghost" data-rcat="history" onclick="setResCat('history')">历史记录</button>
+      </div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <button class="btn" id="resExport" onclick="exportResources()">📦 导出备份（zip）</button>
+        <button class="btn" id="resImport" onclick="importResources()">📥 导入恢复（zip）</button>
+        <span class="muted" id="resHint"></span>
+      </div>
+      <div class="list" id="resList"><div class="muted">加载中…</div></div>
+    </div>
+  </div>
+
+  <!-- ======== ⑧ 便携播放版：导入播放文件 ======== -->
+  <div class="panel" id="p8">
+    <div class="card"><h3><span class="dot"></span>便携播放版 · 导入完整版导出的播放文件</h3>
+      <p class="muted">在「完整版」的 <b>⑤ 正式演示</b> 中点 <b>📀 导出播放文件</b> 生成压缩包，下载后在此导入即可离线演示。导入的「方案 / 音频 / 视频 / 分身形象」会保存到本机用户目录，可反复播放。</p>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button class="btn" id="playImportBtn" onclick="importPlayback()">📥 选择播放文件（.zip）并导入</button>
+        <button class="btn ghost" id="playGotoDemo" onclick="switchTab('5')">▶ 前往演示</button>
+        <span class="muted" id="playImportHint"></span>
+      </div>
+      <div class="list" id="playList"><div class="muted">尚未导入。导入后将在此列出已载入的方案与资源。</div></div>
+    </div>
+  </div>
+</main>
+
+<!-- ======== 通用弹窗 ======== -->
+<div class="mask" id="mask"><div class="modal">
+  <header><b id="mTitle">标题</b><button class="x" id="mClose">×</button></header>
+  <div class="body" id="mBody"></div>
+  <footer id="mFoot"></footer>
+</div></div>
+
+<script>
+const $=id=>document.getElementById(id);
+async function postJSON(u,o){const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)});return r.json();}
+async function getJSON(u){const r=await fetch(u);return r.json();}
+function readB64(f){return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result.split(',')[1]);fr.onerror=rej;fr.readAsDataURL(f);});}
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ================= 全局状态 ================= */
+let S={persons:{default:null,persons:[]},curPerson:null,curAvatar:null,
+       slides:[],curSlide:0,settings:{},srcSel:new Set(),allSources:[],jobs:{},playback:false};
+
+/* ================= 设置 ================= */
+function applySettings(){
+  const s=S.settings||{};
+  const r=document.documentElement.style;
+  r.setProperty('--scale',s.uiScale??1);
+  r.setProperty('--font-size',(s.fontSize??15)+'px');
+  r.setProperty('--font-color',s.fontColor||'#1f2937');
+  r.setProperty('--accent',s.accent||'#1d4ed8');
+  const dark = s.theme==='dark';
+  document.body.style.background = dark ? '#0b1220' : '#f4f6fa';
+  document.body.style.color = dark ? '#e2e8f0' : (s.fontColor||'#1f2937');
+  // 深色主题：统一覆盖所有面板类表面，避免只换背景留下刺眼的白块
+  const darkMap = [
+    ['.card','#151f33','#2b3a55'], ['.tabs','#151f33','#2b3a55'],
+    ['.out','#0f1a2e','#2b3a55'],  ['header','#151f33','#2b3a55'],
+    ['.submenu','#151f33','#2b3a55'], ['.modal','#151f33','#2b3a55'],
+    ['.item','#0f1a2e','#2b3a55'], ['.stage','#0f1a2e','#2b3a55'],
+  ];
+  darkMap.forEach(([sel,bg,bd])=>document.querySelectorAll(sel).forEach(e=>{
+    e.style.background = dark?bg:''; e.style.borderColor = dark?bd:'';}));
+  document.querySelectorAll('input,textarea,select').forEach(e=>{
+    e.style.background = dark?'#0f1a2e':''; e.style.color = dark?'#e2e8f0':'';
+    e.style.borderColor = dark?'#2b3a55':'';});
+  document.querySelectorAll('.muted').forEach(e=>{e.style.color = dark?'#94a3b8':'';});
+  const vids=document.querySelectorAll('video,audio');
+  vids.forEach(v=>{v.volume=Math.max(0,Math.min(1,s.volume??1));v.muted=!!s.muted;});
+  applyAvatarTransform();
+}
+function applyAvatarTransform(){
+  const s=S.settings||{};
+  const sc=s.avatarScale??1, x=s.avatarX??50, y=s.avatarY??50;
+  document.querySelectorAll('.avatarwrap').forEach(w=>{
+    w.style.transform=`scale(${sc}) translate(${x-50}%,${y-50}%)`;
+  });
+}
+async function saveSettings(patch){
+  S.settings=Object.assign(S.settings||{},patch);
+  applySettings();
+  try{ await postJSON('/api/settings',S.settings); }catch(e){}
+}
+
+/* ================= PPT 舞台 ================= */
+function fallbackSlideHtml(sl){
+  // 无原稿页图时的 HTML 版式回退
+  let h='';
+  if(sl.title) h+='<h2 class="slide-title">'+esc(sl.title)+'</h2>';
+  const body=(sl.text||'').split('\n').filter(x=>x.trim())
+      .map(x=>'<div>'+esc(x)+'</div>').join('');
+  h+='<div class="slide-body">'+(body||'<span class="muted">（该页无文字）</span>')+'</div>';
+  if(sl.notes) h+='<div class="slide-notes"><b>备注：</b>'+esc(sl.notes)+'</div>';
+  if(sl.images&&sl.images.length)
+    h+='<div class="slide-imgs">'+sl.images.map(u=>'<img src="'+u+'" loading="lazy">').join('')+'</div>';
+  return h;
+}
+function renderSlide(i,stageId,pagerId){
+  const st=$(stageId); if(!st) return;
+  const sl=S.slides[i];
+  if(!sl){ st.className='stage empty'; st.textContent='暂无页面'; $(pagerId).innerHTML=''; return; }
+  S.curSlide=i;
+  let h='<div class="pgno"><span>第 <b>'+(i+1)+'</b> / '+S.slides.length+' 页</span>'+
+        '<span>'+esc(sl.title||'')+'</span></div>';
+  if(sl.img){ // 原稿版式页图（soffice→PDF→MuPDF 真实渲染，像素级还原）
+    h+='<img class="slide-orig" src="'+sl.img+'" alt="第'+(i+1)+'页原稿" '+
+       'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'\'">'+
+       '<div class="slide-fallback" style="display:none">'+
+       fallbackSlideHtml(sl)+'</div>';
+  }else{
+    h+=fallbackSlideHtml(sl);
+  }
+  st.className='stage'; st.innerHTML=h;
+  // 页码条
+  const pg=$(pagerId); let ph='<button data-i="'+(i-1)+'"'+(i>0?'':' disabled')+'>‹ 上一页</button>';
+  S.slides.forEach((_,k)=>{ if(S.slides.length<=25||k<3||k>S.slides.length-4||Math.abs(k-i)<2)
+    ph+='<button data-i="'+k+'"'+(k===i?' class="on"':'')+'>'+(k+1)+'</button>'; });
+  ph+='<button data-i="'+(i+1)+'"'+(i<S.slides.length-1?'':' disabled')+'>下一页 ›</button>';
+  pg.innerHTML=ph;
+  pg.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    const k=parseInt(b.dataset.i,10); if(k>=0&&k<S.slides.length) renderSlide(k,stageId,pagerId);});
+  if(stageId==='stage5') updateStatusBar(i);
+}
+function showSlideByIdx(idx,stageId,pagerId){
+  const k=S.slides.findIndex(s=>s.idx===idx);
+  if(k>=0) renderSlide(k,stageId,pagerId);
+}
+async function loadSlides(){
+  try{ const r=await getJSON('/api/slides'); S.slides=r.slides||[];
+       if(S.slides.length){
+         renderSlide(0,'stage','pager');
+         renderSlide(0,'stage5','pager5');
+         // 刷新后用持久化的逐页讲解重建列表（避免刷新后逐页音频丢失）
+         const narr=S.slides.filter(s=>s.audio).map(s=>({idx:s.idx,title:s.title,
+            narration:s.narration||'',audio:s.audio}));
+         renderNarr(narr);
+         refreshDemoAvatarVideos();
+         refreshDemoFullVideo();
+       }
+  }catch(e){}
+}
+
+/* ================= 分身 ================= */
+async function loadPersons(){
+  try{ S.persons=await getJSON('/api/persons'); }catch(e){ S.persons={persons:[]}; }
+  const ps=S.persons.persons||[];
+  if(!S.curPerson) S.curPerson=S.persons.default||(ps[0]&&ps[0].id);
+  // ⚠ 原实现无条件把当前形象重置为该分身的第一张图，导致用户在 ④ 数字分身 里
+  //   选定的形象一刷新就被打回默认，看起来像"设置没保存"。这里改为"仅当未选/已失效时才回落到第一张"。
+  const p=ps.find(x=>x.id===S.curPerson)||ps[0];
+  if(p){
+    const inThis=p.avatars.some(a=>a.id===S.curAvatar);
+    if(!S.curAvatar||!inThis) S.curAvatar=p.avatars[0]?p.avatars[0].id:null;
+  }
+  renderScopePersona();
+  buildMenus();
+  const sel=$('avatarSel');
+  if(sel){ sel.innerHTML = ps.length? ps.map(x=>
+      '<optgroup label="'+esc(x.name)+'">'+x.avatars.map(a=>
+      '<option value="'+x.id+'/'+a.id+'"'+((x.id===S.curPerson&&a.id===S.curAvatar)?' selected':'')+'>'+esc(a.name)+'</option>').join('')+'</optgroup>').join('')
+      : '<option value="">（无分身，请在「④ 制作视频」页的「分身管理」卡片添加）</option>'; }
+}
+
+/* ---- 第二层作用域栏里的「分身 / 形象」下拉（唯一选择入口，菜单里不再重复） ---- */
+function renderScopePersona(){
+  const ps=S.persons.persons||[];
+  const psSel=$('selPerson'), avSel=$('selAvatar');
+  if(!psSel||!avSel) return;
+  psSel.innerHTML = ps.length
+    ? ps.map(x=>'<option value="'+x.id+'"'+(x.id===S.curPerson?' selected':'')+'>'+esc(x.name)+'</option>').join('')
+    : '<option value="">（尚无分身）</option>';
+  const p=ps.find(x=>x.id===S.curPerson)||ps[0];
+  const avs=(p&&p.avatars)||[];
+  avSel.innerHTML = avs.length
+    ? avs.map(a=>'<option value="'+a.id+'"'+(a.id===S.curAvatar?' selected':'')+'>'+esc(a.name)+'</option>').join('')
+    : '<option value="">（尚无形象）</option>';
+  const hint=$('projHint');
+  if(hint && p){
+    const av=avs.find(a=>a.id===S.curAvatar);
+    hint.textContent = '当前：'+(p.name||'')+(av?(' · '+av.name):'')
+      +' —— 项目决定资料归属，分身决定声音与人设，形象决定画面';
+  }
+}
+async function onPickPerson(pid){
+  const ps=S.persons.persons||[];
+  const p=ps.find(x=>x.id===pid); if(!p) return;
+  S.curPerson=pid;
+  S.curAvatar=p.avatars[0]?p.avatars[0].id:null;
+  await saveSettings({person:pid,avatar:S.curAvatar});
+  await applyScope(pid,S.curAvatar);
+  await loadPersons();
+}
+async function onPickAvatar(aid){
+  const ps=S.persons.persons||[];
+  const p=ps.find(x=>x.id===S.curPerson)||ps[0]; if(!p) return;
+  const av=p.avatars.find(x=>x.id===aid); if(!av) return;
+  S.curAvatar=aid;
+  await saveSettings({avatar:aid});
+  await applyScope(S.curPerson,aid);
+  await loadPersons();
+}
+/* 把「当前分身 / 形象」真正落到后端（persons.json），并回读确认用哪个声纹。
+   ⚠ 以前只写 settings.json，后端取声纹读的是 persons.json.default，两边不同步
+     → 界面选金子、合成出来却是炎冰的声音。现在走 /api/scope 一次锁死。 */
+async function applyScope(pid,aid){
+  try{
+    const r=await postJSON('/api/scope',{person:pid||null,avatar:aid||null});
+    if(r&&r.ok&&r.active){
+      S.curPerson=r.active.person||S.curPerson;
+      S.curAvatar=r.active.avatar||S.curAvatar;
+      const hint=$('projHint');
+      if(hint&&r.voice) hint.textContent += ' · 声纹 '+r.voice;
+    }else if(r&&r.error){ toast('切换分身失败：'+r.error); }
+  }catch(e){ /* 网络异常时不阻塞界面，下次操作会再试 */ }
+}
+function curAvatarUrl(){
+  const ps=S.persons.persons||[];
+  const p=ps.find(x=>x.id===S.curPerson);
+  if(!p) return null;
+  const a=p.avatars.find(x=>x.id===S.curAvatar)||p.avatars[0];
+  return a?a.url:null;
+}
+
+/* ================= 项目（顶层 project：切换 / 新建 / 重命名 / 删除） ================= */
+/* 所有资源（讲稿版本 / 知识库 / 讲解音频 / 分身形象 / 问答记录）都隶属于"当前项目"，
+   切换项目后服务端会重算数据目录并重载本项目讲稿，前端同步刷新各面板。 */
+let SP={active:'default',projects:[]};
+async function loadProjects(){
+  try{ const r=await getJSON('/api/projects');
+       if(r){ SP.active=r.active||'default'; SP.projects=r.projects||[]; } }
+  catch(e){}
+  renderProjBar();
+}
+function renderProjBar(){
+  const sel=$('projSel'); if(!sel) return;
+  const list=SP.projects.length?SP.projects:[{id:'default',name:'默认项目',active:true}];
+  sel.innerHTML=list.map(p=>'<option value="'+esc(p.id)+'"'+(p.id===SP.active?' selected':'')+'>'
+      +esc(p.name)+(p.id==='default'?'（默认）':'')+'</option>').join('');
+  sel.value=SP.active;
+}
+/* 项目变化后统一刷新：讲稿 / 版本 / 分身 / 知识库 / 问答 / 资源 / 播放列表 */
+async function _afterProjChange(r){
+  SP.active=r.active||SP.active; SP.projects=r.projects||SP.projects;
+  renderProjBar();
+  try{ await loadSlides(); }catch(e){}
+  try{ await loadVersions(); }catch(e){}
+  try{ await loadPersons(); }catch(e){}
+  try{ await loadSources(); }catch(e){}
+  try{ await loadQA(); }catch(e){}
+  try{ renderPlayList(); }catch(e){}
+  try{ loadResources(); }catch(e){}
+  try{ refreshDemoAvatar(); }catch(e){}
+  try{ syncDemoBtnState(); }catch(e){}
+}
+async function onProjChange(id){
+  if(!id||id===SP.active) return;
+  try{
+    const r=await postJSON('/api/projects',{act:'switch',id});
+    if(!r.ok){ alert('❌ '+(r.error||'切换项目失败')); await loadProjects(); return; }
+    await _afterProjChange(r);
+  }catch(e){ alert('❌ 切换项目失败：'+e); await loadProjects(); }
+}
+function dlgNewProject(){
+  openModal('新建项目',
+    `<p class="muted">每个项目独立保存一套「讲稿版本 / 知识库 / 讲解音频 / 分身形象 / 问答记录」，项目之间互不干扰。</p>
+     <label>项目名称</label><input type="text" id="npjName" placeholder="如：2026 年度汇报 / 培训版 / 客户A">
+     <p class="muted">创建后会自动切换到新项目；原有内容仍保留在原项目中，切回去即可看到。</p>`,
+    `<button class="btn ghost" onclick="closeModal()">取消</button>
+     <button class="btn" onclick="doNewProject()">创建并切换</button>`);
+  setTimeout(()=>{const e=$('npjName'); if(e) e.focus();},60);
+}
+async function doNewProject(){
+  const n=($('npjName').value||'').trim();
+  if(!n){ alert('请输入项目名称'); return; }
+  const r=await postJSON('/api/projects',{act:'create',name:n});
+  if(!r.ok){ alert('❌ '+(r.error||'新建项目失败')); return; }
+  closeModal(); await _afterProjChange(r);
+}
+function dlgRenameProject(){
+  const cur=SP.projects.find(p=>p.id===SP.active);
+  openModal('重命名项目',
+    `<p class="muted">修改当前项目的显示名称（项目内资源位置不变）。</p>
+     <label>项目名称</label><input type="text" id="rpjName" value="${esc(cur?cur.name:SP.active)}">`,
+    `<button class="btn ghost" onclick="closeModal()">取消</button>
+     <button class="btn" onclick="doRenameProject()">保存</button>`);
+}
+async function doRenameProject(){
+  const n=($('rpjName').value||'').trim();
+  if(!n){ alert('请输入项目名称'); return; }
+  const r=await postJSON('/api/projects',{act:'rename',id:SP.active,name:n});
+  if(!r.ok){ alert('❌ '+(r.error||'重命名失败')); return; }
+  closeModal(); SP.projects=r.projects||SP.projects; renderProjBar();
+}
+function dlgDelProject(){
+  if(SP.active==='default'){
+    alert('「默认项目」不可删除（所有资源默认归属它）。\n如需清理，请到「⑦ 资源管理」中删除具体资源。');
+    return;
+  }
+  const cur=SP.projects.find(p=>p.id===SP.active);
+  openModal('删除项目',
+    `<p>确定删除项目 <b>${esc(cur?cur.name:SP.active)}</b> 吗？</p>
+     <p class="muted">该项目内的讲稿版本、知识库、讲解音频、分身形象与问答记录将<b>全部删除且不可恢复</b>。</p>
+     <p class="muted">删除后会自动回到「默认项目」。</p>`,
+    `<button class="btn ghost" onclick="closeModal()">取消</button>
+     <button class="btn" style="background:#dc2626" onclick="doDelProject()">确认删除</button>`);
+}
+async function doDelProject(){
+  const r=await postJSON('/api/projects',{act:'delete',id:SP.active});
+  if(!r.ok){ alert('❌ '+(r.error||'删除失败')); return; }
+  closeModal(); await _afterProjChange(r);
+}
+
+/* ================= 菜单栏 ================= */
+function mi(label,fn,extra,cls){ return {label,fn,extra,cls}; }
+
+/* ============================================================================
+   三层导航的分工（v2.6 重构）
+   ----------------------------------------------------------------------------
+   第一层【菜单栏】= 全局命令：作用于软件本身或跨越项目，与第一层的每一项
+                     都是"下拉式"，不再有"点了直接跳区域"的混合形态。
+   第二层【作用域栏】= 我只在哪套资料、用哪个分身、以什么形象工作（纯选择，无命令）
+   第三层【模块标签】= 落到项目里的具体功能，知识库/分身/播放文件【只在这里出现】
+
+   与项目的关系：项目是"资料容器"，切换项目 = 换一整套讲稿/知识库/音频/分身/问答记录；
+                 分身与形象是"项目内的资源"，跟着项目走，不跨项目共享。
+   ============================================================================ */
+
+/* 第三层标签的单一跳转动线：演示向导与全局命令都经这里进入，
+   避免"同一入口在菜单和标签里各写一遍"造成的维护漂移。 */
+const TAB_LABEL = {1:'① 素材准备',9:'② 制作 PPT',4:'③ 知识库',3:'④ 数字分身',
+                   5:'⑤ 正式演示',2:'⑥ 智能答疑',6:'⑦ 答疑总结',7:'⑧ 资源管理',8:'⑨ 播放文件'};
+function goTab(t){ return ()=>switchTab(t); }
+
+function buildMenus(){
+  const s=S.settings||{};
+  let menus;
+  if(S.playback){
+    /* ===== 便携播放版：只保留"播放"必需的菜单，创作/管理一律不出现 ===== */
+    menus=[
+      {n:'📀 播放文件',items:[
+        mi('📥 导入播放文件（.zip）',importPlayback),
+      ]},
+      {n:'▶️ 播放',items:[
+        mi('▶️ 播放 / ⏸ 暂停全篇',()=>{const a=$('full1');if(a){a.paused?a.play():a.pause();}}),
+        mi('⏹ 停止',stopAllAudio),
+        {sep:1},
+        mi((s.muted?'🔊 取消静音':'🔇 静音'),()=>saveSettings({muted:!s.muted})),
+        {title:'音量 ' + Math.round((s.volume??1)*100) + '%'},
+        mi('🔉 减小 10%',()=>saveSettings({volume:Math.max(0,(s.volume??1)-0.1)})),
+        mi('🔊 增大 10%',()=>saveSettings({volume:Math.min(1,(s.volume??1)+0.1)})),
+      ]},
+      {n:'👁 视图',items:[
+        {title:'界面缩放 '+Math.round((s.uiScale??1)*100)+'%'},
+        mi('➖ 缩小',()=>saveSettings({uiScale:Math.max(0.7,(s.uiScale??1)-0.1)})),
+        mi('➕ 放大',()=>saveSettings({uiScale:Math.min(1.8,(s.uiScale??1)+0.1)})),
+        mi('⟲ 复位 100%',()=>saveSettings({uiScale:1})),
+        {sep:1},
+        {title:'数字分身图像 '+Math.round((s.avatarScale??1)*100)+'%'},
+        mi('➖ 缩小',()=>saveSettings({avatarScale:Math.max(0.4,(s.avatarScale??1)-0.1)})),
+        mi('➕ 放大',()=>saveSettings({avatarScale:Math.min(2.5,(s.avatarScale??1)+0.1)})),
+        mi('↔ 左移',()=>saveSettings({avatarX:Math.max(0,(s.avatarX??50)-5)})),
+        mi('↔ 右移',()=>saveSettings({avatarX:Math.min(100,(s.avatarX??50)+5)})),
+        mi('↕ 上移',()=>saveSettings({avatarY:Math.max(0,(s.avatarY??50)-5)})),
+        mi('↕ 下移',()=>saveSettings({avatarY:Math.min(100,(s.avatarY??50)+5)})),
+        mi('⟲ 位置复位',()=>saveSettings({avatarScale:1,avatarX:50,avatarY:50})),
+        {sep:1},
+        mi((s.theme==='dark'?'☀️ 浅色主题':'🌙 深色主题'),()=>saveSettings({theme:s.theme==='dark'?'light':'dark'})),
+      ]},
+      {n:'🌐 语言',items:[
+        {title:'讲解 / 回答语言'},
+        mi('中文',()=>setLang('中文'),(s.lang==='中文'?'✓':'')),
+        mi('English（英文）',()=>setLang('英文'),(s.lang==='英文'?'✓':'')),
+      ]},
+      {n:'⚙️ 设置',items:[
+        mi('⚙️ 全部设置',dlgSettings),
+        mi('📂 默认文件夹',dlgFolders),
+        mi('🧩 运行环境自检',dlgDeps),
+        mi('🎨 字体颜色',dlgFontColor),
+        {title:'字号 '+ (s.fontSize??15) +'px'},
+        mi('A- 减小',()=>saveSettings({fontSize:Math.max(11,(s.fontSize??15)-1)})),
+        mi('A+ 增大',()=>saveSettings({fontSize:Math.min(24,(s.fontSize??15)+1)})),
+        {sep:1},
+        mi('💾 保存当前设置',()=>saveSettings({})),
+        mi('⟲ 恢复默认',()=>saveSettings({volume:1,muted:false,uiScale:1,fontSize:15,
+            fontColor:'#1f2937',theme:'light',accent:'#1d4ed8',avatarScale:1,avatarX:50,avatarY:50})),
+      ]},
+      {n:'❓ 帮助',items:[
+        mi('📖 功能介绍',dlgFeatures),
+        mi('⌨️ 快捷键',dlgKeys),
+        {sep:1},
+        mi('ℹ️ 关于',dlgAbout),
+        mi('🆕 版本变更',dlgChangelog),
+        mi('💻 运行环境 · 硬件最低配置',dlgSysReq),
+        mi('🧩 软件配置清单列表',dlgSoftware),
+        mi('🎭 内置分身演示（验证环境）',dlgDemoAvatar),
+        {sep:1},
+        mi('🎬 启动引导（首次使用）',()=>{localStorage.removeItem('mymeGuideSeen');showStartupGuide(true);}),
+      ]},
+    ];
+  } else {
+    /* ===== 完整版：全局命令 + 演示向导，全部统一为下拉式 ===== */
+    menus=[
+      {n:'📁 项目',items:[
+        {title:'资料容器（讲稿 / 知识库 / 音频 / 分身 / 问答记录都跟着项目走）'},
+        mi('＋ 新建项目',dlgNewProject),
+        mi('✏️ 重命名当前项目',dlgRenameProject),
+        mi('🗑️ 删除当前项目',dlgDelProject),
+        {sep:1},
+        mi('❓ 项目与另外两层是什么关系',dlgNavExplain),
+      ]},
+      {n:'🎬 演示向导',items:[
+        {title:'按演示的真实顺序走一遍（点任一阶段即跳到对应环节）'},
+        mi('① 备料 · 上传 PPT / 讲稿',()=>dlgStage(1)),
+        mi('② 出稿 · 生成并打磨 PPT',()=>dlgStage(2)),
+        mi('③ 蓄力 · 沉淀知识库',()=>dlgStage(3)),
+        mi('④ 造像 · 生成数字分身',()=>dlgStage(4)),
+        mi('⑤ 上台 · 正式演示 + 答疑',()=>dlgStage(5)),
+        mi('⑥ 收尾 · 总结 / 归档 / 交付',()=>dlgStage(6)),
+        {sep:1},
+        mi('📋 完整流程说明',dlgWorkflow),
+      ]},
+      {n:'▶️ 播放',items:[
+        mi('▶️ 播放 / ⏸ 暂停全篇',()=>{const a=$('full1');if(a){a.paused?a.play():a.pause();}}),
+        mi('⏹ 停止',stopAllAudio),
+        {sep:1},
+        mi((s.muted?'🔊 取消静音':'🔇 静音'),()=>saveSettings({muted:!s.muted})),
+        {title:'音量 ' + Math.round((s.volume??1)*100) + '%'},
+        mi('🔉 减小 10%',()=>saveSettings({volume:Math.max(0,(s.volume??1)-0.1)})),
+        mi('🔊 增大 10%',()=>saveSettings({volume:Math.min(1,(s.volume??1)+0.1)})),
+      ]},
+      {n:'👁 视图',items:[
+        {title:'界面缩放 '+Math.round((s.uiScale??1)*100)+'%'},
+        mi('➖ 缩小',()=>saveSettings({uiScale:Math.max(0.7,(s.uiScale??1)-0.1)})),
+        mi('➕ 放大',()=>saveSettings({uiScale:Math.min(1.8,(s.uiScale??1)+0.1)})),
+        mi('⟲ 复位 100%',()=>saveSettings({uiScale:1})),
+        {sep:1},
+        {title:'数字分身图像 '+Math.round((s.avatarScale??1)*100)+'%'},
+        mi('➖ 缩小',()=>saveSettings({avatarScale:Math.max(0.4,(s.avatarScale??1)-0.1)})),
+        mi('➕ 放大',()=>saveSettings({avatarScale:Math.min(2.5,(s.avatarScale??1)+0.1)})),
+        mi('↔ 左移',()=>saveSettings({avatarX:Math.max(0,(s.avatarX??50)-5)})),
+        mi('↔ 右移',()=>saveSettings({avatarX:Math.min(100,(s.avatarX??50)+5)})),
+        mi('↕ 上移',()=>saveSettings({avatarY:Math.max(0,(s.avatarY??50)-5)})),
+        mi('↕ 下移',()=>saveSettings({avatarY:Math.min(100,(s.avatarY??50)+5)})),
+        mi('⟲ 位置复位',()=>saveSettings({avatarScale:1,avatarX:50,avatarY:50})),
+        {sep:1},
+        mi((s.theme==='dark'?'☀️ 浅色主题':'🌙 深色主题'),()=>saveSettings({theme:s.theme==='dark'?'light':'dark'})),
+      ]},
+      {n:'🌐 语言',items:[
+        {title:'讲解 / 回答语言'},
+        mi('中文',()=>setLang('中文'),(s.lang==='中文'?'✓':'')),
+        mi('English（英文）',()=>setLang('英文'),(s.lang==='英文'?'✓':'')),
+        {sep:1},
+        {label:'提问可中文可英文，均能识别',fn:()=>alert('提问时中文或英文都能被理解；\n回答语言由此处的选择决定，可独立指定。')},
+      ]},
+      {n:'⚙️ 设置',items:[
+        mi('⚙️ 全部设置',dlgSettings),
+        mi('🤖 大模型接入（多配置 · 主备切换）',dlgLlmConfig),
+        mi('🎨 演示模板导入与选择',dlgTemplates),
+        mi('🖼️ ComfyUI 目录与启动',dlgComfyUI),
+        mi('📂 默认文件夹',dlgFolders),
+        mi('🗂 运行时目录配置（重依赖绿色包）',dlgRuntime),
+        mi('🧩 运行环境自检',dlgDeps),
+        {sep:1},
+        mi('🎨 字体颜色',dlgFontColor),
+        {title:'字号 '+ (s.fontSize??15) +'px'},
+        mi('A- 减小',()=>saveSettings({fontSize:Math.max(11,(s.fontSize??15)-1)})),
+        mi('A+ 增大',()=>saveSettings({fontSize:Math.min(24,(s.fontSize??15)+1)})),
+        {sep:1},
+        mi('💾 保存当前设置',()=>saveSettings({})),
+        mi('⟲ 恢复默认',()=>saveSettings({volume:1,muted:false,uiScale:1,fontSize:15,
+            fontColor:'#1f2937',theme:'light',accent:'#1d4ed8',avatarScale:1,avatarX:50,avatarY:50})),
+      ]},
+      {n:'❓ 帮助',items:[
+        mi('📖 功能介绍',dlgFeatures),
+        mi('⌨️ 快捷键',dlgKeys),
+        mi('🧭 三层导航怎么理解',dlgNavExplain),
+        {sep:1},
+        mi('ℹ️ 关于',dlgAbout),
+        mi('🆕 版本变更',dlgChangelog),
+        mi('💻 运行环境 · 硬件最低配置',dlgSysReq),
+        mi('🧩 软件配置清单列表',dlgSoftware),
+        mi('🎭 内置分身演示（验证环境）',dlgDemoAvatar),
+        {sep:1},
+        mi('🎬 启动引导（首次使用）',()=>{localStorage.removeItem('mymeGuideSeen');showStartupGuide(true);}),
+      ]},
+    ];
+  }
+  const bar=$('menubar'); bar.innerHTML='';
+  menus.forEach(m=>{
+    const d=document.createElement('div'); d.className='menu';
+    const b=document.createElement('button'); b.textContent=m.n;
+    const sm=document.createElement('div'); sm.className='submenu';
+    m.items.forEach(it=>{
+      if(it.sep){const s=document.createElement('div');s.className='sep';sm.appendChild(s);return;}
+      if(it.title){const t=document.createElement('div');t.className='title';t.textContent=it.title;sm.appendChild(t);return;}
+      const e=document.createElement('button');
+      if(it.cls) e.className=it.cls;
+      e.innerHTML='<span>'+it.label+'</span>'+(it.extra?'<span class="'+(it.extra==='✓'?'check':'hint')+'">'+it.extra+'</span>':'');
+      e.onclick=()=>{closeMenus();it.fn&&it.fn();};
+      sm.appendChild(e);
+    });
+    b.onclick=e=>{e.stopPropagation();const was=d.classList.contains('open');closeMenus();if(!was)d.classList.add('open');};
+    d.appendChild(b); d.appendChild(sm); bar.appendChild(d);
+  });
+}
+function dlgNavExplain(){
+  openModal('🧭 三层导航怎么理解',`
+  <p class="muted">这个软件只有三层，分工如下，各层不重叠：</p>
+  <ol style="line-height:1.9;margin:8px 0 0 18px">
+    <li><b>第一层 · 顶部菜单栏</b>：全局命令。<br>
+        <span class="muted">项目的新建/删除、演示向导、播放控制、视图、语言、设置、帮助。
+        它管的是"软件层面"的事，不因你在哪个模块而变化。</span></li>
+    <li><b>第二层 · 作用域栏</b>：<b>项目 + 分身 + 形象</b> 三个下拉。<br>
+        <span class="muted">它回答的是"我现在在给谁做、用谁的声音、画面上是谁"。切项目＝换一整套资料。</span></li>
+    <li><b>第三层 · 模块标签</b>：项目内的具体功能。<br>
+        <span class="muted">①素材准备 ②制作PPT ③知识库 ④数字分身 ⑤正式演示 ⑥智能答疑 ⑦答疑总结 ⑧资源管理 ⑨播放文件。
+        <b>知识库 / 分身 / 播放文件只在这里出现</b>，菜单里不再重复。</span></li>
+  </ol>
+  <p class="muted" style="margin-top:12px">
+    <b>它们的关系</b>：项目是容器，容器里装着讲稿、知识库、音频、分身和问答记录；
+    分身和形象属于某个项目，不跨项目共享。<br>
+    <b>典型动线</b>：选好项目 → ①上传材料 → ②生成 PPT → ③沉淀知识库 → ④生成分身视频 → ⑤上台演示 → ⑥⑦答疑总结 → ⑧⑨归档交付。
+  </p>`,
+  `<button class="btn ghost" onclick="closeModal()">知道了</button>`);
+}
+function closeMenus(){document.querySelectorAll('.menu').forEach(m=>m.classList.remove('open'));}
+document.addEventListener('click',closeMenus);
+function setLang(l){ saveSettings({lang:l}).then(()=>{
+  $('lang1').value=l;$('lang2').value=l;$('lang3').value=l;buildMenus();});}
+function stopAllAudio(){document.querySelectorAll('video,audio').forEach(v=>{v.pause();});}
+
+/* ================= 弹窗 ================= */
+function openModal(title,bodyHtml,footHtml){
+  $('mTitle').textContent=title; $('mBody').innerHTML=bodyHtml;
+  $('mFoot').innerHTML=footHtml||'<button class="btn ghost" onclick="closeModal()">关闭</button>';
+  $('mask').classList.add('on');
+}
+function closeModal(){$('mask').classList.remove('on');}
+$('mClose').onclick=closeModal;
+$('mask').onclick=e=>{if(e.target===$('mask'))closeModal();};
+
+function dlgAbout(){openModal('关于',`
+  <p><b>__APP__</b> —— 本地运行的 PPT 制作与分身演示助手。</p>
+  <div class="sw"><span>声音</span><span>Qwen3-TTS 声纹复刻（本地）</span></div>
+  <div class="sw"><span>形象驱动</span><span>双引擎：Sonic 扩散式（默认开启）/ LivePortrait（回退），均本地</span></div>
+  <div class="sw"><span>大脑</span><span>大模型（本地 Ollama / 线上 OpenAI 兼容，可在「设置 → 大模型接入」切换）</span></div>
+  <div class="sw"><span>知识库</span><span>本地向量 + BM25 混合检索</span></div>
+  <p class="muted" style="margin-top:12px">全部数据留在本机，不上传任何云端。</p>`);}
+function dlgFeatures(){openModal('功能介绍',`
+  <p class="muted">整套流程一句话：<b>选分身 → 沉淀知识库 → 出文稿 → 制作 PPT/PDF → 制作视频 → 正式演示 → 答疑 → 总结 → 导出交付</b>，
+     最后把新资料沉淀回知识库，形成闭环。第三层标签就按这个顺序排，从左到右走完即是一整场。</p>
+  <p class="muted"><b>分身在哪选？</b>顶栏第二层作用域栏：<b>项目 + 分身 + 形象</b> 三个下拉。
+     分身＝声音与人设，形象＝画面上的样子；切换后全系统生效（讲解、答疑、视频用的是同一个声纹）。</p>
+
+  <h4 style="margin:12px 0 4px">准备</h4>
+  <p class="muted"><b>① 知识库 · 沉淀</b>：PDF / Word / Excel / PPT / TXT / Markdown 增量入库。
+     分<b>公有 / 项目 / 分身私有</b>三层，检索时一起查、私有加权；私有内容可一键"提升"到公有沉淀复用。
+     支持导出备份 .mymekb、导入还原、重建去重。</p>
+  <p class="muted"><b>② 素材与文稿</b>：上传 .pptx/.ppt（必选）与讲稿 .md/.txt（可选）→ 逐页生成口语讲稿
+     → 用当前分身的声音朗读，可分段试听、重生成。</p>
+
+  <h4 style="margin:12px 0 4px">出稿</h4>
+  <p class="muted"><b>③ 制作 PPT · PDF</b>：给个主题就出一套 PPT；可<b>选模板</b>（导入自家 .pptx 继承字体/主色/版式），
+     可<b>同步导出 PDF</b>，还能再出一份<b>书面文档（doc / pdf）</b>——PPT 是要点式给"讲"用的，
+     书面文档是段落式给"看"用的，内容会自动扩写详实。</p>
+  <p class="muted"><b>④ 制作视频</b>：输入台词 → 当前分身音色 + 口型驱动的形象 → 输出 MP4。
+     口型驱动为<b>双引擎</b>：优先 <b>Sonic 扩散式</b>（整帧生成，几乎不变形，需本机 ComfyUI + NVIDIA 显卡），
+     不可用或推理失败时自动回退 <b>LivePortrait</b>（轻量 2D 驱动；播放包固定用它）。
+     「分身管理（人 × 形象）」是本页唯一入口：一个人可以有多张形象，换图即换分身，零训练。
+     炎冰 / 金子的 Sonic 真机演示片段已<b>内置</b>在帮助菜单「🎭 内置分身演示（验证环境）」中，可随时播放对照。</p>
+
+  <h4 style="margin:12px 0 4px">演示</h4>
+  <p class="muted"><b>⑤ 正式演示</b>：分身 + PPT 原稿逐页同步，自动翻页播讲解；被提问点「⏸ 领导提问」暂停答疑，
+     答完「▶ 继续演示（从此页）」精确续播。</p>
+  <p class="muted"><b>⑥ 智能答疑</b>：跨三层知识库检索作答，中英文提问都能识别；命中某页自动展示该页；可勾「记入答疑记录」。</p>
+  <p class="muted"><b>⑦ 答疑总结</b>：自动生成《答疑汇总》，导出 Markdown，也可把高频问答沉淀回知识库。</p>
+
+  <h4 style="margin:12px 0 4px">交付</h4>
+  <p class="muted"><b>⑧ 导出交付</b>：集中导出本项目全部产出（源文件 / 形象 / 方案 / 音频 / 视频 / 分身）。</p>
+  <p class="muted"><b>⑨ 播放文件</b>：导出离线演示包。勾上「📱 打包为离线便携播放包」后，
+     解压双击 <code>player.html</code> 就能播，同一个包在 <b>Win / 安卓 / 统信</b> 三端通用。</p>
+
+  <h4 style="margin:12px 0 4px">三层导航怎么理解</h4>
+  <p class="muted"><b>第一层菜单</b>＝全局命令（项目 / 演示向导 / 播放 / 视图 / 语言 / 设置 / 帮助），全部下拉式；
+     <b>第二层作用域栏</b>＝当前作用于哪个【项目 + 分身 + 形象】，只做选择不执行命令；
+     <b>第三层标签</b>＝按演示生命周期排列的九个工作台。</p>
+  <p class="muted" style="margin-top:10px">💡 想按部就班走一遍：菜单「🎬 演示流程」八阶段向导，每步都能直接跳到对应模块。</p>`);}
+function dlgKeys(){openModal('快捷键',`
+  <div class="sw"><span>打开/关闭菜单</span><span><span class="kbd">点击菜单名</span></span></div>
+  <div class="sw"><span>上一页 / 下一页</span><span><span class="kbd">‹</span> <span class="kbd">›</span></span></div>
+  <div class="sw"><span>关闭弹窗</span><span><span class="kbd">Esc</span></span></div>
+  <div class="sw"><span>提交提问</span><span><span class="kbd">Ctrl</span>+<span class="kbd">Enter</span></span></div>`);}
+function dlgSysReq(){openModal('运行环境 · 硬件最低配置',`
+  <p class="muted">数字分身全部在本地运行（声音复刻 / 口型驱动 / 大模型问答均不出本机），因此对硬件有一定要求。下表为<b>最低配置</b>与<b>推荐配置</b>。</p>
+  <ul class="flist">
+    <li><span class="fk">操作系统</span><span class="fv">Windows 10 / 11 64 位（最低）· Windows 11（推荐）</span></li>
+    <li><span class="fk">CPU</span><span class="fv">4 核及以上（最低）· 8 核及以上（推荐，讲解合成更快）</span></li>
+    <li><span class="fk">内存</span><span class="fv">16 GB（最低）· 32 GB（推荐，模型常驻更稳）</span></li>
+    <li><span class="fk">显卡 / 显存</span><span class="fv">NVIDIA 独显 ≥ 8 GB 显存（最低）· ≥ 12 GB（推荐）</span></li>
+    <li><span class="fk">CUDA</span><span class="fv">需与 torch 匹配的 CUDA 运行时（本机为 CUDA 13.0）</span></li>
+    <li><span class="fk">硬盘</span><span class="fv">≥ 40 GB 可用空间（最低）· ≥ 100 GB（推荐，含模型与素材）</span></li>
+    <li><span class="fk">网络</span><span class="fv">首次下载模型需联网；之后可完全离线运行</span></li>
+    <li><span class="fk">便携播放版</span><span class="fv">无需显卡与模型，4 GB 内存即可播放已导出的演示包</span></li>
+  </ul>
+  <p class="muted" style="margin-top:10px">💡 若显存不足，可只用「讲解音频 + PPT 同步」，不生成数字人视频，对硬件要求会大幅降低。</p>`);}
+function dlgDemoAvatar(){
+  openModal('🎭 内置分身演示（验证环境）',`<div id="demoAvBody"><p class="muted">加载中…</p></div>`,
+    '<button class="btn ghost" onclick="closeModal()">关闭</button>');
+  fetch('/api/demo_avatar_clips').then(r=>r.json()).then(d=>{
+    const clips=(d&&d.clips)||[];
+    const meta={
+      'yanbing_sonic.mp4':{name:'炎冰',desc:'本人肖像 selfie.jpg + 炎冰声纹驱动，Sonic 扩散式出片'},
+      'jinzi_sonic.mp4' :{name:'金子',desc:'本人肖像 jinzi__meet.png + 金子声纹驱动，Sonic 扩散式出片'}
+    };
+    let h=`<p class="muted" style="margin-top:0">以下两条 8 秒演示片段已在出厂时用 <b>Sonic 扩散式引擎</b>（默认开启）真机生成并<b>内置进本应用</b>。
+      能正常播放即代表本机服务与视频链路就绪；若您本机还装好 ComfyUI（含 Sonic 节点）+ NVIDIA 显卡，则「④ 制作视频」也会走同样的引擎。</p>`;
+    if(!clips.length){
+      h+=`<p class="muted">⚠ 未找到内置演示片段（demo_avatar/ 为空或缺失）。</p>`;
+    }else{
+      clips.forEach(c=>{
+        const m=meta[c]||{name:c,desc:''};
+        h+=`<h4 style="margin:14px 0 6px">${esc(m.name)} · ${esc(c)}</h4>
+            <p class="muted" style="margin:0 0 6px">${esc(m.desc)}（h264 + aac，256×${c.indexOf('jinzi')>=0?384:320}）</p>
+            <video controls preload="metadata" src="/api/demo_avatar_clip?file=${encodeURIComponent(c)}"
+              style="width:100%;max-width:420px;border-radius:8px;background:#000;display:block"></video>`;
+      });
+    }
+    h+=`<p class="muted" style="margin-top:12px">💡 想验证「自己跑一遍也不变形」：到「④ 制作视频」用任一分身生成 8 秒视频即可，引擎会优先走 Sonic（不可用时自动回退 LivePortrait）。</p>`;
+    const el=$('demoAvBody'); if(el) el.innerHTML=h;
+  }).catch(()=>{const el=$('demoAvBody'); if(el) el.innerHTML='<p class="muted">加载失败：服务未就绪。</p>';});
+}
+function dlgSoftware(){openModal('软件配置清单列表',`
+  <p class="muted">当前版本 <b>v2.6.1</b>。本机运行数字分身所依赖的软件与模型清单（均为本地部署，无云端依赖）。</p>
+
+  <h4 style="margin:12px 0 4px">分发包怎么选（装给别人的第一步）</h4>
+  <ul class="flist">
+    <li><span class="fk">myme-2.6.1-win-x64-full.msi</span><span class="fv">完整创作端，676MB，含 LivePortrait + ts_deps；<b>perUser 免管理员</b>，装到用户目录</span></li>
+    <li><span class="fk">myme-setup.exe + myme-2.6.1-runtime.7z</span><span class="fv">精简安装包(59MB) + 绿色伴随目录(608MB)；解压后在「设置 → 运行时目录配置」登记</span></li>
+    <li><span class="fk">myme-2.6.1-win-x64-play.zip</span><span class="fv">Windows 便携播放包，解压双击 playback/player.html 即播</span></li>
+    <li><span class="fk">myme-2.6.1-android-play.apk</span><span class="fv">安卓离线播放，装完点图标即播，不联网</span></li>
+    <li><span class="fk">myme-player_2.6.1_all.deb</span><span class="fv">统信/麒麟/Deepin，架构 all；本地 python3 服务 + 浏览器，不装 PyQt6</span></li>
+  </ul>
+
+  <h4 style="margin:12px 0 4px">运行时 · 基础</h4>
+  <ul class="flist">
+    <li><span class="fk">Python</span><span class="fv">3.13（系统 Python，用于主服务 app.py，零第三方依赖）</span></li>
+    <li><span class="fk">ComfyUI 嵌式 Python</span><span class="fv">自带 torch 2.10 + CUDA 13.0 / transformers / soundfile（跑 TTS 与数字人）</span></li>
+    <li><span class="fk">ffmpeg</span><span class="fv">音频重采样、音量标准化、视频封装（C://ProgramData//chocolatey//bin//ffmpeg.exe）</span></li>
+  </ul>
+  <h4 style="margin:12px 0 4px">模型 · 语音与形象</h4>
+  <ul class="flist">
+    <li><span class="fk">Qwen3-TTS-12Hz-1.7B-Base</span><span class="fv">语音克隆基座模型（中 / 英等 10 种语言）</span></li>
+    <li><span class="fk">Sonic（扩散式，默认开启）</span><span class="fv">扩散式 talking-head：整帧生成而非 2D 拉伸，变形更少；经本机 ComfyUI 的 ComfyUI_Sonic 节点运行，需 NVIDIA 显卡 + SVD/Sonic 权重。<b>默认开启</b>，无需设环境变量；设 MYME_AVATAR_ENGINE=liveportrait 可强制切回旧引擎，不可用时自动回退 LivePortrait</span></li>
+    <li><span class="fk">LivePortrait</span><span class="fv">音频驱动口型（含 landmark.onnx 人脸关键点）；v2.6.1 已对齐官方收敛参数，不再脸变形；播放包固定使用</span></li>
+    <li><span class="fk">声纹样本</span><span class="fv">voice/&lt;分身id&gt;-sample-01.wav —— 放进去即被识别，无需登记</span></li>
+    <li><span class="fk">内置分身演示片段</span><span class="fv">炎冰 / 金子 Sonic 真机出片（各 8 秒，h264+aac）默认打进 APP；帮助菜单「🎭 内置分身演示（验证环境）」可直接播放，无需先跑一次推理</span></li>
+  </ul>
+  <h4 style="margin:12px 0 4px">模型 · 问答与知识库</h4>
+  <ul class="flist">
+    <li><span class="fk">大模型接入</span><span class="fv">可接本地 Ollama 或线上 OpenAI 兼容服务；按能力槽（文本/编程/图片/向量）各设主备，带连通性测试</span></li>
+    <li><span class="fk">默认 Ollama</span><span class="fv">本地大模型服务（http://localhost:11434），未配置时自动回落</span></li>
+    <li><span class="fk">qwen3.5:9b</span><span class="fv">默认问答大脑（可在「大模型接入」中改为任意模型）</span></li>
+    <li><span class="fk">bge-m3</span><span class="fv">默认中文向量嵌入（可在「大模型接入」中切换）</span></li>
+    <li><span class="fk">知识库三层</span><span class="fv">公有 / 项目 / 分身私有，同检且私有加权，可提升到公有沉淀</span></li>
+  </ul>
+  <h4 style="margin:12px 0 4px">v2.6.1 关键修复</h4>
+  <ul class="flist">
+    <li><span class="fk">MSI 2503/2502</span><span class="fv">改为 perUser + 用户目录，不再要管理员权限</span></li>
+    <li><span class="fk">分身与声音</span><span class="fv">一处选择全系统生效，切换时回显实际声纹文件</span></li>
+    <li><span class="fk">口型变形</span><span class="fv">保留人物原始头姿 + driving_multiplier 0.80 + 静音唇形归一化</span></li>
+    <li><span class="fk">统信 deb</span><span class="fv">GNU tar 格式，消除 PAX 扩展头（dpkg 不认导致装不上）</span></li>
+    <li><span class="fk">安卓播放</span><span class="fv">清单内联进 APK，播放器四级兜底，不再 Failed to fetch</span></li>
+  </ul>`);}
+function dlgChangelog(){openModal('版本变更',`
+  <h4 style="margin:0 0 6px">v2.6.1 增补二（10-03 续）</h4>
+  <ul style="margin:0;padding-left:20px" class="muted">
+    <li><b>内置分身演示片段（验证环境）</b>：炎冰、金子两条 8 秒 Sonic 真机演示片段<b>默认打进 APP</b>（demo_avatar/），
+        帮助菜单新增「🎭 内置分身演示（验证环境）」——装好后不用先跑一次推理，点开就能播放本机出片，
+        用来快速验证服务与视频链路是否就绪。</li>
+    <li><b>金子分身默认配置复跑验证通过</b>：不设任何环境变量、走默认 Sonic 引擎重跑金子分身，
+        抽帧目检 1s/3s/5s/7s 四个时点，脸型 / 五官 / 眼镜无变形，口型自然开合（h264+aac，256×384）。</li>
+  </ul>
+  <h4 style="margin:14px 0 6px">v2.6.1 增补（10-03）</h4>
+  <ul style="margin:0;padding-left:20px" class="muted">
+    <li><b>新增 Sonic 扩散式驱动引擎（双引擎）</b>：LivePortrait 是「单图 2D 拉伸」驱动，表情幅度一大容易脸变形；
+        Sonic 用扩散模型把【肖像图 + 音频】整帧「生成」出来，身份保持更好、嘴动更自然，几乎没有拉伸撕裂型变形。
+        <b>Sonic 现已默认开启</b>：本机装好 ComfyUI（含 Sonic 节点）+ 显卡后无需任何设置即自动走扩散式驱动；
+        设 <code>MYME_AVATAR_ENGINE=liveportrait</code> 可强制切回旧引擎。Sonic 不可用或推理失败<b>自动回退</b> LivePortrait，离线播放包不受影响。</li>
+    <li><b>多分身隔离加固</b>：临时音频、上传肖像、输出视频全部改为<b>一次性唯一命名</b>，
+        分身缓存键加入<b>声纹维度</b>——多人 / 多分身连续制作不会再用错声纹、串脸、串视频。</li>
+    <li><b>本机真实验证通过</b>：炎冰、金子两条 8 秒分身视频经 Sonic 引擎真机出片——
+        音频轨完整（aac）、脸型 / 五官 / 眼镜无变形、各自使用本人肖像与声纹，互不混用。</li>
+  </ul>
+  <h4 style="margin:14px 0 6px">v2.6.1（10-01）</h4>
+  <ul style="margin:0;padding-left:20px" class="muted">
+    <li><b>MSI 装不上的问题修了</b>：安装范围改为 <b>perUser</b>、安装目录改为用户目录，
+        不再要求管理员权限——Win10/11 上以前常见的<b>错误代码 2503 / 2502</b> 已消除，普通双击即可装完。</li>
+    <li><b>「选了金子、却合成炎冰的声音」修了</b>：以前界面选分身只写进界面配置，
+        而后端取声纹读的是另一份文件，两边长期不同步。现在<b>一处选择、全系统生效</b>，
+        并在切换时直接回显实际使用的声纹文件，一眼可查。</li>
+    <li><b>数字分身"脸肿 / 双下颌 / 多嘴巴"修了</b>：对齐 LivePortrait 官方管线补上三处收敛——
+        驱动强度 <code>driving_multiplier</code>、静音唇形归一化、<b>保留人物原始头姿</b>；
+        并把微动与唇形幅度调到克制档位。实测同一张肖像出片，脸型 / 五官 / 眼镜完全不再变形。</li>
+    <li><b>统信 deb 装不上的问题修了</b>：打包改用 <b>GNU tar 格式 + 整数时间戳</b>，
+        彻底去掉统信 dpkg 不认的 <b>PAX 扩展头</b>（正是水利一张图当年踩过的坑），
+        并在出包脚本里加了 PAX 体检，再犯会直接构建失败而不是带病发货。</li>
+    <li><b>安卓 APK「读取播放包失败：Failed to fetch」修了</b>：根因是安卓 WebView 的
+        <code>fetch</code> 对 <code>file://</code> 一律拒绝（网络层硬限制，与权限设置无关）。
+        现在播放器做四级兜底：<b>内联清单 → fetch → XHR → script 注入</b>，并把清单直接打进包内。</li>
+    <li><b>流程按实际使用顺序重排</b>：选择分身（作用域栏）→ ① 知识库·沉淀 → ② 素材与文稿
+        → ③ 制作 PPT·PDF → ④ 制作视频 → ⑤ 正式演示 → ⑥ 答疑 → ⑦ 总结 → ⑧ 导出交付 →（沉淀回①，闭环）。</li>
+    <li><b>界面商务化重做</b>：藏青顶栏 + 青绿主色 + 克制投影；标签改为胶囊 + 主色下划线指示器；
+        按钮 / 表格 / 表单 / 滚动条统一，标题带主色竖条；告别"小作坊"观感。</li>
+    <li><b>新图标与产品名</b>：图标由本机 ComfyUI(Z-Image-Turbo) 生成——深青圆角底 + 演示板图表 + 播放键；
+        程序名统一为<b>PPT制作及分身演示</b>（MSI 产品名 / 快捷方式 / 任务管理器 / exe 版本资源同步）。</li>
+  </ul>
+  <h4 style="margin:14px 0 6px">v2.6.0</h4>
+  <ul style="margin:0;padding-left:20px" class="muted">
+    <li><b>菜单三层重构 + 模式统一</b>：第一层＝全局命令（项目 / 演示向导 / 播放 / 视图 / 语言 / 设置 / 帮助），<b>全部改成下拉式</b>；
+        第二层＝作用域栏（项目 + 分身 + 形象，只做选择）；第三层＝按演示生命周期排列的九个标签。
+        菜单里不再重复出现"知识库""播放文件"，帮助菜单新增「🧭 三层导航怎么理解」。</li>
+    <li><b>制作 PPT 四种交付一次出齐</b>：PPT 本体（可<b>导入自家模板</b>继承字体/主色/版式）、<b>PPT→PDF</b>、
+        <b>书面文档 docx</b> 与 <b>书面文档 PDF</b>。PPT 走要点式（给"讲"用），书面文档走段落式（给"看"用），内容会自动扩写且无依据处标【待补充】。</li>
+    <li><b>大模型接入重做</b>：可保存多份配置记录，按<b>能力槽</b>（文本 / 编程 / 图片 / 向量）各设<b>主模型 + 备用模型</b>，
+        主失败自动切备；新增<b>测试连通性</b>（真发一次最小请求，报延迟与错因）。没配置或测不通会引导去配置界面。</li>
+    <li><b>ComfyUI 目录与启动文件可配置</b>：设置里登记根目录与启动脚本，可自动探测、一键测试；勾了"用 ComfyUI 配图"却没配目录会提示并弹出配置界面。</li>
+    <li><b>新增系统默认文件夹</b>：PPT / 图片 / 文档 / 导入 / 导出，带服务端文件夹浏览器，不用手敲绝对路径。</li>
+    <li><b>新增运行时目录配置（重依赖绿色伴随目录）</b>：LivePortrait（682MB）与 ts_deps（141MB）单独压缩分发，
+        解压到任意盘后在「设置 → 🗂 运行时目录配置」登记即可，<b>保存后即时生效、不用重启</b>；支持「🔍 自动探测」。</li>
+    <li><b>依赖自检升级为人话指引</b>：「🧩 运行环境自检」逐项说明缺什么 / 影响什么 / 去哪弄，未就绪项直接给「去设置」按钮跳转。</li>
+    <li><b>知识库三层范围</b>：公有库（通用常识）/ 项目库 / 分身私有库，检索同时查且私有加权，私有内容可一键提升到公有沉淀复用。</li>
+    <li><b>三端便携播放包</b>：完整版导出时勾「📱 打包为离线便携播放包」，同一份包可进 <b>Win11 便携包 / 安卓 APK / 统信 deb</b>，
+        解压双击 <code>player.html</code> 即可离线播放（讲解音频 + 数字分身视频 + 页图）。</li>
+    <li><b>完整安装包</b>：新增含全部运行时的 MSI 安装包（含 LivePortrait 与 ts_deps）；另出精简安装包 + 绿色伴随目录包供换机补装。</li>
+  </ul>
+  <h4 style="margin:14px 0 6px">v2.5.0</h4>
+  <ul style="margin:0;padding-left:20px" class="muted">
+    <li><b>知识库三层压缩落地</b>：存储层保留原文与向量、检索层向量+BM25混合、<b>调用层上下文压缩</b>（检索后再把最相关句子/要点送给模型，去重并标注来源，省 token 降噪声；默认离线规则提取，可开 LLM 精炼）</li>
+    <li>新增<b>知识库备份（导出/导入）</b>：菜单与④面板均可「📤 导出知识库备份（.mymekb）」「📥 导入知识库备份」，格式兼容——导出的可直接再导入还原，用于迁移与备份</li>
+    <li>新增<b>知识库重建</b>：一键去重（精确+近重复余弦）/ 剔除低质短块 / 压缩冗余，提升检索质量；重建只动索引与冗余，<b>不把知识库存成压缩结果</b>，仍可溯源、仍可二次检索</li>
+    <li>④ 知识库面板新增<b>管理卡片</b>（备份/导入/重建/统计），② 答疑新增「🗜️ 压缩上下文」开关（默认开）</li>
+  </ul>
+  <h4 style="margin:0 0 6px">v2.3（本次）</h4>
+  <ul style="margin:0;padding-left:20px" class="muted">
+    <li><b>应用更名</b>：产品名改为「PPT制作及分身演示」，不再局限于某一行业/某一个人；首页标题动态显示当前分身</li>
+    <li>完整版默认端口 <b>7860</b>、便携播放版默认端口 <b>7861</b>，两者可同时运行互不冲突</li>
+    <li>「设置 → 大模型接入」新增<b>模型接入菜单</b>：可配置地址 / 密钥 / 模型 / 其他参数，既可接本地模型，也可接线上模型</li>
+    <li>知识库 / 答疑 / 制作 PPT <b>统一接入</b>配置好的大模型（原写死 Ollama 已解耦），知识向量库借大模型提升答疑质量</li>
+    <li>新增<b>「③ 制作 PPT · PDF」</b>：输入主题/风格/页数/语言，大模型生成结构化大纲并落盘 .pptx（可下载或一键导入准备工作），可选接本机 ComfyUI + LoRA 配图</li>
+    <li>页签顺序调整：<b>答疑（② 智能答疑 / ⑥ 答疑总结）移至「正式演示 ⑤」之后</b>，流程更顺</li>
+    <li>帮助与关于文案同步更新为产品新名；版本号统一为 2.3.0</li>
+  </ul>
+  <h4 style="margin:14px 0 6px">v2.4.0</h4>
+  <ul style="margin:0;padding-left:20px" class="muted">
+    <li><b>制作 PPT 全链路补齐</b>：需求解析 → 本地知识库 → 大纲 → 版式/图表 → .pptx</li>
+    <li>新增<b>需求解析与追问</b>：描述太简单时点「🔍 解析需求」，系统列出待补充项并给建议参数，可一键采用；也可「忽略建议直接生成」</li>
+    <li><b>引用本地知识库</b>：生成前检索与主题最相关的片段，要求优先引用其中的事实/数据/案例；<b>知识库没有依据的内容自动标注【待补充】</b>，绝不编造；没有可靠数据就不画图表</li>
+    <li>每页自动匹配<b>版式</b>：封面 / 要点 / 对比 / 流程 / 数据</li>
+    <li>有数据时自动生成<b>图表</b>：柱状图、折线图、饼图（纯本地形状绘制，不依赖任何第三方库）</li>
+    <li>新增三套<b>配色主题</b>：蓝白商务 / 深色科技 / 简约灰；每页自动给<b>图标关键词</b>标签</li>
+  </ul>
+  <h4 style="margin:14px 0 6px">v2.3.1</h4>
+  <ul style="margin:0;padding-left:20px" class="muted">
+    <li><b>修复：导入播放文件报 Out of Memory</b> —— 原链路把 zip 转 base64 塞 JSON，几百 MB 的包会撑爆页面；改为<b>二进制直传 + 服务端分块落盘</b>，内存恒定</li>
+    <li>导入新增<b>进度条</b>：① 上传中（真实字节进度）→ ② 导入中 i/n → 清理临时文件 → 完成；大文件不再「点了没反应」</li>
+    <li>导入改为<b>流式分块拷贝</b>：音视频不整文件进内存，暂时用不到的文件只是拷到对应目录</li>
+    <li><b>完整版也加入「📥 导入播放文件」菜单</b>（原来点了只是切页签，实际无反应）</li>
+    <li><b>导出播放文件可选精度 / 压缩比例</b>：无损（原样）/ 标准（mp3 192k + x264 CRF23）/ 精简（mp3 128k + 720p CRF27）；由本机 ffmpeg 转码，同份资源实测 467MB → 132MB（省约 72%）</li>
+    <li>压缩导出同步改写讲稿里的音频引用（.wav → .mp3），并在读取侧做双向兜底，避免转码后整场静音</li>
+  </ul>
+  <h4 style="margin:14px 0 6px">v2.2</h4>
+  <ul style="margin:0;padding-left:20px" class="muted">
+    <li><b>顶层引入「项目」概念</b>：讲稿版本 / 知识库 / 讲解音频 / 分身形象 / 问答记录全部归属项目，互不干扰</li>
+    <li>顶部新增<b>项目切换条</b>：可切换当前项目、新建项目、重命名项目、删除项目（默认项目不可删）</li>
+    <li>原有资源已自动归入<b>「默认项目」</b>，升级后数据不丢失</li>
+    <li>①~⑧ 页签按<b>流程 / 模式重新分组</b>：创作准备 · 演示答疑 · 总结管理，查找更快</li>
+    <li>便携播放版新增<b>启动引导</b>：首次进入按「导入播放文件 → 选择分身 → 开始播放」三步引导</li>
+    <li>帮助菜单新增<b>「运行环境 · 硬件最低配置」「软件配置清单列表」</b></li>
+    <li>「导出播放文件」对话框新增<b>示例文件清单列表</b>，导出前即可知道包内会有哪些文件</li>
+    <li>导出 / 导入均按当前项目归位，切换项目后不会串数据</li>
+  </ul>
+  <h4 style="margin:14px 0 6px">v2.1</h4>
+  <ul style="margin:0;padding-left:20px" class="muted">
+    <li>新增「🎬 演示流程」向导菜单，五阶段（基础配置/准备工作/正式演示/答疑模式/梳理总结）逐步引导</li>
+    <li>新增「⑤ 正式演示」：分身肖像 + PPT 原稿逐页同步播放，自动翻页</li>
+    <li>演示支持「领导提问」打断 → 现场答疑 →「继续演示」精确从断点续播（记住位置）</li>
+    <li>新增「⑥ 答疑总结」：自动沉淀问答记录，生成《答疑汇总》、导出 Markdown、存入知识库</li>
+    <li>② 答疑新增「记入答疑记录」开关，问答自动沉淀供总结</li>
+    <li>逐页讲解音频/讲稿持久化，刷新页面后不丢失，可直接分段试听</li>
+  </ul>
+  <h4 style="margin:14px 0 6px">v2.0</h4>
+  <ul style="margin:0;padding-left:20px" class="muted">
+    <li>菜单栏：分身 / 知识库 / 语言 / 播放 / 视图 / 设置 / 帮助</li>
+    <li>PPT 讲解页面同步、答疑自动定位相关页、多人多形象、多格式知识库、双语问答、设置持久化、异步进度条</li>
+  </ul>`);}
+/* 演示向导：编号与第三层标签一致（v2.6.1 按用户流程重排）。
+   选择分身（第二层作用域栏）→ ① 知识库·沉淀 → ② 素材与文稿 → ③ 制作PPT·PDF
+   → ④ 制作视频 → ⑤ 正式演示 → ⑥ 答疑 → ⑦ 总结 → ⑧ 导出交付 →（沉淀回①，闭环）*/
+const STAGES=[
+  {t:'① 备料 · 知识库（公有 / 私有）与沉淀',tab:4,go:'知识库 · 沉淀',steps:[
+    '在第二层作用域栏选好【项目】、【分身】、【形象】——分身＝声音与人设，形象＝画面上的样子。',
+    '在「① 知识库」上传 PDF/Word/Excel/PPT/TXT/MD 增量入库；通用常识进【公有库】，项目专属进【项目库】，分身个人风格进【分身库】。',
+    '三库同检、私有加权；「🌐 公有 / 私有范围管理」可把项目/分身资料提升为公有，形成沉淀。',
+    '首次使用先跑「设置 → 🧩 运行环境自检」，确认语音合成、口型驱动、ffmpeg 都就绪。']},
+  {t:'② 出文稿 · 导入素材并润色成稿',tab:1,go:'素材与文稿',steps:[
+    '在「② 素材与文稿」上传 .pptx/.ppt（必选）与讲稿 .md/.txt（可选，不传则按幻灯片内容自动生成）。',
+    '讲解语言与长度在这里选：语言决定中/英，长度决定每页字数与合成耗时。',
+    '逐页可试听、可重新生成；要给领导书面留存的，到「③ 制作 PPT」里勾选同步出 doc / pdf。']},
+  {t:'③ 出稿 · 制作 PPT 与 PDF',tab:9,go:'制作 PPT · PDF',steps:[
+    '在「③ 制作 PPT」填主题；描述太笼统时先点「🔍 解析需求」，系统会给出追问与建议参数。',
+    '可选 boxes：引用本地知识库（有依据才写、没依据标【待补充】）、同步导出 PDF、同步生成书面文档（doc / pdf）。',
+    'PPT 要简洁，是给"讲"用的；书面文档是段落式、内容详实，两者定位不同。',
+    '模板：在「设置 → 🎨 演示模板」里导入自家 .pptx，之后生成即可继承它的字体、主色与版式。']},
+  {t:'④ 造像 · 制作数字分身视频',tab:3,go:'制作视频',steps:[
+    '在「④ 制作视频」输入台词，点「🎬 生成视频」——先用当前分身音色合成语音，再做口型驱动。',
+    '分身与形象的增删改都在本页「分身管理」卡片；换形象即换画面，声音跟着分身走。',
+    '可逐页生成口型视频，也可一键生成整场演示视频（自动按讲解时长拼接）。',
+    '若提示"语音合成失败"，多半是 ComfyUI 内置 Python 或声纹模型不在位，按提示到「设置 → 🧩 运行环境自检」核对。']},
+  {t:'⑤ 上台 · 正式演示',tab:5,go:'正式演示',steps:[
+    '在「⑤ 正式演示」点「▶ 开始演示」：分身肖像 + PPT 原稿逐页同步，自动翻页并播放讲解。',
+    '被提问时点「⏸ 领导提问」，自动暂停并打开答疑框；答完点「▶ 继续演示（从此页）」精确续播。',
+    '全屏快捷键、页码跳转、断点续播都在演示页底部工具条。']},
+  {t:'⑥ 答疑 · 现场问答',tab:2,go:'智能答疑',steps:[
+    '在「⑥ 智能答疑」提问，系统按 公有 / 项目 / 分身 三库检索作答，命中某页会自动定位展示。',
+    '可勾选「记入答疑记录」，供第 ⑦ 步自动汇总。',
+    '答案里没有依据的部分会明确标出，不会编造。']},
+  {t:'⑦ 总结 · 沉淀问答',tab:6,go:'答疑总结',steps:[
+    '「⑦ 答疑总结」自动生成《答疑汇总》，可导出 Markdown，也可把高频问答沉淀回知识库。',
+    '沉淀回知识库的内容会自动带上"由答疑沉淀"分类，便于日后追溯。']},
+  {t:'⑧ 交付 · 导出相关文档',tab:7,go:'导出交付',steps:[
+    '「⑧ 导出交付」集中导出本项目全部产出：PPT、PDF、书面文档、音频、视频、分身、知识库备份。',
+    '勾「📱 打包为离线便携播放包」可产出一个 zip，给便携播放版 / 安卓 / 统信播放端原样播放。',
+    '交付给需要留档的人：PPT + PDF + 书面文档三种一起给最稳。',
+    '交付完成把新资料回传到第 ① 步的知识库，形成"演示 → 答疑 → 沉淀"的闭环。']},
+];
+function dlgStage(n){const s=STAGES[n-1];if(!s)return;
+  openModal(s.t,'<ol style="margin:0;padding-left:20px" class="muted">'+s.steps.map(x=>'<li style="margin:6px 0">'+esc(x)+'</li>').join('')+'</ol>');
+  $('mFoot').innerHTML='<button class="btn ghost" onclick="closeModal()">稍后</button>'+
+    '<button class="btn" onclick="closeModal();switchTab('+s.tab+')">前往「'+s.go+'」→</button>';}
+function dlgWorkflow(){
+  let h='<p class="muted">数字分身演示八步走：</p><ol style="margin:0;padding-left:20px">';
+  STAGES.forEach(s=>{h+='<li style="margin:8px 0"><b>'+esc(s.t)+'</b></li>';});
+  h+='</ol><p class="muted" style="margin-top:8px">菜单「🎬 演示流程」任一点开即可看本阶段步骤与跳转。</p>';
+  openModal('完整流程说明',h,'<button class="btn ghost" onclick="closeModal()">关闭</button>');}
+function dlgFontColor(){openModal('字体颜色',`
+  <div class="sw"><span>正文字体颜色</span><input type="color" id="fc1" value="${(S.settings||{}).fontColor||'#1f2937'}"></div>
+  <div class="sw"><span>主题强调色</span><input type="color" id="ac1" value="${(S.settings||{}).accent||'#1d4ed8'}"></div>
+  <div class="sw"><span>字号</span><input type="range" id="fs1" min="11" max="24" value="${(S.settings||{}).fontSize||15}"></div>`,
+  `<button class="btn ghost" onclick="closeModal()">取消</button>
+   <button class="btn" onclick="saveSettings({fontColor:$('fc1').value,accent:$('ac1').value,fontSize:parseInt($('fs1').value,10)});closeModal()">保存</button>`);}
+/* ============================================================
+   v2.6 大模型接入：配置记录库 + 能力槽位（主/备）+ 连通性测试
+   ------------------------------------------------------------
+   · 可以保存多份接入配置，换模型不再重填一长串参数，下拉即选
+   · 每个能力槽（文本 / 编程 / 图片 / 向量）可各指定主模型与备用模型，
+     主模型连不上时自动切备用，用户无需干预
+   · 「🔌 测试连通」真发一次请求，返回延迟与失败原因（不是只 ping 端口）
+   ============================================================ */
+let LLM_MODELS=[], LLM_ASSIGN={}, LLM_CAPS=[], LLM_EDIT_ID='';
+async function loadLlmModels(){
+  try{ const r=await getJSON('/api/models');
+       LLM_MODELS=r.models||[]; LLM_ASSIGN=r.assign||{}; LLM_CAPS=r.capabilities||[]; }
+  catch(e){ LLM_MODELS=[]; LLM_ASSIGN={}; LLM_CAPS=[]; }
+}
+function _capOpt(sel,key){ return '<option value="'+key+'"'+(sel===key?' selected':'')+'>'+key+'</option>'; }
+function dlgLlmConfig(){
+  loadLlmModels().then(()=>renderLlmDlg());
+  openModal('大模型接入','<div id="llmBody"><p class="muted">加载中…</p></div>',
+    '<button class="btn ghost" onclick="closeModal()">关闭</button>');
+}
+function renderLlmDlg(){
+  const opts=LLM_MODELS.map(m=>'<option value="'+m.id+'">'+esc(m.name)+'（'+(m.provider==='ollama'?'本地':'线上')+' · '+esc(m.chat_model||'')+'）</option>').join('');
+  let slots='';
+  (LLM_CAPS.length?LLM_CAPS:[{key:'text',name:'文本'}]).forEach(c=>{
+    const a=LLM_ASSIGN[c.key]||{};
+    slots+='<div class="sw"><span>'+esc(c.name)+'<span class="muted" style="font-size:12px"> '+esc(c.desc||'')+'</span></span>'+
+      '<select id="as_'+c.key+'" onchange="onAssign(\''+c.key+'\')">'+
+      '<option value="">（未指定 · 用文本槽）</option>'+opts+'</select>'+
+      '<select id="asb_'+c.key+'" onchange="onAssign(\''+c.key+'\')">'+
+      '<option value="">（无备用）</option>'+opts+'</select></div>';
+  });
+  $('llmBody').innerHTML=`
+  <p class="muted">保存多套接入方式，按用途分别指派<b>主模型</b>与<b>备用模型</b>：
+     主模型连不上时自动切备用，你不用管。默认是<b>文本</b>槽，编程/图片可另 aiming 更合适的模型。</p>
+  <h4 style="margin:12px 0 6px">① 能力槽位（用途 → 主模型 / 备用模型）</h4>
+  ${slots}
+  <h4 style="margin:14px 0 6px">② 已保存的配置记录（${LLM_MODELS.length} 条）</h4>
+  <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:6px">
+    <select id="llmPick" style="flex:1;min-width:200px"><option value="">（选择一条来编辑，或点「＋ 新增」）</option>${opts}</select>
+    <button class="btn" onclick="onEditPicked()">✏️ 编辑</button>
+    <button class="btn ghost" onclick="onTestPicked()">🔌 测试连通</button>
+    <button class="btn ghost" style="color:#dc2626" onclick="onDelPicked()">🗑️ 删除</button>
+    <button class="btn" onclick="showLlmForm('')">＋ 新增配置</button>
+  </div>
+  <div id="llmForm"></div>
+  <div id="llmTest" class="out" style="display:none"></div>`;
+  (LLM_CAPS.length?LLM_CAPS:[{key:'text'}]).forEach(c=>{
+    const a=LLM_ASSIGN[c.key]||{};
+    if($('as_'+c.key)) $('as_'+c.key).value=a.primary||'';
+    if($('asb_'+c.key)) $('asb_'+c.key).value=a.backup||'';
+  });
+}
+function _picked(){ return $('llmPick')?$('llmPick').value:''; }
+function onEditPicked(){ const id=_picked(); if(!id){alert('请先选择一条配置');return;} showLlmForm(id); }
+function onTestPicked(){
+  const id=_picked(); if(!id){alert('请先选择一条配置');return;}
+  testLlmConn(LLM_MODELS.find(m=>m.id===id));
+}
+function onDelPicked(){
+  const id=_picked(); if(!id){alert('请先选择一条配置');return;}
+  const m=LLM_MODELS.find(x=>x.id===id);
+  if(!confirm('确认删除配置「'+(m?m.name:id)+'」？')) return;
+  postJSON('/api/model/delete',{id}).then(async()=>{ await loadLlmModels(); renderLlmDlg(); });
+}
+async function onAssign(cap){
+  const p=$('as_'+cap).value, b=$('asb_'+cap).value;
+  await postJSON('/api/model/assign',{cap,primary:p,backup:b});
+  await loadLlmModels();
+}
+function showLlmForm(id){
+  const m=id?(LLM_MODELS.find(x=>x.id===id)||{}):{provider:'ollama',base_url:'http://localhost:11434',
+      chat_model:'qwen3.5:9b',embed_model:'bge-m3',temperature:0.7,max_tokens:1200,timeout:60,caps:['text']};
+  LLM_EDIT_ID=id;
+  const caps=m.caps||['text'];
+  $('llmForm').innerHTML=`
+  <div class="fgrid">
+    <div><label>配置名称（给自己看的备注）</label><input type="text" id="lf_name" placeholder="如：本地 9B / DeepSeek 线上" value="${esc(m.name||'')}"></div>
+    <div><label>接入类型</label><select id="lf_prov">
+      <option value="ollama">本地 Ollama</option><option value="openai">线上 / OpenAI 兼容</option></select></div>
+    <div><label>接口地址 base_url</label><input type="text" id="lf_base" value="${esc(m.base_url||'')}" placeholder="http://localhost:11434"></div>
+    <div><label>API 密钥（线上必填）</label><input type="text" id="lf_key" value="${esc(m.api_key||'')}" placeholder="sk-...（本地可留空）"></div>
+    <div><label>对话模型 chat_model</label><input type="text" id="lf_chat" value="${esc(m.chat_model||'')}" placeholder="qwen3.5:9b"></div>
+    <div><label>嵌入模型 embed_model</label><input type="text" id="lf_emb" value="${esc(m.embed_model||'')}" placeholder="bge-m3"></div>
+    <div><label>温度</label><input type="number" id="lf_temp" min="0" max="2" step="0.1" value="${m.temperature??0.7}"></div>
+    <div><label>最大 tokens</label><input type="number" id="lf_max" min="256" max="8192" step="128" value="${m.max_tokens??1200}"></div>
+    <div><label>超时（秒）</label><input type="number" id="lf_to" min="5" max="600" step="5" value="${m.timeout??60}"></div>
+    <div><label>可用于哪些用途</label><div style="display:flex;gap:10px;flex-wrap:wrap;padding-top:6px">
+      <label class="ck"><input type="checkbox" id="lf_c_text" ${caps.includes('text')?'checked':''}> 文本</label>
+      <label class="ck"><input type="checkbox" id="lf_c_code" ${caps.includes('code')?'checked':''}> 编程</label>
+      <label class="ck"><input type="checkbox" id="lf_c_image" ${caps.includes('image')?'checked':''}> 图片</label>
+      <label class="ck"><input type="checkbox" id="lf_c_embed" ${caps.includes('embed')?'checked':''}> 向量</label>
+    </div></div>
+  </div>
+  <div class="row" style="margin-top:10px;gap:8px">
+    <button class="btn" onclick="saveLlmForm()">💾 保存配置</button>
+    <button class="btn ghost" onclick="testLlmForm()">🔌 测试连通</button>
+    <button class="btn ghost" onclick="$('llmForm').innerHTML=''">收起</button>
+  </div>`;
+  $('lf_prov').value=m.provider||'ollama';
+}
+function _readLlmForm(){
+  const caps=[];
+  ['text','code','image','embed'].forEach(k=>{ if($('lf_c_'+k)&&$('lf_c_'+k).checked) caps.push(k); });
+  if(!caps.length) caps.push('text');
+  return {id:LLM_EDIT_ID||'',name:$('lf_name').value.trim(),provider:$('lf_prov').value,
+    base_url:$('lf_base').value.trim(),api_key:$('lf_key').value.trim(),
+    chat_model:$('lf_chat').value.trim(),embed_model:$('lf_emb').value.trim(),
+    temperature:parseFloat($('lf_temp').value)||0.7,max_tokens:parseInt($('lf_max').value,10)||1200,
+    timeout:parseInt($('lf_to').value,10)||60,caps};
+}
+async function testLlmForm(){ await testLlmConn(_readLlmForm()); }
+async function saveLlmForm(){
+  const rec=_readLlmForm();
+  if(!rec.chat_model && !rec.embed_model){ alert('至少填写对话模型或嵌入模型'); return; }
+  const r=await postJSON('/api/model/save',rec);
+  LLM_MODELS=r.models||LLM_MODELS;
+  await loadLlmModels(); renderLlmDlg();
+  // 若该能力槽还空着，顺手把新配置指派成文本主模型，避免"存了却没用上"
+  if(!(LLM_ASSIGN.text||{}).primary){
+    const nid=(r.model||{}).id; if(nid){ await postJSON('/api/model/assign',{cap:'text',primary:nid,backup:''}); await loadLlmModels(); renderLlmDlg(); }
+  }
+  alert('已保存。可在上方「能力槽位」把它指派给对应用途。');
+}
+async function testLlmConn(rec){
+  const box=$('llmTest'); box.style.display='block';
+  box.textContent='正在测试连通性…（会真实发一次最小请求，请稍候）';
+  try{
+    const r=await postJSON('/api/model/test',rec||{});
+    let h='';
+    if(r.ok){ h='✅ 连通正常（'+r.latency_ms+' ms）\n'+r.detail; }
+    else{ h='❌ '+ (r.error||'连接失败') + '\n' + (r.hint||'') + '\n' + (r.detail||''); }
+    if((r.models_found||[]).length){ h+='\n可用模型：'+r.models_found.slice(0,10).join('、'); }
+    box.textContent=h; box.className='out'+(r.ok?'':' err');
+  }catch(e){ box.textContent='❌ 测试请求失败：'+e; box.className='out err'; }
+}
+
+/* ============================================================
+   v2.6 演示模板：内置配色 + 导入自家 .pptx 作为模板
+   导入后生成 PPT 会继承该模板的字体、主色、版式与背景
+   ============================================================ */
+let TPLS=[];
+async function loadTemplates(){
+  try{ const r=await getJSON('/api/templates'); TPLS=r.templates||[]; }catch(e){ TPLS=[]; }
+}
+function dlgTemplates(){
+  loadTemplates().then(()=>renderTplDlg());
+  openModal('演示模板','<div id="tplBody"><p class="muted">加载中…</p></div>',
+    '<button class="btn ghost" onclick="closeModal()">关闭</button>');
+}
+function renderTplDlg(){
+  const rows=TPLS.map(t=>`<div class="sw">
+      <span>${t.builtin?'🎨':'📄'} ${esc(t.name)}${t.missing?' <b style="color:#dc2626">（文件缺失）</b>':''}
+        <span class="muted" style="font-size:12px"> ${esc(t.desc||'')}</span></span>
+      <span>${t.builtin?'<span class="muted" style="font-size:12px">内置</span>'
+        :'<button class="btn ghost" style="padding:4px 10px" onclick="delTpl(\''+t.id+'\')">删除</button>'}</span>
+    </div>`).join('');
+  $('tplBody').innerHTML=`
+  <p class="muted">默认用内置三套配色。<b>想用自己单位的模板</b>：新增一个即可——
+     系统会保留你模板里的字体、主色、母版版式和背景，只把内容换成生成的 Slides。</p>
+  ${rows}
+  <h4 style="margin:14px 0 6px">新增模板</h4>
+  <div class="row" style="gap:8px;flex-wrap:wrap">
+    <input type="file" id="tplFile" accept=".pptx,.potx" style="flex:1;min-width:200px">
+    <button class="btn" onclick="uploadTpl()">📤 上传（≤80MB）</button>
+  </div>
+  <p class="muted" style="margin-top:8px">模板较大时改用路径登记（不动内存，几十上百 MB 也行）：</p>
+  <div class="row" style="gap:8px;flex-wrap:wrap">
+    <input type="text" id="tplPath" placeholder="如 D://模板//XX单位汇报模板.pptx" style="flex:1;min-width:220px">
+    <button class="btn ghost" onclick="browsePickFolder('tplPath')">📂 浏览</button>
+    <button class="btn ghost" onclick="addTplByPath()">＋ 按路径登记</button>
+  </div>
+  <div id="tplOut" class="out" style="display:none"></div>`;
+}
+async function uploadTpl(){
+  const f=$('tplFile').files[0]; if(!f){ alert('请先选择 .pptx 文件'); return; }
+  const fr=new FileReader();
+  fr.onload=async()=>{
+    const b64=(fr.result||'').split(',')[1]||'';
+    const ext=(f.name.match(/\.[^.]+$/)||['.pptx'])[0];
+    const setup=r=>{ const o=$('tplOut'); o.style.display='block'; o.textContent=(r.ok?'✅ ':'❌ ')+(r.msg||r.error||''); };
+    try{ const r=await postJSON('/api/templates/upload',{data:b64,ext,name:f.name.replace(/\.[^.]+$/, '')});
+         TPLS=r.templates||TPLS; setup(r); renderTplDlg(); }catch(e){ setup({ok:false,error:''+e}); }
+  };
+  fr.readAsDataURL(f);
+}
+async function addTplByPath(){
+  const p=($('tplPath').value||'').trim(); if(!p){ alert('请填写模板文件的完整路径'); return; }
+  const r=await postJSON('/api/templates/add',{path:p});
+  const o=$('tplOut'); o.style.display='block';
+  o.textContent=(r.ok?'✅ ':'❌ ')+(r.msg||r.error||'');
+  if(r.ok){ TPLS=r.templates||TPLS; renderTplDlg(); }
+}
+async function delTpl(id){
+  if(!confirm('确认删除该模板？')) return;
+  const r=await postJSON('/api/templates/delete',{id});
+  TPLS=r.templates||TPLS; renderTplDlg();
+}
+
+/* ============================================================
+   v2.6 ComfyUI：目录 + 启动脚本 + API 地址
+   勾选"用 ComfyUI 配图"但没配置时，这里会被自动弹出引导
+   ============================================================ */
+let CF={};
+async function loadComfy(){
+  try{ const r=await getJSON('/api/app_settings'); CF=(r.settings||{}).comfyui||{}; }catch(e){ CF={}; }
+}
+function dlgComfyUI(){
+  loadComfy().then(()=>renderComfyDlg());
+  openModal('ComfyUI 目录与启动','<div id="cfBody"><p class="muted">加载中…</p></div>',
+    '<button class="btn ghost" onclick="closeModal()">关闭</button>');
+}
+function renderComfyDlg(){
+  $('cfBody').innerHTML=`
+  <p class="muted">配图走本地 ComfyUI 文生图（含 LoRA）。<b>不配置也能正常做 PPT</b>，只是不生成配图。</p>
+  <div class="fgrid">
+    <div><label>ComfyUI 根目录</label><input type="text" id="cf_dir" value="${esc(CF.dir||'')}" placeholder="如 D://ComfyUI_Mie_2026_V8.0//ComfyUI"></div>
+    <div><label>启动脚本文件名</label><input type="text" id="cf_launch" value="${esc(CF.launch_file||'')}" placeholder="如 run_nvidia_gpu.bat"></div>
+    <div><label>API 地址</label><input type="text" id="cf_api" value="${esc(CF.api_url||'http://127.0.0.1:8188')}"></div>
+    <div><label>底模 checkpoint</label><input type="text" id="cf_ckpt" value="${esc(CF.ckpt||'')}"></div>
+    <div><label>LoRA（可空）</label><input type="text" id="cf_lora" value="${esc(CF.lora||'')}"></div>
+  </div>
+  <label class="ck" style="margin-top:8px"><input type="checkbox" id="cf_en" ${CF.enabled?'checked':''}> 制作 PPT 时用 ComfyUI 生成配图</label>
+  <label class="ck"><input type="checkbox" id="cf_auto" ${CF.auto_launch?'checked':''}> 服务未启动时尝试自动拉起（用上面的启动脚本）</label>
+  <div class="row" style="margin-top:10px;gap:8px">
+    <button class="btn" onclick="saveComfy()">💾 保存</button>
+    <button class="btn ghost" onclick="scanComfy()">🔍 自动探测本机目录</button>
+    <button class="btn ghost" onclick="testComfy()">🔌 测试连通</button>
+  </div>
+  <div id="cfOut" class="out" style="display:none"></div>`;
+}
+async function saveComfy(){
+  const patch={enabled:$('cf_en').checked,dir:$('cf_dir').value.trim(),
+    launch_file:$('cf_launch').value.trim(),api_url:$('cf_api').value.trim(),
+    ckpt:$('cf_ckpt').value.trim(),lora:$('cf_lora').value.trim(),
+    auto_launch:$('cf_auto').checked};
+  const r=await postJSON('/api/comfyui/config',patch);
+  CF=r.config||patch;
+  const o=$('cfOut'); o.style.display='block'; o.textContent='✅ 已保存。配图将按此配置调用。';
+}
+async function scanComfy(){
+  const r=await postJSON('/api/comfyui/scan',{dir:$('cf_dir').value.trim()});
+  const o=$('cfOut'); o.style.display='block';
+  if(r.ok){
+    CF.dir=r.root; CF.launch_file=(r.launchers||[])[0]||CF.launch_file||'';
+    renderComfyDlg();
+    o.textContent='✅ 找到：'+r.root+'\n可用启动脚本：'+((r.launchers||[]).join('、')||'（未发现，请手工填写）');
+  }else{
+    o.textContent='❌ 未在本机发现 ComfyUI 目录。请先安装 ComfyUI，或在上方手工填写根目录。';
+  }
+}
+async function testComfy(){
+  const o=$('cfOut'); o.style.display='block'; o.textContent='测试中…';
+  const r=await postJSON('/api/comfyui/test',{api_url:$('cf_api').value.trim()});
+  o.textContent=(r.ok?'✅ ':'❌ ')+((r.hint||r.error||'')+'（'+(r.latency_ms||0)+' ms）');
+}
+
+/* ============================================================
+   v2.6 默认文件夹：PPT / 图片 / 文档 / 导入 / 导出
+   ============================================================ */
+let FD={}, FDCFG={};
+async function loadFolders(){
+  try{ const r=await getJSON('/api/folders'); FD=r.folders||{}; FDCFG=r.configured||{}; }catch(e){ FD={}; FDCFG={}; }
+}
+function dlgFolders(){
+  loadFolders().then(()=>renderFoldersDlg());
+  openModal('默认文件夹','<div id="fdBody"><p class="muted">加载中…</p></div>',
+    '<button class="btn ghost" onclick="closeModal()">取消</button><button class="btn" onclick="saveFolders()">💾 保存</button>');
+}
+function _fdRow(k,label,hint){
+  return `<div class="sw"><span>${label}<span class="muted" style="font-size:12px"> ${hint}</span></span>
+    <span style="display:flex;gap:6px;align-items:center">
+      <input type="text" id="fd_${k}" value="${esc(FD[k]||'')}" style="min-width:260px">
+      <button class="btn ghost" style="padding:4px 8px" onclick="browsePickFolder('fd_${k}')">📂</button>
+    </span></div>`;
+}
+function renderFoldersDlg(){
+  $('fdBody').innerHTML=`
+  <p class="muted">这些目录是<b>系统级默认值</b>：留空则回落到下面显示的兜底位置。
+     生成的 PPT / 书面文档会落到「导出」，打开文件对话框默认落在「导入」。</p>
+  ${_fdRow('ppt','📊 PPT 目录','存放演示文稿')}
+  ${_fdRow('image','🖼️ 图片目录','存放配图与形象素材')}
+  ${_fdRow('doc','📝 文档目录','存放讲稿与书面材料')}
+  ${_fdRow('import','📥 导入目录','打开文件时默认落在这里')}
+  ${_fdRow('export','📤 导出目录','生成的 PPT / PDF / 书面文档落在这里')}
+  <div id="fdOut" class="out" style="display:none"></div>`;
+}
+async function saveFolders(){
+  const patch={};
+  ['ppt','image','doc','import','export'].forEach(k=>{
+    const el=$('fd_'+k); if(el) patch[k]=el.value.trim();
+  });
+  const r=await postJSON('/api/folders/save',patch);
+  FD=r.folders||FD;
+  const o=$('fdOut'); o.style.display='block'; o.textContent='✅ 已保存（目录若不存在会自动创建）';
+}
+/* 文件夹选择器：用服务端的 /api/browse 逐级点选，避免手敲绝对路径出错 */
+async function browsePickFolder(targetId){
+  const cur=($((typeof targetId==='string')?targetId:'')||{}).value||'';
+  const open=async(path)=>{
+    const r=await postJSON('/api/browse',{path});
+    const anc=(r.anchors||[]).map(a=>`<button class="btn ghost" style="padding:3px 8px;margin:2px" onclick="pf('${a.path.replace(/\\/g,'\\\\')}')">${esc(a.name)}</button>`).join('');
+    const dirs=(r.dirs||[]).map(d=>`<div class="sw" style="cursor:pointer" onclick="pf('${d.path.replace(/\\/g,'\\\\')}')">📁 ${esc(d.name)}</div>`).join('')||'<p class="muted">该目录下没有子文件夹</p>';
+    // ⚠ 必须写成 `async (pth) =>`：`async(pth=>{})` 会被解析成对名为 async 的函数调用，直接语法错误
+    window.pf=async (pth)=>{ await open(pth); };
+    window.pickFolderHere=()=>{ const el=$(targetId); if(el){ el.value=r.current; } closeModal(); };
+    openModal('选择文件夹',
+      `<p class="muted">当前：<b>${esc(r.current)}</b></p>
+       <div style="margin:6px 0">${anc}</div>
+       <div style="max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px">${dirs}</div>`,
+      `<button class="btn ghost" onclick="${r.parent?`window.pf('${r.parent.replace(/\\/g,'\\\\')}')`:'void 0'}">⬆ 上一级</button>
+       <button class="btn ghost" onclick="closeModal()">取消</button>
+       <button class="btn" onclick="pickFolderHere()">✅ 选这里</button>`);
+  };
+  await open(cur||'');
+}
+
+/* ============================================================
+   v2.6 运行时目录配置（绿色伴随目录）
+   ------------------------------------------------------------
+   LivePortrait（682MB）与 ts_deps（141MB）不塞进 exe，单独压缩成绿色包分发。
+   解压到任意盘后在这里登记目录即可；保存后即时生效，不必重启软件。
+   ============================================================ */
+let RT={items:[]};
+async function loadRuntime(){
+  try{ const r=await getJSON('/api/runtime'); RT=r; }catch(e){ RT={items:[]}; }
+}
+function dlgRuntime(){
+  loadRuntime().then(renderRuntimeDlg);
+  openModal('运行时目录配置 · 绿色伴随目录',
+    '<div id="rtBody"><p class="muted">加载中…</p></div>',
+    '<button class="btn ghost" onclick="closeModal()">取消</button>'+
+    '<button class="btn ghost" onclick="scanRuntime()">🔍 自动探测</button>'+
+    '<button class="btn" onclick="saveRuntime()">💾 保存并生效</button>');
+}
+function _rtRow(i){
+  const v=(i.path||'').replace(/"/g,'&quot;');
+  return `<div class="sw" style="align-items:flex-start">
+    <span style="flex:1">
+      <span>${i.ok?'✅':'⚠️'} <b>${esc(i.name)}</b></span>
+      <span class="muted" style="font-size:12px;display:block">需要：${esc(i.must)} · ${esc(i.why)}</span>
+      ${i.ok?'':`<span class="muted" style="font-size:12px;display:block;color:#b45309">${esc(i.error||'未配置')} — ${esc(i.how)}</span>`}
+    </span>
+    <span style="display:flex;gap:6px;align-items:center">
+      <input type="text" id="rt_${i.key}" value="${v}" style="min-width:300px">
+      <button class="btn ghost" style="padding:4px 8px" onclick="browsePickFolder('rt_${i.key}')">📂</button>
+    </span></div>`;
+}
+function renderRuntimeDlg(){
+  const items=RT.items||[];
+  $('rtBody').innerHTML=`
+  <p class="muted">这两个重依赖体积太大（LivePortrait 682MB / ts_deps 141MB），
+     采用<b>绿色伴随目录</b>方式单独压缩分发：解压到任意盘（建议 <b>D:\\myme-runtime\\</b>）后，
+     在下面登记目录即可，<b>不用重装软件、不用改代码、保存后即时生效</b>。</p>
+  ${items.map(_rtRow).join('')||'<p class="muted">未取到配置项</p>'}
+  <div id="rtOut" class="out" style="display:none"></div>`;
+}
+async function saveRuntime(patch){
+  const p=patch||{};
+  if(!patch){
+    (RT.items||[]).forEach(i=>{ const el=$('rt_'+i.key); if(el) p[i.key]=el.value.trim(); });
+  }
+  const r=await postJSON('/api/runtime/save',p);
+  RT=r; renderRuntimeDlg();
+  const o=$('rtOut'); if(o){ o.style.display='block';
+    o.textContent=r.all_ok?'✅ 已保存并生效：全部运行时目录就绪'
+      :('✅ 已保存并生效；仍有 '+(r.items||[]).filter(x=>!x.ok).length+' 项不就绪（见上方提示）'); }
+}
+async function scanRuntime(){
+  const o=$('rtOut'); if(o){ o.style.display='block'; o.textContent='🔍 正在探测常见安装位置…'; }
+  const r=await postJSON('/api/runtime/scan',{});
+  RT=r; renderRuntimeDlg();
+  if(o){ o.textContent=(r.found&&Object.keys(r.found).length)
+    ? ('✅ 自动探测到 '+Object.keys(r.found).length+' 项并已保存：'+Object.keys(r.found).join('、'))
+    : '未探测到可用目录，请手动点 📂 选择'; }
+}
+
+/* ============================================================
+   v2.6 公有 / 私有知识库
+   ------------------------------------------------------------
+   · 公有库：通用常识（IT / 水利 / 公文等），全机共享、跨项目可用
+   · 项目库：当前项目专属资料
+   · 分身库：某个分身的用语习惯与专属文档模板（保证分身有"个性"）
+   检索时三者一起查，私有结果加权；私有内容可"提升"进公有沉淀复用。
+   ============================================================ */
+let KBS=[];
+async function loadKbScopes(){
+  try{ const r=await getJSON('/api/kb/scopes'); KBS=r.scopes||[]; }catch(e){ KBS=[]; }
+}
+function dlgKbScopes(){
+  loadKbScopes().then(renderKbScopes);
+  openModal('公有 / 私有知识库','<div id="kbScopeBody"><p class="muted">加载中…</p></div>',
+    '<button class="btn ghost" onclick="closeModal()">关闭</button>');
+}
+function renderKbScopes(){
+  const rows=KBS.map(s=>`<div class="sw">
+      <span><b>${esc(s.title)}</b> <span class="muted" style="font-size:12px">${esc(s.desc)}</span>
+        <span class="muted" style="font-size:12px;display:block">${s.chunks} 段 / ${s.sources} 个来源</span></span>
+      <span>${s.name==='public'?'<span class="muted" style="font-size:12px">目标库</span>'
+        :'<button class="btn ghost" style="padding:4px 10px" onclick="promoteKb(\''+s.name+'\')">⬆ 提升到公有</button>'}</span>
+    </div>`).join('');
+  $('kbScopeBody').innerHTML=`
+  <p class="muted">三类库<b>同时参与检索</b>，私有的结果会加权（同问下分身个性优先于公有常识）。<br>
+     私有内容可<b>提升</b>到公有沉淀复用（只追加不删除，按内容去重）；公有没必要再下沉回私有。</p>
+  ${rows}
+  <div id="kbScopeOut" class="out" style="display:none"></div>`;
+}
+async function promoteKb(src){
+  if(!confirm('把「'+src+'」的内容提升进公有库？\n只会追加并按内容去重，不会删除源库内容。')) return;
+  const o=$('kbScopeOut'); o.style.display='block'; o.textContent='处理中…';
+  const r=await postJSON('/api/kb/promote',{src});
+  o.textContent=(r.ok?('✅ 已提升 '+r.added+' 段；公有库现有 '+r.public_chunks+' 段'):('❌ '+(r.error||'失败')));
+  await loadKbScopes(); renderKbScopes();
+}
+
+/* ============================================================
+   v2.6 运行环境自检：缺什么 / 影响什么 / 去哪弄
+   ============================================================ */
+function dlgDeps(){
+  openModal('运行环境自检','<div id="depBody"><p class="muted">检查中…</p></div>',
+    '<button class="btn ghost" onclick="closeModal()">关闭</button>');
+  getJSON('/api/deps').then(r=>{
+    const ds=(r&&r.deps)||{}; const items=ds.items||[];
+    const rows=items.map(i=>`<div class="sw">
+        <span>${i.ok?'✅':'⚠️'} ${esc(i.name)}
+          <span class="muted" style="font-size:12px;display:block">${esc(i.ok?(i.path||''):i.need)}</span>
+          ${i.ok?'':`<span class="muted" style="font-size:12px;display:block">👉 ${esc(i.how)}</span>`}
+        </span>
+        <span style="display:flex;gap:6px;align-items:center">
+          <span class="muted" style="font-size:12px">${i.ok?'正常':'需处理'}</span>
+          ${i.ok?'':(S.playback?'':`<button class="btn ghost" style="padding:3px 10px" onclick="dlgRuntime()">去设置</button>`)}
+        </span>
+      </div>`).join('');
+    $('depBody').innerHTML=`
+      <p class="muted">${ds.all_ok?'✅ 全部就绪，可以正常开始。':'⚠️ 有依赖未就绪。缺失项不会阻塞软件运行，但对应功能不可用（下面已写明影响与处理办法）。'}</p>
+      ${rows}
+      <p class="muted" style="margin-top:10px">路径类问题直接点「去设置」到「🗂 运行时目录配置」登记目录（保存后即时生效，不用重启）；
+         改完再开本窗口核对一次。</p>`;
+  }).catch(e=>{ $('depBody').textContent='检查失败：'+e; });
+}
+
+
+function dlgSettings(){
+  const s=S.settings||{};
+  openModal('设置',`
+  <div class="fgrid">
+    <div><label>音量</label><input type="range" id="s_vol" min="0" max="1" step="0.05" value="${s.volume??1}"></div>
+    <div><label>界面缩放</label><input type="range" id="s_scale" min="0.7" max="1.8" step="0.05" value="${s.uiScale??1}"></div>
+    <div><label>字号(px)</label><input type="range" id="s_fs" min="11" max="24" value="${s.fontSize??15}"></div>
+    <div><label>分身图像缩放</label><input type="range" id="s_as" min="0.4" max="2.5" step="0.05" value="${s.avatarScale??1}"></div>
+    <div><label>分身水平位置(%)</label><input type="range" id="s_ax" min="0" max="100" value="${s.avatarX??50}"></div>
+    <div><label>分身垂直位置(%)</label><input type="range" id="s_ay" min="0" max="100" value="${s.avatarY??50}"></div>
+    <div><label>字体颜色</label><input type="color" id="s_fc" value="${s.fontColor||'#1f2937'}"></div>
+    <div><label>强调色</label><input type="color" id="s_ac" value="${s.accent||'#1d4ed8'}"></div>
+    <div><label>主题</label><select id="s_th"><option value="light">浅色</option><option value="dark">深色</option></select></div>
+    <div><label>默认语言</label><select id="s_lg"><option>中文</option><option>英文</option></select></div>
+    <div><label>静音</label><select id="s_mu"><option value="0">否</option><option value="1">是</option></select></div>
+  </div>`,
+  `<button class="btn ghost" onclick="closeModal()">取消</button>
+   <button class="btn" onclick="saveSettings({volume:parseFloat($('s_vol').value),uiScale:parseFloat($('s_scale').value),
+     fontSize:parseInt($('s_fs').value,10),avatarScale:parseFloat($('s_as').value),avatarX:parseInt($('s_ax').value,10),
+     avatarY:parseInt($('s_ay').value,10),fontColor:$('s_fc').value,accent:$('s_ac').value,theme:$('s_th').value,
+     lang:$('s_lg').value,muted:$('s_mu').value==='1'});closeModal();buildMenus()">保存</button>`);
+  $('s_th').value=s.theme||'light'; $('s_lg').value=s.lang||'中文'; $('s_mu').value=s.muted?'1':'0';
+}
+function dlgAddPerson(){openModal('新增数字分身',
+  `<label>姓名 / 名称</label><input type="text" id="np_name" placeholder="如：当前分身 / 张主任">
+   <label>备注（可选）</label><input type="text" id="np_note" placeholder="如：主讲人 / 客服形象">`,
+  `<button class="btn ghost" onclick="closeModal()">取消</button>
+   <button class="btn" onclick="doAddPerson()">创建</button>`);}
+async function doAddPerson(){
+  const n=$('np_name').value.trim(); if(!n){alert('请输入名称');return;}
+  await postJSON('/api/persons',{act:'add_person',name:n,note:$('np_note').value});
+  closeModal(); await loadPersons();
+}
+function dlgRenamePerson(){const p=(S.persons.persons||[]).find(x=>x.id===S.curPerson);
+  if(!p){alert('没有分身');return;}
+  openModal('重命名分身',`<label>新名称</label><input type="text" id="rn" value="${esc(p.name)}">`,
+   `<button class="btn ghost" onclick="closeModal()">取消</button>
+    <button class="btn" onclick="postJSON('/api/persons',{act:'rename_person',pid:S.curPerson,name:$('rn').value}).then(()=>{closeModal();loadPersons()})">保存</button>`);}
+function dlgDelPerson(){const p=(S.persons.persons||[]).find(x=>x.id===S.curPerson);
+  if(!p){alert('没有分身');return;}
+  openModal('删除分身',`<p>确定删除「<b>${esc(p.name)}</b>」及其全部形象？此操作不可撤销。</p>`,
+   `<button class="btn ghost" onclick="closeModal()">取消</button>
+    <button class="btn" onclick="postJSON('/api/persons',{act:'del_person',pid:S.curPerson}).then(()=>{S.curPerson=null;closeModal();loadPersons()})">删除</button>`);}
+function dlgAddAvatar(){const p=(S.persons.persons||[]).find(x=>x.id===S.curPerson);
+  if(!p){alert('请先创建分身');return;}
+  openModal('为「'+esc(p.name)+'」添加形象',
+   `<label>形象名称</label><input type="text" id="na_name" placeholder="如：正装 / 讲课 / 户外">
+    <label>适用场景（可选）</label><input type="text" id="na_scene" placeholder="如：正式汇报">
+    <label>肖像图片（正面平视、光线均匀、人脸占比大）</label><input type="file" id="na_file" accept="image/*">`,
+   `<button class="btn ghost" onclick="closeModal()">取消</button>
+    <button class="btn" onclick="doAddAvatar()">添加</button>`);}
+async function doAddAvatar(){
+  const f=$('na_file').files[0]; if(!f){alert('请选择图片');return;}
+  const ext=(f.name.match(/\.[^.]+$/)||['.jpg'])[0];
+  await postJSON('/api/persons',{act:'add_avatar',pid:S.curPerson,name:$('na_name').value||'新形象',
+    scene:$('na_scene').value,data:await readB64(f),ext});
+  closeModal(); await loadPersons();
+}
+function dlgManageAvatars(){const p=(S.persons.persons||[]).find(x=>x.id===S.curPerson);
+  if(!p){alert('没有分身');return;}
+  if(!p.avatars.length){alert('该分身还没有形象，请先添加');return;}
+  const rows=p.avatars.map(a=>`<div class="sw">
+     <span><b>${esc(a.name)}</b><br><span class="muted">${esc(a.scene||'')}</span></span>
+     <span style="display:flex;gap:6px">
+       <button class="btn ghost" onclick='dlgEditAvatar("${a.id}")'>改名/换图</button>
+       <button class="btn ghost" onclick='doDelAvatar("${a.id}")'>删除</button></span></div>`).join('');
+  openModal('管理形象 · '+esc(p.name),rows);}
+async function dlgEditAvatar(aid){
+  const p=(S.persons.persons||[]).find(x=>x.id===S.curPerson);
+  const a=p.avatars.find(x=>x.id===aid);
+  openModal('编辑形象',`<label>名称</label><input type="text" id="ea_name" value="${esc(a.name)}">
+    <label>场景</label><input type="text" id="ea_scene" value="${esc(a.scene||'')}">
+    <label>换一张图（可选）</label><input type="file" id="ea_file" accept="image/*">`,
+   `<button class="btn ghost" onclick="closeModal()">取消</button>
+    <button class="btn" onclick="doEditAvatar('${aid}')">保存</button>`);}
+async function doEditAvatar(aid){
+  const f=$('ea_file').files[0];
+  const o={act:'update_avatar',pid:S.curPerson,aid,name:$('ea_name').value,scene:$('ea_scene').value};
+  if(f){o.data=await readB64(f);o.ext=(f.name.match(/\.[^.]+$/)||['.jpg'])[0];}
+  await postJSON('/api/persons',o); closeModal(); await loadPersons();
+}
+async function doDelAvatar(aid){
+  if(!confirm('删除该形象？'))return;
+  await postJSON('/api/persons',{act:'del_avatar',pid:S.curPerson,aid});
+  closeModal(); await loadPersons();
+}
+function dlgPickSources(){
+  if(!S.allSources.length){alert('知识库为空，请先导入文档');return;}
+  const rows=S.allSources.map(s=>`<label class="sw" style="cursor:pointer">
+     <span>${esc(s.name||s.label||s)}</span>
+     <input type="checkbox" ${S.srcSel.size===0||S.srcSel.has(s.name||s)?'checked':''}
+       onchange="toggleSrc('${esc(String(s.name||s).replace(/'/g,"\\'"))}',this.checked)"></label>`).join('');
+  openModal('选择参与检索的来源',rows+`<p class="muted" style="margin-top:10px">全部不勾选 = 使用整个知识库。</p>`,
+   `<button class="btn ghost" onclick="closeModal()">取消</button>
+    <button class="btn" onclick="closeModal()">确定</button>`);}
+function toggleSrc(n,on){on?S.srcSel.add(n):S.srcSel.delete(n);}
+
+/* ================= 知识库 ================= */
+async function loadSources(){
+  try{ const r=await postJSON('/api/sources',{});
+    const arr=r.sources||r||[];
+    S.allSources=Array.isArray(arr)?arr:[];
+    const box=$('srcs');
+    box.innerHTML=S.allSources.length? S.allSources.map(s=>{
+      const n=String(s.name||s.label||s);
+      return `<span class="chip ${S.srcSel.size===0||S.srcSel.has(n)?'on':''}" onclick="toggleSrc('${n.replace(/'/g,"\\'")}',!this.classList.contains('on'));loadSources()">${esc(n)}</span>`;
+    }).join('') : '<span class="muted">（暂无来源）</span>';
+    $('srcCount').textContent='共 '+S.allSources.length+' 个来源';
+  }catch(e){ $('srcCount').textContent='读取失败'; }
+}
+$('selAll').onclick=()=>{S.srcSel=new Set(S.allSources.map(s=>String(s.name||s.label||s)));loadSources();};
+$('selNone').onclick=()=>{S.srcSel=new Set();loadSources();};
+
+/* ================= 知识库管理：备份 / 导入 / 重建 / 统计 ================= */
+$('kbStatsBtn').onclick=loadKbStats;
+$('kbExport').onclick=exportKb;
+$('kbImportBtn').onclick=()=>$('fKb').click();
+$('kbRebuildBtn').onclick=openKbRebuild;
+if($('kbScopeBtn')) $('kbScopeBtn').onclick=dlgKbScopes;
+$('fKb').onchange=e=>{ const f=e.target.files[0]; if(f) importKb(f); e.target.value=''; };
+
+async function loadKbStats(){
+  try{
+    const r=await postJSON('/api/kb_rebuild',{act:'stats'});
+    const s=r.stats||{};
+    if(!s.exists){ $('kbMgrOut').textContent='知识库为空（尚未导入任何文档）。'; return; }
+    $('kbMgrOut').innerHTML=
+      '📊 知识库：<b>'+s.chunks+'</b> 段 / <b>'+s.sources+'</b> 个来源 / 约 <b>'+s.tokens+'</b> token<br>'+
+      '向量覆盖：'+s.with_vec+' / '+s.chunks+'　精确重复估计：'+s.exact_dup+' 段<br>'+
+      '文件大小：'+s.size_mb+' MB　模型：'+(s.model||'-');
+  }catch(e){ $('kbMgrOut').textContent='读取统计失败：'+e; }
+}
+async function exportKb(){
+  try{
+    const r=await postJSON('/api/kb_backup',{act:'export'});
+    if(r.error){alert('❌ '+r.error);return;}
+    const a=document.createElement('a'); a.href=r.zip; a.download=r.name; a.click();
+    $('kbMgrOut').textContent='✅ 已导出：'+r.name+'（'+r.size_mb+' MB，'+r.chunks+' 段，'+r.files+' 个文件）';
+  }catch(e){ alert('❌ 导出失败：'+e); }
+}
+function importKb(file){
+  $('kbMgrOut').textContent='正在导入 '+ (file.size/1048576).toFixed(1) +' MB…';
+  const x=new XMLHttpRequest();
+  x.open('POST','/api/kb_upload');
+  x.onload=()=>{ try{
+    const r=JSON.parse(x.responseText);
+    if(r.ok){ const s=r.stats||{};
+      $('kbMgrOut').textContent='✅ 已导入备份：'+r.restored+' 个文件；当前知识库 '+ (s.chunks||'-') +' 段 / '+ (s.sources||'-') +' 个来源。';
+      loadSources();
+    } else $('kbMgrOut').textContent='❌ '+ (r.error||'导入失败');
+  }catch(err){ $('kbMgrOut').textContent='❌ 服务端异常'; } };
+  x.onerror=()=>{ $('kbMgrOut').textContent='❌ 网络错误'; };
+  x.send(file);
+}
+function openKbRebuild(){
+  loadKbStats();
+  openModal('🧹 知识库重建（去重 / 优化 / 压缩）',`
+    <p class="muted">重建会扫一遍知识库：</p>
+    <ul class="muted" style="margin:0 0 8px 18px">
+      <li><b>精确去重</b>：文本完全相同的块只留一条，来源元数据合并</li>
+      <li><b>近重复去重</b>：余弦相似度 &gt; 0.97 视为重复，保留更长更完整的一块</li>
+      <li><b>剔除低质</b>：&lt; 8 字符的零散/空块（纯标点、页码）丢弃</li>
+      <li><b>保留原文与向量</b>：不把知识库存成压缩结果，后续仍可溯源 / 二次检索</li>
+    </ul>
+    <p class="muted">下方先展示当前规模（来自「统计」），确认无误后点「执行重建」。</p>
+    <div class="out" id="kbRebuildStat">读取中…</div>`,
+    `<button class="btn ghost" onclick="closeModal()">取消</button>
+     <button class="btn" onclick="runKbRebuild()">🧹 执行重建</button>`);
+  setTimeout(()=>{ const t=$('kbRebuildStat'); if(t) t.textContent=$('kbMgrOut').textContent; },350);
+}
+async function runKbRebuild(){
+  if(!confirm('确认执行知识库重建？该操作会覆盖当前知识库文件（建议先「📤 导出知识库备份」再重建）。')) return;
+  try{
+    const r=await postJSON('/api/kb_rebuild',{act:'run'});
+    if(r.error){alert('❌ '+r.error);return;}
+    alert('✅ 重建完成：'+r.before+' → '+r.after+' 段\n'+
+      '精确去重 '+r.removed_exact+' · 近重复 '+r.removed_near+' · 剔除低质 '+r.removed_short+'\n'+
+      '来源 '+r.src_before+' → '+r.src_after);
+    closeModal(); loadKbStats(); loadSources();
+  }catch(e){ alert('❌ 重建失败：'+e); }
+}
+
+/* ================= ① PPT 讲解（异步） ================= */
+let pollTimer=null;
+function renderNarr(list){
+  const box=$('narr');
+  if(!list||!list.length){box.innerHTML='<div class="muted">尚无音频</div>';return;}
+  box.innerHTML=list.map(n=>`
+    <div class="item"><div class="t">第${n.idx}页 ${esc(n.title||'')}</div>
+      <div class="d">${esc((n.narration||'').slice(0,110))}…</div>
+      ${n.audio?`<audio controls src="${n.audio}" onplay="showSlideByIdx(${n.idx},'stage','pager')"></audio>`
+               :'<div class="muted">（该页语音失败）</div>'}</div>`).join('');
+}
+$('b1').onclick=async()=>{
+  const f=$('f1').files[0]; if(!f){$('o1').textContent='请先选择 PPT 文件（必选）';return;}
+  if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
+  $('b1').disabled=true; $('bar1').style.display='block'; $('bar1').firstElementChild.style.width='0%';
+  $('pbt1').textContent='上传中…'; $('o1').textContent='';
+  try{
+    // 讲解文本可选：有就读成文本随请求提交，没有就不传（后端按幻灯片自动生成）
+    let narr=''; const fn=$('f1n').files[0];
+    if(fn){ try{ narr=await fn.text(); }catch(e){ narr=''; } }
+    if(narr) $('pbt1').textContent='已读取讲解文本，上传中…';
+    const r=await postJSON('/api/process',{data:await readB64(f),ext:'.pptx',
+      lang:$('lang1').value,words:parseInt($('len1').value,10),narr:narr});
+    if(r.error){$('o1').className='out bad';$('o1').textContent='❌ '+r.error;$('b1').disabled=false;return;}
+    let lastN=-1;
+    pollTimer=setInterval(async()=>{
+      let p; try{ p=await postJSON('/api/progress',{job:r.job}); }catch(e){return;}
+      if(p.error){clearInterval(pollTimer);pollTimer=null;$('b1').disabled=false;return;}
+      $('bar1').firstElementChild.style.width=(p.pct||0)+'%';
+      $('pbt1').textContent=(p.stage||'')+'  ·  '+((p.total)?(p.page+' / '+p.total+' 页'):'')
+        +'  ·  已用时 '+Math.floor((p.elapsed||0)/60)+'分'+((p.elapsed||0)%60)+'秒';
+      if((p.narrations||[]).length!==lastN){lastN=(p.narrations||[]).length;renderNarr(p.narrations);}
+      if(p.done){
+        clearInterval(pollTimer);pollTimer=null;$('b1').disabled=false;
+        if(p.error){$('o1').className='out bad';$('o1').textContent='❌ '+p.error;}
+        else{$('bar1').firstElementChild.style.width='100%';$('pbt1').textContent='✅ 完成';
+             $('o1').className='out ok';$('o1').textContent='✅ '+p.summary;}
+        renderNarr(p.narrations);
+        if(p.full_audio)$('full1').src=p.full_audio;
+        await loadSlides();
+      }
+    },2000);
+  }catch(e){$('o1').className='out bad';$('o1').textContent='❌ '+e;$('b1').disabled=false;}
+};
+$('b1s').onclick=()=>{ if(pollTimer){clearInterval(pollTimer);pollTimer=null;} $('b1').disabled=false;
+  $('pbt1').textContent='已停止轮询（服务端任务仍在后台继续）'; };
+
+/* ---------- 备用方案：从素材目录 D:/Users/ppt 直接取用 ---------- */
+async function loadBackupList(){
+  const hint=$('bkHint'); if(!hint) return;
+  hint.textContent='读取备用目录…';
+  try{
+    const r=await postJSON('/api/backup_list',{});
+    if(!r.ok){ hint.textContent='⚠️ '+r.error; return; }
+    if($('bkDir')) $('bkDir').textContent=r.dir;
+    const fill=(sel,items,ph)=>{
+      sel.innerHTML='';
+      const o0=document.createElement('option'); o0.value=''; o0.textContent=ph; sel.appendChild(o0);
+      items.forEach(it=>{ const o=document.createElement('option'); o.value=it.name;
+        o.textContent=it.name+'（'+it.size_mb+'MB · '+it.mtime+'）'; sel.appendChild(o); });
+    };
+    fill($('bkDeck'),r.decks||[],'（目录内暂无演示文稿）');
+    fill($('bkNarr'),r.docs||[],'（不指定 · 自动生成）');
+    hint.textContent='目录可用：'+(r.decks||[]).length+' 个演示文稿、'+(r.docs||[]).length+' 个文档';
+  }catch(e){ hint.textContent='⚠️ 读取失败：'+e; }
+}
+function pollJob(r,prefix){
+  $('bar1').style.display='block';
+  let lastN=-1;
+  if(pollTimer){clearInterval(pollTimer);}
+  pollTimer=setInterval(async()=>{
+    let p; try{ p=await postJSON('/api/progress',{job:r.job}); }catch(e){return;}
+    if(p.error){clearInterval(pollTimer);pollTimer=null;$('b1').disabled=false;return;}
+    $('bar1').firstElementChild.style.width=(p.pct||0)+'%';
+    $('pbt1').textContent=(p.stage||'')+'  ·  '+((p.total)?(p.page+' / '+p.total+' 页'):'')
+      +'  ·  已用时 '+Math.floor((p.elapsed||0)/60)+'分'+((p.elapsed||0)%60)+'秒';
+    if((p.narrations||[]).length!==lastN){lastN=(p.narrations||[]).length;renderNarr(p.narrations);}
+    if(p.done){
+      clearInterval(pollTimer);pollTimer=null;$('b1').disabled=false;
+      if(p.error){$('o1').className='out bad';$('o1').textContent='❌ '+p.error;}
+      else{$('bar1').firstElementChild.style.width='100%';$('pbt1').textContent='✅ 完成';
+           $('o1').className='out ok';$('o1').textContent='✅ '+prefix+'：'+p.summary;}
+      renderNarr(p.narrations);
+      if(p.full_audio)$('full1').src=p.full_audio;
+      await loadSlides();
+    }
+  },2000);
+}
+if($('bkRefresh')) $('bkRefresh').onclick=loadBackupList;
+if($('bkGo')) $('bkGo').onclick=async()=>{
+  const deck=$('bkDeck').value, narr=$('bkNarr').value;
+  if(!deck){ $('bkHint').textContent='⚠️ 演示文稿（PPT）为必选项，请先选一个'; return; }
+  $('bkHint').textContent='已提交：'+deck+(narr?(' + '+narr):'（无讲稿 · 自动生成）');
+  try{
+    const r=await postJSON('/api/backup_import',{act:'deck',deck:deck,narr:narr,
+      lang:$('lang1').value,words:parseInt($('len1').value,10)});
+    if(r.error){ $('bkHint').textContent='❌ '+r.error; return; }
+    $('o1').className='out';$('o1').textContent='⏳ 备用方案生成中：'+r.source;
+    pollJob(r,'备用方案');
+  }catch(e){ $('bkHint').textContent='❌ '+e; }
+};
+if($('bkKb')) $('bkKb').onclick=async()=>{
+  const doc=$('bkNarr').value;
+  if(!doc){ $('bkHint').textContent='⚠️ 请先在「讲解文本/文档」里选一个文档'; return; }
+  $('bkHint').textContent='正在并入知识库：'+doc;
+  try{
+    const r=await postJSON('/api/backup_import',{act:'kb',narr:doc,category:'备用目录'});
+    $('bkHint').textContent = r.error ? ('❌ '+r.error)
+      : ('✅ 已并入知识库：'+doc+'（新增 '+(r.added!=null?r.added:'-')+' 段，共 '+(r.total!=null?r.total:'-')+' 段）');
+  }catch(e){ $('bkHint').textContent='❌ '+e; }
+};
+loadBackupList();
+// 全篇播放时按时间轴同步翻页（各页音频时长累加）
+$('full1').addEventListener('timeupdate',()=>{
+  if(!S.slides.length)return;
+  const auds=[...$('narr').querySelectorAll('audio')];
+  if(!auds.length)return;
+  let acc=0;
+  for(let i=0;i<auds.length;i++){acc+=auds[i].duration||0;
+    if($('full1').currentTime<=acc){ if(S.curSlide!==i) renderSlide(i,'stage','pager'); break; }}
+});
+
+/* ================= ② 答疑 ================= */
+$('b2').onclick=async()=>{
+  let q=$('q2').value.trim(), transcript='';
+  const af=$('a2').files[0];
+  if(!q && af){transcript=(await postJSON('/api/asr',{data:await readB64(af),
+      lang:($('lang2').value==='中文'?'zh':'en')})).text||'';q=transcript;}
+  if(!q){$('o2').textContent='请输入问题或上传语音';return;}
+  $('b2').disabled=true;$('o2').textContent='检索 + 生成中…';
+  try{
+    const r=await postJSON('/api/ask',{question:q,lang:$('lang2').value,
+      sources:[...S.srcSel],compress:($('askCompress')?$('askCompress').checked:true)});
+    if(r.error){$('o2').className='out bad';$('o2').textContent='❌ '+r.error;$('b2').disabled=false;return;}
+    $('o2').className='out';$('o2').textContent=r.answer;
+    $('ctx2').textContent=(transcript?('识别文本：'+transcript+'\n\n'):'')
+      +'识别提问语种：'+(r.qlang||'-')+'\n'+(r.ctx||'')
+      +(r.comp?('\n\n🗜️ '+r.comp):'');
+    if($('voice2').value==='1' && r.audio) $('ans2').src=r.audio;
+    // 命中相关页则自动展示
+    if(r.slide){ S.slides.length||await loadSlides(); showSlideByIdx(r.slide.idx,'stage2','pager2'); }
+    // 沉淀到答疑记录（供「⑥ 答疑总结」汇总 / 入库）；可在面板取消勾选
+    if($('logQA') && $('logQA').checked){
+      try{ await postJSON('/api/qa_log',{act:'add',question:q,answer:r.answer,
+        qlang:r.qlang,slide_idx:(r.slide?r.slide.idx:null),mode:'答疑',
+        sources:[...S.srcSel]}); }catch(e){}
+    }
+    if($('vid2').checked && r.answer){
+      const sel=($('avatarSel')&&$('avatarSel').value)||'';
+      const [pid,aid]=sel.split('/');
+      $('ansvid').style.display='none';
+      const r2=await postJSON('/api/avatar',{text:r.answer,lang:$('lang2').value,
+        avatar:aid||null,person:pid||null});
+      if(r2.video){$('ansvid').style.display='block';$('ansvid').src=r2.video;
+        $('ansvidbox').innerHTML='';}
+    }
+  }catch(e){$('o2').className='out bad';$('o2').textContent='❌ '+e;}
+  $('b2').disabled=false;
+};
+$('q2').addEventListener('keydown',e=>{if(e.ctrlKey&&e.key==='Enter')$('b2').click();});
+
+/* ================= ③ 数字分身视频 ================= */
+$('b3').onclick=async()=>{
+  const img=$('vimg').files[0];
+  const sel=($('avatarSel').value||'').split('/');
+  $('b3').disabled=true;$('o3').textContent='生成中（首次约 10~30 秒，需等数字人推理，请耐心）…';
+  try{
+    const body=JSON.stringify({text:$('t3').value.trim()||'大家好，我是当前分身。',
+      lang:$('lang3').value,person:sel[0]||null,avatar:sel[1]||null,
+      image:img?await readB64(img):null, skip_audio:$('skipAudio3').checked});
+    const ctrl=new AbortController();
+    const tid=setTimeout(()=>ctrl.abort(), 9*60*1000);   // 9 分钟上限，避免长推理被提前掐断
+    const resp=await fetch('/api/avatar',{method:'POST',headers:{'Content-Type':'application/json'},
+      body, signal:ctrl.signal});
+    clearTimeout(tid);
+    const r=await resp.json();
+    if(r.error){$('o3').className='out bad';$('o3').textContent='❌ '+r.error;}
+    else{$('o3').className='out ok';$('o3').textContent='✅ '+(r.note||'已生成')+(r.audio?'(含配音)':'(无声)');
+      $('box3').innerHTML='';$('vid3').style.display='block';$('vid3').src=r.video;}
+  }catch(e){
+    $('o3').className='out bad';
+    const msg=(e&&e.message)||String(e);
+    if(/Failed to fetch|NetworkError|abort|timeout/i.test(msg)){
+      // ⚠ "TypeError: Failed to fetch" 几乎从来不是"没生成音频"导致，而是后台数字人推理
+      //   进程崩溃 / 超时 / 被杀，连接被重置。把真实含义讲清楚，并给出排查路径。
+      $('o3').textContent='❌ 与后台连接中断（'+msg+'）：这通常不是"没生成音频"，而是后台数字人推理'
+        +'进程崩溃或超时。建议：① 确认已装 LivePortrait 并成功生成过一次；② 到「设置→🧩 运行环境自检」'
+        +'看数字人是否就绪；③ 查看 avatar_service.log；④ 勾选「跳过音频」可绕过 TTS 再试一次。';
+    } else {
+      $('o3').textContent='❌ '+msg;
+    }
+  }
+  $('b3').disabled=false;
+};
+
+/* ================= ④ 知识库导入 ================= */
+$('b4').onclick=async()=>{
+  const f=$('f4').files[0]; if(!f){$('o4').textContent='请先选择文件';return;}
+  $('b4').disabled=true;$('o4').textContent='解析并向量化中（PDF/大文档可能较慢）…';
+  try{
+    const r=await postJSON('/api/ingest',{data:await readB64(f),
+      ext:(f.name.match(/\.[^.]+$/)||['.txt'])[0],category:$('cat4').value});
+    $('o4').className=r.error?'out bad':'out ok';
+    $('o4').textContent=r.error?('❌ '+r.error)
+      :('✅ 已导入：新增 '+(r.added||0)+' 段，知识库共 '+(r.total||0)+' 段'
+        + (r.chars?('，抽取 '+r.chars+' 字'):''));
+    loadSources();
+  }catch(e){$('o4').className='out bad';$('o4').textContent='❌ '+e;}
+  $('b4').disabled=false;
+};
+$('b4r').onclick=loadSources;
+
+/* ================= ⑤ 正式演示（播放 + 分身 + PPT 同步 + 打断续播） ================= */
+let demoIdx=0, demoPlaying=false, demoPaused=false;
+// 整场连续数字分身视频状态（口型+表情+肢体微动，避免"静止图不变化"）
+S.demoFull={ready:false,video:null,dur:null,total:0,version:null};
+S.inFullMode=false;
+function demoEl(){ return $('demoAudio'); }
+function demoAuto(){ return demoPlaying && !demoPaused; }   // 连续播放中
+function syncDemoBtns(){
+  const b1=$('demoPause'), b2=$('fsPlayBtn');
+  if(b1) b1.textContent = demoPaused ? '▶ 继续演示' : '⏸ 领导提问（暂停）';
+  if(b2) b2.textContent = demoPaused ? '▶ 继续' : '⏸ 暂停';
+  syncDemoBtnState();
+}
+// 相斥按钮状态统一管控：播放/暂停/结束/生成 互斥灰显（避免误触与状态冲突）
+let _genInProgress=false;
+function setGenInProgress(v){ _genInProgress=v; syncDemoBtnState(); }
+function syncDemoBtnState(){
+  const playing=demoPlaying, gen=_genInProgress;
+  const inDemo = playing;                 // 演示进行中（含暂停）
+  const start=$('demoStart');    if(start) start.disabled = inDemo || gen;
+  const pause=$('demoPause');    if(pause) pause.disabled = (!playing) || gen;
+  const pv=$('demoPrev');        if(pv) pv.disabled = (!playing) || gen;
+  const nx=$('demoNext');        if(nx) nx.disabled = (!playing) || gen;
+  const stop=$('demoStop');      if(stop) stop.disabled = (!playing) || gen;
+  const gd=$('genDemoVid');      if(gd) gd.disabled = inDemo || gen;
+  const gf=$('genFullVid');      if(gf) gf.disabled = inDemo || gen;
+  const fsp=$('fsPlayBtn');      if(fsp) fsp.disabled = (!playing) || gen;
+  const fprev=document.querySelector('#fsControls button[onclick*="prevSlide"]');
+  const fnext=document.querySelector('#fsControls button[onclick*="nextSlide"]');
+  const fstop=document.querySelector('#fsControls button[onclick*="stopDemo"]');
+  if(fprev) fprev.disabled = (!playing) || gen;
+  if(fnext) fnext.disabled = (!playing) || gen;
+  if(fstop) fstop.disabled = (!playing) || gen;
+}
+// 连续播放守卫：ended 事件偶发丢失（音频损坏/浏览器策略）时兜底翻页，并跳过坏页
+function startAdvanceGuard(){
+  const el=demoEl();
+  if(el._wd){ clearInterval(el._wd); el._wd=null; }
+  el._wd=setInterval(()=>{
+    if(!demoAuto()){ return; }
+    const v=document.getElementById('demoSlideVid');
+    if(v && v.src){ return; }          // 视频模式由 video.onended 驱动
+    if(el.ended){ if(el._wd){clearInterval(el._wd); el._wd=null;} nextSlide(); }
+  },500);
+}
+// 预取下一页音频，减少页与页之间的空档，保证连续播放不卡顿
+function prefetchNextAudio(){
+  try{
+    const nx=S.slides[demoIdx+1]; if(!nx||!nx.audio) return;
+    const a=new Audio(); a.preload='auto'; a.src=nx.audio; demoEl()._pre=a;
+  }catch(e){}
+}
+function setDemoStatus(t){ $('demoStatus').textContent=t; }
+function showDemoQA(on){ const w=$('demoQAWrap'); w.style.display = on?'block':'none';
+  if(on){ $('demoQAOut').className='out'; $('demoQAOut').textContent='等待提问…'; $('demoAns').removeAttribute('src'); } }
+function refreshDemoAvatar(){ const url=curAvatarUrl(); const box=$('demoAvatar');
+  if(url) box.innerHTML='<div class="avatarwrap"><img src="'+url+'" alt="分身形象"></div>'; }
+function playSlide(i){
+  if(i<0||i>=S.slides.length) return;
+  // 整场连续分身视频模式：由 playFull 接管（口型+表情+肢体微动，更自然）
+  if(useFullVid()){ playFull(i); return; }
+  if(S.inFullMode){ S.inFullMode=false; placeDemoFullVid(); }
+  const oldWrap=document.getElementById('demoSlideVidWrap'); if(oldWrap) oldWrap.remove();
+  demoIdx=i; renderSlide(i,'stage5','pager5');
+  const sl=S.slides[i], el=demoEl();
+  setDemoStatus('讲解中 · 第 '+(i+1)+' / '+S.slides.length+' 页'+(sl.title?(' · '+sl.title):''));
+  clearTimeout(el._t); if(el._wd){ clearInterval(el._wd); el._wd=null; }
+  el.onended=null; el.onerror=null; el.removeAttribute('src'); try{el.pause();}catch(e){}
+  syncDemoBtns();
+  // 分身视频讲解：若该页已生成口型同步视频则播放视频（含当前分身声音），否则回退静态肖像+音频
+  const useVid = $('demoAvatarVid') && $('demoAvatarVid').checked && S.demoAvatarVideos && S.demoAvatarVideos[String(sl.idx)];
+  if(useVid){
+    playDemoAvatarVideo(S.demoAvatarVideos[String(sl.idx)], ()=>{ if(demoAuto()) nextSlide(); }, !demoPaused);
+    setDemoStatus((demoPaused?'⏸ 已暂停 · 第 ':'分身视频讲解中 · 第 ')+(i+1)+' / '+S.slides.length+' 页'+(sl.title?(' · '+sl.title):''));
+    return;
+  }
+  refreshDemoAvatar();
+  el.onended=()=>{ if(demoAuto()) nextSlide(); };
+  // 极简字幕：全屏时按播放进度一句一句显示（非全屏不接管，保留整页字幕）
+  el.ontimeupdate=()=>{ if(document.fullscreenElement) setFsSubtitle(i); };
+  // 该页音频缺失/损坏时自动跳过，不打断整场连续播放
+  el.onerror=()=>{ console.warn('[demo] 第'+(i+1)+'页音频不可用，自动跳过'); if(demoAuto()) nextSlide(); };
+  if(sl.audio){
+    el.src=sl.audio; try{el.currentTime=0;}catch(e){}
+    if(!demoPaused){ el.play().catch(()=>{}); startAdvanceGuard(); prefetchNextAudio(); }
+  }
+  else if(!demoPaused){
+    // 该页无语音：停留展示，按讲稿篇幅停留数秒后翻页
+    const secs=Math.max(4,Math.min(20,Math.round((sl.narration||'').length/8)));
+    el._t=setTimeout(()=>{ if(demoAuto()) nextSlide(); }, secs*1000);
+  }
+}
+let demoVidEl=null;
+function playDemoAvatarVideo(url, onend, autoplay){
+  const old=document.getElementById('demoSlideVidWrap'); if(old) old.remove();
+  const box=$('demoAvatar');
+  box.innerHTML='<div class="avatarwrap" id="demoSlideVidWrap"><video id="demoSlideVid" playsinline controls style="width:100%"></video></div>';
+  const v=$('demoSlideVid'); demoVidEl=v;
+  v.onerror=()=>{ console.warn('[demo] 分身视频不可用，回退静态肖像+音频'); if(onend) onend(); };
+  v.onended=()=>{ if(onend) onend(); };
+  v.src=url;
+  if(autoplay!==false){ v.play().catch(()=>{}); }
+  placeDemoVid();
+}
+function placeDemoVid(){
+  const wrap=document.getElementById('demoSlideVidWrap'); if(!wrap) return;
+  if(document.fullscreenElement){
+    if(S.fsMode==='2'){ wrap.style.display='none'; return; }   // 仅PPT布局：不显示分身
+    wrap.style.display='block';
+    if(wrap.parentElement!==$('demoStageWrap')){ wrap.classList.add('pip'); $('demoStageWrap').appendChild(wrap); }
+  }else{
+    wrap.style.display=''; wrap.classList.remove('pip');
+    if(wrap.parentElement!==$('demoAvatar')){ $('demoAvatar').appendChild(wrap); }
+  }
+}
+async function refreshDemoAvatarVideos(){
+  try{
+    const r=await getJSON('/api/demo_avatar_status?version='+encodeURIComponent(S.curVersion||'default'));
+    S.demoAvatarVideos=r.videos||{};
+    const n=Object.keys(S.demoAvatarVideos).length;
+    if($('demoVidHint')) $('demoVidHint').textContent = n? ('已缓存 '+n+' 页分身视频'):'尚未生成分身视频';
+  }catch(e){ S.demoAvatarVideos={}; }
+}
+async function genDemoAvatarVideos(){
+  if(!S.slides.length){ alert('请先在「② 素材与文稿」生成讲解。'); return; }
+  setGenInProgress(true);
+  const sel=($('avatarSel')&&$('avatarSel').value)||''; const [pid,aid]=sel.split('/');
+  const total=S.slides.length; let done=0, ok=0;
+  S.demoAvatarVideos=S.demoAvatarVideos||{};
+  for(let i=0;i<total;i++){
+    const sl=S.slides[i];
+    setDemoStatus('生成分身讲解视频 · 第 '+(i+1)+' / '+total+' 页'+(sl.title?(' · '+sl.title):''));
+    $('demoBar').style.width=Math.round(done/total*100)+'%';
+    if(S.demoAvatarVideos[String(sl.idx)]){ done++; ok++; continue; }
+    try{
+      const r=await postJSON('/api/demo_avatar_video',{idx:sl.idx,version:S.curVersion,person:pid||null,avatar:aid||null});
+      if(r.ok&&r.video){ S.demoAvatarVideos[String(sl.idx)]=r.video; ok++; }
+    }catch(e){}
+    done++;
+  }
+  $('demoBar').style.width='100%';
+  setDemoStatus('✅ 分身讲解视频生成完成：'+ok+'/'+total+' 页可用。勾选「分身视频讲解」即可在演示中播放。');
+  if($('demoVidHint')) $('demoVidHint').textContent='已缓存 '+ok+' 页分身视频';
+  setGenInProgress(false);
+}
+if($('genDemoVid')) $('genDemoVid').onclick=genDemoAvatarVideos;
+if($('demoAvatarVid')) $('demoAvatarVid').onchange=()=>{ if($('demoAvatarVid').checked && demoPlaying) playSlide(demoIdx); };
+
+/* ================= ⑤-增强：整场连续数字分身视频（口型+表情+肢体微动） ================= */
+async function refreshDemoFullVideo(){
+  try{
+    const r=await getJSON('/api/demo_avatar_full?version='+encodeURIComponent(S.curVersion||'default'));
+    S.demoFull.version=S.curVersion||'default';
+    if(r.ready){ S.demoFull.ready=true; S.demoFull.video=r.video; S.demoFull.dur=r.dur; S.demoFull.total=r.total; }
+    else { S.demoFull.ready=false; }
+    if($('fullVidHint')) $('fullVidHint').textContent = S.demoFull.ready? '已就绪，可勾选播放':'尚未生成';
+  }catch(e){ S.demoFull.ready=false; }
+}
+let _fullGenPoll=null;
+function genFullAvatar(){
+  setGenInProgress(true);
+  if($('fullVidHint')) $('fullVidHint').textContent='提交生成任务…';
+  postJSON('/api/demo_avatar_full',{version:S.curVersion, motion:1.0, gap:0.4})
+    .then(r=>{
+      if(r.cached){
+        S.demoFull.ready=true; S.demoFull.video=r.video; S.demoFull.dur=r.dur; S.demoFull.total=r.total;
+        if($('fullVidHint')) $('fullVidHint').textContent='已生成（缓存）';
+        setGenInProgress(false); return;
+      }
+      const job=r.job; if(!job){ setGenInProgress(false); return; }
+      if(_fullGenPoll) clearInterval(_fullGenPoll);
+      _fullGenPoll=setInterval(async()=>{
+        let p; try{ p=await postJSON('/api/progress',{job}); }catch(e){ return; }
+        if($('demoStatus')) $('demoStatus').textContent='生成整场分身视频：'+(p.stage||'')+
+          ((p.total)?(' '+p.page+' / '+p.total):'')+'  ·  '+(p.elapsed? (Math.floor(p.elapsed/60)+'分'+(p.elapsed%60)+'秒'):'');
+        if($('fullVidHint')) $('fullVidHint').textContent='生成中…（'+(p.page||0)+'/'+(p.total||0)+'）';
+        if(p.done){
+          clearInterval(_fullGenPoll); _fullGenPoll=null; setGenInProgress(false);
+          if(p.full_avatar && p.full_avatar.ok){
+            S.demoFull.ready=true; S.demoFull.video=p.full_avatar.video;
+            S.demoFull.dur=p.full_avatar.dur; S.demoFull.total=p.full_avatar.total;
+            if($('fullVidHint')) $('fullVidHint').textContent='已就绪';
+          } else { if($('fullVidHint')) $('fullVidHint').textContent='生成失败，见状态栏'; }
+          if(p.error){ if($('demoStatus')) $('demoStatus').textContent='❌ '+p.error; }
+          else if($('demoStatus')) $('demoStatus').textContent='✅ 整场分身视频已生成，勾选「整场连续分身」即可连续播放。';
+        }
+      },2500);
+    }).catch(()=>{ setGenInProgress(false); });
+}
+function useFullVid(){
+  return !!(S.demoFull && S.demoFull.ready && S.demoFull.video && $('demoFullVid') && $('demoFullVid').checked);
+}
+// 极简字幕：按句切分，全屏时"说一句显示一句"，而非一次性展示整页讲稿
+function splitSentences(t){
+  if(!t) return [];
+  const out=[]; let buf='';
+  for(const ch of t){ buf+=ch; if('。！？!?；;'.includes(ch)){ out.push(buf.trim()); buf=''; } }
+  if(buf.trim()) out.push(buf.trim());
+  return out.length?out:[t.trim()].filter(Boolean);
+}
+function curFsSentence(i){
+  const sl=S.slides[i]; if(!sl) return '';
+  const sent=splitSentences(sl.narration||'');
+  if(sent.length<=1) return sl.narration||'';
+  let idx=0;
+  if(S.inFullMode && S.demoFull.dur){
+    const fe=$('demoFullVidEl'); const t=fe?fe.currentTime:0;
+    const key=String(sl.idx); const start=parseFloat(S.demoFull.dur[key]||0);
+    const keys=Object.keys(S.demoFull.dur).sort((a,b)=>parseFloat(S.demoFull.dur[a])-parseFloat(S.demoFull.dur[b]));
+    const ki=keys.indexOf(key);
+    const next= (ki>=0 && ki<keys.length-1)? parseFloat(S.demoFull.dur[keys[ki+1]]) : (S.demoFull.total||(start+1));
+    const dur=Math.max(0.1, next-start);
+    idx=Math.min(sent.length-1, Math.floor(Math.max(0,t-start)/dur*sent.length));
+  } else {
+    const el=demoEl(); const d=el.duration||0; const t=el.currentTime||0;
+    if(d>0.1){ idx=Math.min(sent.length-1, Math.floor(t/d*sent.length)); }
+  }
+  return sent[idx]||sl.narration||'';
+}
+function setFsSubtitle(i){
+  if(!document.fullscreenElement) return;   // 仅全屏极简模式接管字幕
+  const box=$('sbText'); if(!box) return;
+  const sl=S.slides[i]; if(!sl) return;
+  const zh=curFsSentence(i);
+  const en=sl.narration_en||'';
+  const m=S.sbMode||'zh';
+  if(m==='zh'){ box.innerHTML=esc(zh); }
+  else if(m==='en'){
+    if(en){ box.innerHTML=esc(en); } else { box.innerHTML='<span class="muted" style="color:#94a3b8">英文翻译生成中…</span>'; fetchEn(i); }
+  } else {
+    let h=esc(zh);
+    if(en){ h+='<span class="en">'+esc(en)+'</span>'; } else { h+='<span class="en" style="color:#94a3b8">英文翻译生成中…</span>'; fetchEn(i); }
+    box.innerHTML=h;
+  }
+}
+function playFull(i){
+  if(i<0||i>=S.slides.length) return;
+  demoIdx=i; S.inFullMode=true;
+  renderSlide(i,'stage5','pager5');
+  const fe=$('demoFullVidEl'); if(!fe){ S.inFullMode=false; return; }
+  const sl=S.slides[i];
+  if(fe.dataset.url!==S.demoFull.video){ fe.src=S.demoFull.video; fe.dataset.url=S.demoFull.video; try{fe.load();}catch(e){} }
+  fe.onended=null;
+  fe.onerror=()=>{ console.warn('[demo] 整场视频不可用，回退音频模式'); S.inFullMode=false; placeDemoFullVid(); refreshDemoAvatar(); stopDemo(); };
+  fe.ontimeupdate=onFullTimeUpdate;
+  const start=(S.demoFull.dur && S.demoFull.dur[String(sl.idx)]!=null)? parseFloat(S.demoFull.dur[String(sl.idx)]) : 0;
+  try{ fe.currentTime=start; }catch(e){}
+  if(!demoPaused){ fe.play().catch(()=>{}); }
+  placeDemoFullVid();
+  setDemoStatus('分身视频讲解中 · 第 '+(i+1)+' / '+S.slides.length+' 页'+(sl.title?(' · '+sl.title):''));
+}
+function onFullTimeUpdate(){
+  if(!S.inFullMode || !S.demoFull.dur) return;
+  const fe=$('demoFullVidEl'); if(!fe) return;
+  const dur=S.demoFull.dur;
+  const keys=Object.keys(dur).sort((a,b)=>parseFloat(dur[a])-parseFloat(dur[b]));
+  const t=fe.currentTime; let cur=null;
+  for(let k=0;k<keys.length;k++){
+    const s=parseFloat(dur[keys[k]]);
+    const nextS=(k+1<keys.length)? parseFloat(dur[keys[k+1]]) : (S.demoFull.total||(s+1));
+    if(t>=s && t<nextS){ cur=parseInt(keys[k],10); break; }
+  }
+  if(cur==null && keys.length){ cur=parseInt(keys[keys.length-1],10); }
+  if(cur!=null){
+    const k=S.slides.findIndex(s=>s.idx===cur);
+    if(k>=0 && k!==demoIdx){ demoIdx=k; renderSlide(k,'stage5','pager5'); }
+  }
+  if(S.demoFull.total){ const pct=Math.min(100,Math.max(0,t/(S.demoFull.total||1)*100)); const bar=$('demoBar'); if(bar) bar.style.width=pct+'%'; }
+  setFsSubtitle(demoIdx);   // 极简字幕：一句一句显示
+}
+function placeDemoFullVid(){
+  const wrap=document.getElementById('demoFullVidWrap'); if(!wrap) return;
+  if(!S.inFullMode){ wrap.style.display='none'; const card=document.getElementById('demoAvatarCard'); if(card && wrap.parentElement!==card) card.appendChild(wrap); return; }
+  wrap.style.display='block';
+  if(document.fullscreenElement){
+    if(S.fsMode==='2'){ wrap.style.display='none'; return; }   // 仅PPT布局：不显示分身
+    wrap.classList.add('pip'); if(wrap.parentElement!==$('demoStageWrap')) $('demoStageWrap').appendChild(wrap);
+  }else{
+    wrap.style.display='block'; wrap.classList.remove('pip'); const card=document.getElementById('demoAvatarCard'); if(card && wrap.parentElement!==card) card.appendChild(wrap);
+  }
+}
+if($('genFullVid')) $('genFullVid').onclick=genFullAvatar;
+if($('demoFullVid')) $('demoFullVid').onchange=()=>{
+  const c=$('demoFullVid');
+  if(c.checked){
+    if(!S.demoFull.ready){ genFullAvatar(); }
+    else if(demoPlaying){ playSlide(demoIdx); }
+  } else {
+    const fe=$('demoFullVidEl'); if(fe){ try{fe.pause();}catch(e){} }
+    S.inFullMode=false; placeDemoFullVid();
+    if(demoPlaying) playSlide(demoIdx);
+  }
+};
+function nextSlide(){
+  if(!demoPlaying) return;
+  const el=demoEl(); clearTimeout(el._t); if(el._wd){ clearInterval(el._wd); el._wd=null; }
+  if(demoIdx<S.slides.length-1){ playSlide(demoIdx+1); }
+  else { demoPlaying=false; demoPaused=false; syncDemoBtns();
+    setDemoStatus('✅ 演示结束（断点已归零）'); saveSettings({presPos:0}); }
+}
+function prevSlide(){ if(demoIdx>0) playSlide(demoIdx-1); }   // 暂停态下翻页也不自动出声
+function startDemo(){
+  if(!S.slides.length){ alert('请先在「② 素材与文稿」导入并生成讲解。'); switchTab(1); return; }
+  demoPlaying=true; demoPaused=false; showDemoQA(false);
+  let start=(S.settings&&S.settings.presPos)||0;
+  if(start>0 && start<S.slides.length){ setDemoStatus('从第 '+(start+1)+' 页继续（断点恢复）'); }
+  else start=0;
+  syncDemoBtns();
+  playSlide(start);
+}
+// 暂停：音频与分身视频一起停在当前位置，等待提问；再点「继续」从断点续播（不回退到页首）
+function pauseDemo(){
+  if(!S.slides.length) return;
+  const el=demoEl(); clearTimeout(el._t); if(el._wd){ clearInterval(el._wd); el._wd=null; }
+  demoPlaying=true; demoPaused=true;
+  try{ el.pause(); }catch(e){}
+  if(demoVidEl){ try{ demoVidEl.pause(); }catch(e){} }
+  if(S.inFullMode){ const fe=$('demoFullVidEl'); if(fe){ try{ fe.pause(); }catch(e){} } }
+  showDemoQA(true); syncDemoBtns();
+  setDemoStatus('⏸ 已暂停 · 等待领导提问（当前停在第 '+(demoIdx+1)+' 页，点「继续」从断点续播）');
+}
+function resumeDemo(){
+  if(!S.slides.length) return;
+  showDemoQA(false); demoPlaying=true; demoPaused=false; syncDemoBtns();
+  // 整场连续分身视频模式：视频从断点继续
+  if(S.inFullMode){ const fe=$('demoFullVidEl'); if(fe){ try{ fe.play().catch(()=>{}); }catch(e){} }
+    setDemoStatus('继续演示 · 第 '+(demoIdx+1)+' / '+S.slides.length+' 页'); return; }
+  const el=demoEl(), sl=S.slides[demoIdx];
+  // 分身视频模式：视频从断点继续
+  if(demoVidEl && demoVidEl.src){ try{ demoVidEl.play().catch(()=>{}); }catch(e){}
+    setDemoStatus('继续演示 · 第 '+(demoIdx+1)+' / '+S.slides.length+' 页'); return; }
+  // 音频模式：若已停在中途则原地续播，否则（刚翻页/无进度）从本页开头播
+  if(sl && sl.audio && el.src && !el.ended && el.currentTime>0.2){
+    el.play().catch(()=>{}); startAdvanceGuard();
+    setDemoStatus('继续演示 · 第 '+(demoIdx+1)+' / '+S.slides.length+' 页'); return;
+  }
+  playSlide(demoIdx);
+}
+// 停止：彻底停下来（音频+视频都停），并记忆断点供下次续播
+function stopDemo(){
+  demoPlaying=false; demoPaused=false; S.inFullMode=false;
+  const el=demoEl(); clearTimeout(el._t); if(el._wd){ clearInterval(el._wd); el._wd=null; }
+  try{ el.pause(); }catch(e){}
+  try{ el.removeAttribute('src'); el.load(); }catch(e){}
+  if(demoVidEl){ try{ demoVidEl.pause(); }catch(e){} }
+  if(S.inFullMode){ const fe=$('demoFullVidEl'); if(fe){ try{ fe.pause(); }catch(e){} try{ fe.removeAttribute('src'); fe.load(); }catch(e){} } }
+  const wrap=document.getElementById('demoSlideVidWrap'); if(wrap) wrap.remove();
+  showDemoQA(false); syncDemoBtns(); refreshDemoAvatar(); placeDemoFullVid();
+  saveSettings({presPos:demoIdx});
+  setDemoStatus('⏹ 已停止 · 停在第 '+(demoIdx+1)+' 页（下次「开始演示」从此续播）');
+}
+$('demoStart').onclick=startDemo;
+$('demoPause').onclick=()=>{ demoPaused?resumeDemo():pauseDemo(); };
+$('demoPrev').onclick=prevSlide;
+$('demoNext').onclick=()=>{ if(demoIdx<S.slides.length-1) playSlide(demoIdx+1); };
+$('demoStop').onclick=stopDemo;
+$('demoResume').onclick=resumeDemo;
+$('demoAsk').onclick=async()=>{
+  const q=$('demoQ').value.trim(); if(!q){$('demoQAOut').textContent='请输入问题';return;}
+  $('demoAsk').disabled=true; $('demoQAOut').className='out'; $('demoQAOut').textContent='检索 + 生成中…';
+  try{
+    const r=await postJSON('/api/ask',{question:q,lang:$('demoLang').value,sources:[...S.srcSel]});
+    if(r.error){$('demoQAOut').className='out bad';$('demoQAOut').textContent='❌ '+r.error;$('demoAsk').disabled=false;return;}
+    $('demoQAOut').className='out';$('demoQAOut').textContent=r.answer;
+    if(r.audio) $('demoAns').src=r.audio;
+    if(r.slide){ showSlideByIdx(r.slide.idx,'stage5','pager5'); demoIdx=S.slides.findIndex(s=>s.idx===r.slide.idx); }
+    try{ await postJSON('/api/qa_log',{act:'add',question:q,answer:r.answer,qlang:r.qlang,
+      slide_idx:(r.slide?r.slide.idx:null),mode:'演示中断',sources:[...S.srcSel]}); }catch(e){}
+    if($('demoVid').checked && r.answer){
+      const sel=($('avatarSel')&&$('avatarSel').value)||''; const [pid,aid]=sel.split('/');
+      $('demoAnsVidBox').style.display='none';
+      const r2=await postJSON('/api/avatar',{text:r.answer,lang:$('demoLang').value,avatar:aid||null,person:pid||null});
+      if(r2.video){$('demoAnsVidBox').style.display='block';$('demoAnsVid').src=r2.video;}
+    }
+  }catch(e){$('demoQAOut').className='out bad';$('demoQAOut').textContent='❌ '+e;}
+  $('demoAsk').disabled=false;
+};
+$('demoQ').addEventListener('keydown',e=>{if(e.ctrlKey&&e.key==='Enter')$('demoAsk').click();});
+
+/* ================= ⑤-增强：底部字幕状态栏（中文 / 英文 / 中英对照） ================= */
+S.sbMode='zh'; S.sbCur=-1; S._enPending={};
+function setSbMode(m){
+  S.sbMode=m;
+  document.querySelectorAll('#demoStatusBar .sb-lang .chip').forEach(c=>{
+    c.classList.toggle('on', c.dataset.m===m);
+  });
+  if(S.sbCur>=0){ if(document.fullscreenElement) setFsSubtitle(S.sbCur); else updateStatusBar(S.sbCur); }
+}
+function updateStatusBar(i){
+  const box=$('sbText'); if(!box) return;
+  const sl=S.slides[i];
+  if(!sl){ box.innerHTML='（讲解字幕将在此同步显示）'; return; }
+  const zh=sl.narration||'（本页暂无讲稿）';
+  const en=sl.narration_en||'';
+  const m=S.sbMode||'zh';
+  if(m==='zh'){ box.innerHTML=esc(zh); }
+  else if(m==='en'){
+    if(en){ box.innerHTML=esc(en); }
+    else { box.innerHTML='<span class="muted" style="color:#94a3b8">英文翻译生成中…</span>'; fetchEn(i); }
+  } else {
+    let h=esc(zh);
+    if(en){ h+='<span class="en">'+esc(en)+'</span>'; }
+    else { h+='<span class="en" style="color:#94a3b8">英文翻译生成中…</span>'; fetchEn(i); }
+    box.innerHTML=h;
+  }
+  S.sbCur=i;
+}
+async function fetchEn(i){
+  const sl=S.slides[i]; if(!sl||!sl.narration) return;
+  if(sl.narration_en) return;
+  if(S._enPending[i]) return;
+  S._enPending[i]=true;
+  try{
+    const r=await postJSON('/api/translate',{text:sl.narration,target:'English'});
+    const en=r.translated||'';
+    sl.narration_en=en;
+    try{ await postJSON('/api/versions',{act:'set_en',idx:sl.idx,en:en}); }catch(e){}
+    if(S.sbCur===i) updateStatusBar(i);
+  }catch(e){} finally{ S._enPending[i]=false; }
+}
+
+/* ================= ⑤-增强：全屏演示（分身后台播放，退出后并排） ================= */
+async function toggleFs(){
+  const w=$('demoStageWrap');
+  try{
+    if(!document.fullscreenElement){ await w.requestFullscreen(); }
+    else { await document.exitFullscreen(); }
+  }catch(e){ alert('当前环境不支持全屏：'+e); }
+}
+// 四种全屏布局：1 PPT+分身 / 2 仅PPT / 3 仅分身 / 4 PPT+分身小窗（右下角）
+S.fsMode='4';
+function setFsMode(v){
+  S.fsMode=String(v||'4');
+  const w=$('demoStageWrap'); if(w){ for(let i=1;i<=4;i++) w.classList.remove('fs-m'+i); w.classList.add('fs-m'+S.fsMode); }
+}
+setFsMode(S.fsMode);
+// 全屏极简：控件自动隐身，鼠标移动再显示
+let _fsHideTimer=null;
+function fsAutoHideStart(){
+  fsAutoHideStop();
+  const w=$('demoStageWrap'); if(w) w.classList.remove('fs-auto-hide');
+  _fsHideTimer=setTimeout(()=>{ const w=$('demoStageWrap'); if(w && document.fullscreenElement) w.classList.add('fs-auto-hide'); },2500);
+}
+function fsAutoHideStop(){ if(_fsHideTimer){clearTimeout(_fsHideTimer);_fsHideTimer=null;} const w=$('demoStageWrap'); if(w) w.classList.remove('fs-auto-hide'); }
+document.addEventListener('mousemove',()=>{ if(document.fullscreenElement) fsAutoHideStart(); });
+document.addEventListener('fullscreenchange',()=>{
+  const on=!!document.fullscreenElement;
+  document.body.classList.toggle('fs-on',on);
+  if($('demoFs')) $('demoFs').textContent = on? '⛶ 退出全屏':'⛶ 全屏演示';
+  if(on){
+    setFsMode(S.fsMode);
+    const a=$('demoAudio'); if(a&&a.paused&&demoPlaying){ a.play().catch(()=>{}); }
+    fsAutoHideStart();
+  } else { fsAutoHideStop(); }
+  // 分身视频讲解：全屏时把视频移到舞台角落 PiP（按布局模式决定是否显示）
+  placeDemoVid();
+  // 整场连续分身视频：同样移到角落 PiP
+  placeDemoFullVid();
+});
+
+/* ================= ⑤-增强：多版本讲解（生成 / 切换 / 删除） ================= */
+S.curVersion=null;
+async function loadVersions(){
+  try{
+    const r=await getJSON('/api/versions');
+    const sel=$('verSel');
+    sel.innerHTML=(r.versions||[]).map(v=>'<option value="'+esc(v.id)+'"'+(v.id===r.current?' selected':'')+'>'
+      +esc(v.name)+'（'+(v.count||0)+'页）</option>').join('');
+    S.curVersion=r.current;
+    S.versions=r.versions||[];
+  }catch(e){}
+}
+async function switchVersion(id){
+  if(!id) return;
+  try{
+    const r=await postJSON('/api/versions',{act:'switch',id});
+    if(r.error){ alert('❌ '+r.error); return; }
+    S.slides=r.slides||S.slides; S.curVersion=r.current;
+    renderSlide(0,'stage5','pager5');
+    const narr=S.slides.filter(s=>s.audio).map(s=>({idx:s.idx,title:s.title,narration:s.narration||'',audio:s.audio}));
+    renderNarr(narr);
+    updateStatusBar(0);
+    refreshDemoAvatarVideos();
+    refreshDemoFullVideo();
+    $('demoStatus').textContent='已切换到版本：'+(r.meta&&r.meta.versionName||id);
+  }catch(e){}
+}
+function dlgNewVersion(){
+  openModal('新增讲解版本',
+    `<label>版本名称</label><input type="text" id="nv_name" placeholder="如：精简版 / 英文版 / 领导汇报版">
+     <div class="row" style="margin-top:8px">
+       <div style="flex:1;min-width:140px"><label>讲解语言</label>
+         <select id="nv_lang"><option>中文</option><option>英文</option></select></div>
+       <div style="flex:1;min-width:140px"><label>讲解长度</label>
+         <select id="nv_len"><option value="70">精简 · 约70字/页（快）</option>
+           <option value="120" selected>标准 · 约120字/页</option>
+           <option value="200">详尽 · 约200字/页（慢）</option></select></div>
+     </div>
+     <p class="muted" style="margin-top:10px">同一 PPT 将重新生成一套讲稿 + 当前分身语音，作为新版本保存；生成后可随时在上方下拉框切换演示。（耗时与页数成正比，约每页 1~2 分钟）</p>`,
+    `<button class="btn ghost" onclick="closeModal()">取消</button>
+     <button class="btn" onclick="createVersion()">生成</button>`);
+}
+async function createVersion(){
+  const name=($('nv_name')&&$('nv_name').value||'').trim();
+  const lang=$('nv_lang')?$('nv_lang').value:'中文';
+  const words=parseInt(($('nv_len')&&$('nv_len').value)||'120',10);
+  closeModal();
+  const r=await postJSON('/api/versions',{act:'create',name,lang,words});
+  if(r.error){ alert('❌ '+r.error); return; }
+  pollVersion(r.job);
+}
+let verPoll=null;
+function pollVersion(job){
+  if(verPoll) clearInterval(verPoll);
+  $('verTrans').disabled=true; $('verNew').disabled=true;
+  verPoll=setInterval(async()=>{
+    let p; try{ p=await postJSON('/api/progress',{job}); }catch(e){ return; }
+    $('demoStatus').textContent=(p.stage||'')+((p.total)?(' '+p.page+' / '+p.total+' 页'):'')
+      +'  ·  已用时 '+Math.floor((p.elapsed||0)/60)+'分'+((p.elapsed||0)%60)+'秒';
+    if(p.done){
+      clearInterval(verPoll); verPoll=null; $('verTrans').disabled=false; $('verNew').disabled=false;
+      if(p.error){ $('demoStatus').textContent='❌ '+p.error; }
+      else{ await loadVersions(); await loadSlides(); $('demoStatus').textContent='✅ '+p.summary; }
+    }
+  },2500);
+}
+$('verNew').onclick=dlgNewVersion;
+$('verTrans').onclick=async()=>{
+  if(!confirm('将为当前版本全部页面翻译为英文（状态栏可切换「英文 / 中英对照」显示）。耗时约数十秒，确定？')) return;
+  const r=await postJSON('/api/translate_all',{});
+  if(r.error){ alert('❌ '+r.error); return; }
+  pollVersion(r.job);
+};
+
+/* ================= ⑨ 制作 PPT（需求解析 → 知识库 → 大纲/版式/图表 → .pptx） ================= */
+function mpParams(extra){
+  return Object.assign({
+    topic:$('mp_topic').value.trim(),
+    audience:$('mp_audience').value.trim(),
+    scene:$('mp_scene').value,
+    industry:$('mp_industry').value.trim(),
+    style:$('mp_style').value,
+    theme:$('mp_theme').value,
+    lang:$('mp_lang').value,
+    pages:Math.max(3,Math.min(40,parseInt($('mp_pages').value,10)||8)),
+    use_kb:$('mp_kb').checked,
+    with_image:$('mp_img').checked
+  }, extra||{});
+}
+function mpApplySuggest(sg){
+  if(!sg) return;
+  if(sg.audience) $('mp_audience').value=sg.audience;
+  if(sg.industry && !$('mp_industry').value && sg.industry.indexOf('未指定')<0) $('mp_industry').value=sg.industry;
+  if(sg.scene){
+    const o=Array.from($('mp_scene').options).find(x=>x.value===sg.scene||x.textContent===sg.scene);
+    if(o){ $('mp_scene').value=(o.value||o.textContent); }
+  }
+  if(sg.pages) $('mp_pages').value=sg.pages;
+  if(sg.style){
+    const o=Array.from($('mp_style').options).find(x=>x.textContent===sg.style||x.value===sg.style);
+    if(o){ $('mp_style').value=o.value||o.textContent; }
+  }
+}
+function mpRenderNeed(need){
+  const box=$('mp_need'); if(!box||!need) return;
+  const lv={ok:'信息充分 ✅',partial:'部分信息缺失',vague:'描述偏简单，建议补充'}[need.level]||'';
+  let h='<b>需求解析：'+esc(lv)+'</b>';
+  if((need.questions||[]).length){
+    h+='<ul class="flist" style="margin:6px 0 0">'+need.questions.map(q=>'<li>'+esc(q)+'</li>').join('')+'</ul>';
+  }
+  const sg=need.suggest||{};
+  h+='<p class="muted" style="margin:6px 0 0">建议参数：受众 '+esc(sg.audience||'-')
+    +' · 场景 '+esc(sg.scene||'-')+' · 风格 '+esc(sg.style||'-')+' · 页数 '+esc(String(sg.pages||'-'))+'</p>';
+  h+='<div class="row" style="gap:8px;margin-top:6px">'
+    +'<button class="btn ghost" id="mp_useSug">✅ 采用建议参数</button>'
+    +'<button class="btn ghost" id="mp_ignore">忽略建议，直接生成</button></div>';
+  box.style.display='block'; box.innerHTML=h;
+  const b1=$('mp_useSug');
+  if(b1) b1.onclick=()=>{ mpApplySuggest(sg); box.innerHTML='<b>已采用建议参数</b>，可点「🎯 生成 PPT」。'; };
+  const b2=$('mp_ignore');
+  if(b2) b2.onclick=()=>{ box.style.display='none'; mpGo(true); };
+}
+async function mpAnalyze(){
+  const box=$('mp_need'); box.style.display='block';
+  box.innerHTML='🔍 正在解析需求…';
+  try{
+    const r=await postJSON('/api/make_ppt',mpParams({stage:'analyze'}));
+    if(r.need) mpRenderNeed(r.need); else box.innerHTML='<span class="muted">解析无结果。</span>';
+  }catch(e){ box.innerHTML='<span class="muted">❌ 解析失败：'+esc(String(e))+'</span>'; }
+}
+async function mpGo(force){
+  const topic=$('mp_topic').value.trim();
+  if(!topic){ alert('请填写 PPT 主题'); return; }
+  $('mp_go').disabled=true; $('mp_actions').style.display='none';
+  $('mp_out').innerHTML='🤖 检索知识库并构思大纲中…（约 10~30 秒）';
+  try{
+    const r=await postJSON('/api/make_ppt',mpParams(force?{force:true}:{}));
+    if(r.need_more){ $('mp_out').innerHTML='<span class="muted">需要再补充一点信息 👇</span>'; mpRenderNeed(r.need); return; }
+    if(r.error){ $('mp_out').innerHTML='<span class="muted">❌ 生成失败：'+esc(r.error)+'</span>'; return; }
+    S.mp=r;
+    const gen=r.gen||{};
+    const srcTag=(gen.source==='llm')?'大模型生成':'离线骨架兜底（未连上大模型）';
+    const kbTag=r.kb_used?('知识库命中 '+(gen.kb_hits||0)+' 条'):'未使用知识库';
+    const THEMES={blue:'蓝白商务',dark:'深色科技',gray:'简约灰'};
+    const LAY={cover:'封面',bullets:'要点',compare:'对比',flow:'流程',data:'数据'};
+    const hasTodo=(r.slides||[]).some(s=>((s.bullets||[]).join('')).indexOf('待补充')>=0);
+    $('mp_out').innerHTML='已生成 <b>'+r.pages+'</b> 页 · '+esc(THEMES[r.theme||'blue']||'')+' · '+esc(srcTag)+' · '+esc(kbTag)
+      +'<ol class="flist" style="margin:6px 0 0">'
+      +(r.slides||[]).map(s=>{
+          const ch=(s.chart&&s.chart.type&&s.chart.type!=='none')?(' 📊'+esc(s.chart.type)+'（'+esc((s.chart.labels||[]).join('/'))+'）'):'';
+          const ic=(s.icons&&s.icons.length)?(' 🏷 '+esc(s.icons.join(' '))):'';
+          return '<li><span class="fk">'+esc(s.title)+'</span><span class="fv">'
+            +esc(LAY[s.layout]||s.layout||'')+ic+ch+' · '+(s.bullets||[]).map(esc).join(' · ')+'</span></li>';
+        }).join('')+'</ol>'
+      +(hasTodo?'<p class="muted">⚠ 含【待补充】项：知识库暂无依据，未编造内容。可补资料后重新生成，或直接下载手工填写。</p>':'')
+      +'<p class="muted">可下载 .pptx 二次编辑（文字 / 图表 / 配色均可改），或一键导入「② 素材与文稿」继续讲解 / 答疑 / 入库。</p>';
+    $('mp_actions').style.display='';
+    $('mp_dl').onclick=()=>{ window.open(r.download||('/api/download?name='+encodeURIComponent(r.path)),'_blank'); };
+    $('mp_import').onclick=async()=>{
+      if(!confirm('将把该 .pptx 导入「② 素材与文稿」（解析为讲解页并并入知识库），确定？')) return;
+      $('mp_import').disabled=true;
+      try{
+        const im=await postJSON('/api/ingest',{name:r.path,ext:'.pptx'});
+        if(im.error){ alert('❌ 导入失败：'+im.error); }
+        else{ alert('✅ 已导入「② 素材与文稿」：'+((im.total!=null)?(im.total+' 个文本块并入知识库'):'成功')); switchTab(1); }
+      }catch(e){ alert('❌ 导入失败：'+e); }
+      finally{ $('mp_import').disabled=false; }
+    };
+  }catch(e){ $('mp_out').innerHTML='<span class="muted">❌ 请求失败：'+esc(String(e))+'</span>'; }
+  finally{ $('mp_go').disabled=false; }
+}
+
+/* ================= ⑨ 根据知识库生成文字材料 ================= */
+function kdRenderBlocks(blocks){
+  if(!blocks||!blocks.length) return '<span class="muted">（无内容）</span>';
+  return blocks.map(function(b){
+    var t=esc(b.text||'');
+    if(b.type==='h1') return '<h2 style="margin:14px 0 6px;border-bottom:2px solid var(--accent);padding-bottom:4px">'+t+'</h2>';
+    if(b.type==='h2') return '<h3 style="margin:10px 0 4px;color:var(--accent)">'+t+'</h3>';
+    if(b.type==='quote') return '<blockquote style="border-left:3px solid var(--accent);margin:8px 0;padding:4px 10px;color:var(--muted)">'+t+'</blockquote>';
+    if(b.type==='bullets') return '<ul class="flist">'+(b.items||[]).map(function(i){return '<li>'+esc(i)+'</li>';}).join('')+'</ul>';
+    return '<p style="margin:6px 0;line-height:1.75">'+t+'</p>';
+  }).join('');
+}
+function kdBlocksToText(blocks){
+  if(!blocks) return '';
+  return blocks.map(function(b){
+    var t=b.text||'';
+    if(b.type==='h1') return '\n# '+t;
+    if(b.type==='h2') return '\n## '+t;
+    if(b.type==='quote') return '\n> '+t;
+    if(b.type==='bullets') return '\n'+((b.items||[]).map(function(i){return '· '+i;}).join('\n'));
+    return '\n'+t;
+  }).join('\n');
+}
+async function kdGo(){
+  var tpl=$('kd_tpl').value, topic=$('kd_topic').value.trim(), lang=$('kd_lang').value;
+  var custom=(tpl==='custom')?$('kd_custom_prompt').value.trim():'';
+  if(tpl==='custom' && !custom){ alert('请填写自定义章节结构'); return; }
+  $('kd_go').disabled=true; $('kd_out').innerHTML='🤖 检索知识库并起草中…（约 10~30 秒）'; $('kd_actions').style.display='none';
+  try{
+    var r=await postJSON('/api/gen_kb_doc',{template:tpl,topic:topic,lang:lang,custom_prompt:custom});
+    if(r.error){ $('kd_out').innerHTML='<span class="muted">❌ 生成失败：'+esc(r.error)+'</span>'; return; }
+    S.kd=r;
+    var srcTag=(r.source==='llm')?'大模型生成':'离线骨架兜底（未连上大模型）';
+    var kbTag=r.kb_hits?('知识库命中 '+r.kb_hits+' 条'):'未命中知识库';
+    $('kd_out').innerHTML='<b>'+esc(r.title||'')+'</b> · '+esc(srcTag)+' · '+esc(kbTag)
+      +'<div style="margin-top:8px">'+kdRenderBlocks(r.blocks)+'</div>'
+      +'<p class="muted">可下载 .docx 二次编辑，或复制全文到其它文档。</p>';
+    $('kd_actions').style.display='';
+    $('kd_dl').onclick=function(){ if(r.download) window.open(r.download,'_blank'); else alert('本机未生成 docx，可改用复制全文。'); };
+    $('kd_copy').onclick=function(){ var t=kdBlocksToText(r.blocks);
+      try{ navigator.clipboard.writeText(t); alert('✅ 已复制全文'); }
+      catch(e){ window.prompt('复制失败，请手动复制：',t); } };
+  }catch(e){ $('kd_out').innerHTML='<span class="muted">❌ 请求失败：'+esc(String(e))+'</span>'; }
+  finally{ $('kd_go').disabled=false; }
+}
+$('kd_tpl').onchange=function(){ $('kd_custom').style.display=(this.value==='custom')?'':'none'; };
+$('kd_go').onclick=kdGo;
+
+$('mp_analyze').onclick=mpAnalyze;
+$('mp_go').onclick=()=>mpGo(false);
+
+/* ================= ⑥ 答疑总结（记录 / 汇总 / 导出 / 入库） ================= */
+let QA_SUMMARY='';
+async function loadQA(){
+  try{ const r=await getJSON('/api/qa_log'); const recs=(r.records||[]);
+    $('logCount').textContent='共 '+recs.length+' 条问答';
+    const box=$('qaList');
+    box.innerHTML = recs.length? recs.slice().reverse().map(r=>`<div class="item">
+      <div class="t">Q（${esc(r.mode||'')}）· ${esc(r.time||'')}</div>
+      <div class="d"><b>问：</b>${esc(r.question||'')}</div>
+      <div class="d"><b>答：</b>${esc((r.answer||'').slice(0,220))}${(r.answer||'').length>220?'…':''}</div>
+      ${r.slide_idx?'<div class="d muted">关联第 '+r.slide_idx+' 页</div>':''}</div>`).join('')
+      : '<div class="muted">暂无记录。在②或⑤中提问后会自动沉淀到这里。</div>';
+  }catch(e){ $('logCount').textContent='读取失败'; }
+}
+async function genSummary(){
+  $('summaryOut').className='out'; $('summaryOut').textContent='大模型整理中（约 10~30 秒）…'; $('genSummary').disabled=true;
+  try{ const r=await postJSON('/api/qa_log',{act:'summary'});
+    QA_SUMMARY=r.summary||''; $('summaryOut').className='out'; $('summaryOut').textContent=QA_SUMMARY;
+  }catch(e){$('summaryOut').className='out bad';$('summaryOut').textContent='❌ '+e;}
+  $('genSummary').disabled=false;
+}
+async function exportSummary(){ if(!QA_SUMMARY) await genSummary(); if(!QA_SUMMARY) return;
+  try{ const r=await postJSON('/api/qa_log',{act:'export',text:QA_SUMMARY});
+    if(r.path) alert('已导出到：\n'+r.path); }catch(e){ alert('导出失败：'+e); } }
+async function storeSummary(){
+  if(!QA_SUMMARY) await genSummary(); if(!QA_SUMMARY) return;
+  if(!confirm('将把《答疑汇总》存入知识库，下次讲解可直接作答。确定？')) return;
+  $('storeSummary').disabled=true;
+  try{ const r=await postJSON('/api/qa_log',{act:'store',text:QA_SUMMARY});
+    if(r.error){$('summaryOut').className='out bad';$('summaryOut').textContent='❌ '+r.error;}
+    else{$('summaryOut').className='out ok';
+      $('summaryOut').textContent='✅ 已存入知识库：新增 '+(r.ingested&&r.ingested.added||0)+' 段（共 '+(r.total||0)+' 段）。'; loadSources(); }
+  }catch(e){$('summaryOut').className='out bad';$('summaryOut').textContent='❌ '+e;}
+  $('storeSummary').disabled=false;
+}
+async function clearLog(){ if(!confirm('清空全部答疑记录？此操作不可撤销。'))return;
+  await postJSON('/api/qa_log',{act:'clear'}); loadQA(); }
+$('genSummary').onclick=genSummary;
+$('exportSummary').onclick=exportSummary;
+$('storeSummary').onclick=storeSummary;
+$('clearLog').onclick=clearLog;
+
+/* ================= Tab 切换 ================= */
+document.querySelectorAll('.tabs .tab').forEach(t=>t.onclick=()=>switchTab(t.dataset.t));
+function switchTab(n){
+  document.querySelectorAll('.tabs .tab').forEach(x=>x.classList.toggle('on',x.dataset.t===n));
+  document.querySelectorAll('.panel').forEach(x=>x.classList.toggle('on',x.id==='p'+n));
+  if(n==='7') loadResources();
+}
+
+/* ================= ⑦ 资源管理（改名/删除/历史/导入导出） ================= */
+let _resCat='versions';
+function setResCat(c){ _resCat=c; document.querySelectorAll('[data-rcat]').forEach(b=>b.classList.toggle('on', b.dataset.rcat===c)); loadResources(); }
+async function loadResources(){
+  const box=$('resList'); if(!box) return;
+  try{
+    const r=await postJSON('/api/resources',{act:'list'});
+    if(_resCat==='history'){ renderResHistory(r.history||[]); return; }
+    const data=r[_resCat]||[];
+    if(_resCat==='versions'){
+      box.innerHTML = data.length? data.map(v=>`<div class="item"><div class="d"><b>${esc(v.name)}</b> · ${esc(v.id)} · ${v.pages}页 · ${v.created||''}</div>
+        <div class="row" style="gap:6px;margin-top:6px">
+          <button class="btn ghost" onclick="resSetVersion('${esc(v.id)}')">设为当前演示</button>
+          <button class="btn ghost" onclick="resRename('version','${esc(v.id)}')">重命名</button>
+          <button class="btn ghost" onclick="resDelete('version','${esc(v.id)}')">删除</button>
+        </div></div>`).join('') : '<div class="muted">暂无方案。</div>'; return;
+    }
+    if(_resCat==='personas'){
+      const ps=(r.personas&&r.personas.personas)||[]; const def=(r.personas&&r.personas.default);
+      box.innerHTML = ps.length? ps.map(p=>`<div class="item"><div class="d"><b>${esc(p.name)}</b> ${p.id===def?'✓默认':''} · ${esc(p.id)}</div>
+        <div class="row" style="gap:6px;margin-top:6px">
+          ${p.id!==def?`<button class="btn ghost" onclick="resSetPersona('${esc(p.id)}')">设为默认</button>`:''}
+          <button class="btn ghost" onclick="resRename('persona','${esc(p.id)}')">重命名</button>
+          <button class="btn ghost" onclick="resDelete('persona','${esc(p.id)}')">删除</button>
+        </div></div>`).join('') : '<div class="muted">暂无形象。</div>'; return;
+    }
+    box.innerHTML = data.length? data.map(f=>`<div class="item"><div class="d"><b>${esc(f.name)}</b> · ${(f.size/1048576).toFixed(2)}MB · ${f.mtime||''}</div>
+      <div class="row" style="gap:6px;margin-top:6px">
+        <button class="btn ghost" onclick="resRename('${_resCat}','${esc(f.name)}')">重命名</button>
+        <button class="btn ghost" onclick="resDelete('${_resCat}','${esc(f.name)}')">删除</button>
+      </div></div>`).join('') : '<div class="muted">暂无文件。</div>';
+  }catch(e){ box.innerHTML='<div class="bad">加载失败：'+e+'</div>'; }
+}
+function renderResHistory(h){
+  const box=$('resList'); if(!box) return;
+  box.innerHTML = h.length? h.slice().reverse().map(x=>`<div class="item"><div class="muted" style="font-size:12px">${x.t}</div><div class="d">${esc(x.action)} · ${esc(x.target)} ${x.detail?('· '+esc(x.detail)):''}</div></div>`).join('')
+    : '<div class="muted">暂无操作记录。</div>';
+}
+function resRename(cat,name){ const n=prompt('新名称：',name); if(!n||n===name) return;
+  postJSON('/api/resources',{act:'rename',cat,name,new:n}).then(r=>{ if(r.ok){ $('resHint').textContent='已重命名'; loadResources(); } else alert('❌ '+(r.error||'')); }); }
+function resDelete(cat,name){ if(!confirm('确认删除：'+name+'？此操作不可撤销。')) return;
+  postJSON('/api/resources',{act:'delete',cat,name}).then(r=>{ if(r.ok){ $('resHint').textContent='已删除'; loadResources(); } else alert('❌ '+(r.error||'')); }); }
+function resSetVersion(id){ postJSON('/api/resources',{act:'set_current_version',id}).then(r=>{ if(r.ok){ $('resHint').textContent='已切换当前演示版本'; loadSlides(); loadVersions(); } else alert('❌ '+(r.error||'')); }); }
+function resSetPersona(id){ postJSON('/api/resources',{act:'set_default_persona',id}).then(r=>{ if(r.ok){ $('resHint').textContent='已设默认形象'; loadPersons(); } else alert('❌ '+(r.error||'')); }); }
+function exportResources(){ postJSON('/api/resources',{act:'export',cats:['versions','personas','audio','video','avatar','source','kb']})
+  .then(x=>{ if(x.ok){ $('resHint').textContent='已导出 '+x.count+' 项'; window.open(x.zip,'_blank'); } else alert('❌ '+(x.error||'')); }); }
+function _bytesToB64(bytes){ let bin=''; const chunk=0x8000; for(let i=0;i<bytes.length;i+=chunk){ bin+=String.fromCharCode.apply(null, bytes.subarray(i,i+chunk)); } return btoa(bin); }
+/* ===== zip 导入（进度条 + 流式直传 + 后台解压）=====
+   老链路是 arrayBuffer→btoa→JSON，几百 MB 的包会在 WebView2 里生成 >1GB 字符串而 OOM。
+   现改为：File 直接作请求体（XHR 带真实上传进度）→ 服务端 1MB 分块落盘
+   → 后台线程流式解压（不整文件进内存）→ 前端轮询 /api/import_progress 显示进度。 */
+function _impShow(t){ const b=$('impBar'); if(!b) return; b.style.display='block'; $('impTxt').textContent=t||''; $('impIn').style.width='0%'; }
+function _impSet(pct,t){ const b=$('impBar'); if(!b) return; if(t!==undefined) $('impTxt').textContent=t;
+  $('impIn').style.width=Math.max(0,Math.min(100,pct||0))+'%'; }
+function _impHide(){ const b=$('impBar'); if(!b) return; setTimeout(()=>{ b.style.display='none'; },1500); }
+function pickZip(cb){ const inp=document.createElement('input'); inp.type='file'; inp.accept='.zip';
+  inp.onchange=()=>{ const f=inp.files[0]; if(f) cb(f); }; inp.click(); }
+async function uploadZipFile(file){
+  const jid='j'+Date.now()+'_'+Math.floor(Math.random()*1000);
+  const mb=(file.size/1048576).toFixed(1);
+  _impShow('准备上传 '+mb+' MB…');
+  try{
+    await new Promise((res,rej)=>{
+      const x=new XMLHttpRequest();
+      x.open('POST','/api/upload_zip?job='+encodeURIComponent(jid));
+      x.upload.onprogress=e=>{ if(e.lengthComputable){
+        _impSet(e.loaded/e.total*90,'① 上传中 '+Math.round(e.loaded/1048576)+' / '+Math.round(e.total/1048576)+' MB'); } };
+      x.onload=()=>{ try{ const r=JSON.parse(x.responseText); r.ok?res(r):rej(new Error(r.error||'上传失败')); }
+                     catch(err){ rej(new Error('服务端响应异常')); } };
+      x.onerror=()=>rej(new Error('网络错误'));
+      x.send(file);
+    });
+    _impSet(90,'② 上传完成，开始导入…');
+    let last=null;
+    for(let i=0;i<2000;i++){
+      const p=await getJSON('/api/import_progress?job='+encodeURIComponent(jid));
+      _impSet(p.pct||0,'② '+(p.stage||'处理中')+(p.cur?(' · '+p.cur):''));
+      if(p.done){ last=p; break; }
+      await new Promise(r=>setTimeout(r,300));
+    }
+    if(!last) throw new Error('导入超时，请重试');
+    if(last.error) throw new Error(last.error);
+    _impSet(100,'✅ 导入完成，共 '+(last.count||0)+' 项（临时文件已清理）');
+    _impHide();
+    return last.count||0;
+  }catch(e){
+    _impSet(100,'❌ 导入失败：'+e.message); _impHide();
+    alert('❌ 导入失败：'+e.message); return null;
+  }
+}
+async function importResources(){
+  pickZip(async f=>{
+    const n=await uploadZipFile(f);
+    if(n!==null){ $('resHint').textContent='已恢复 '+n+' 项'; loadSlides(); loadVersions(); loadPersons(); loadResources(); }
+  });
+}
+
+/* ================= 完整版：导出"播放文件"（对话框 + 选择 + 可靠下载） ================= */
+let _exStop=false, _lastExSig=null, _lastExFile=null, _lastExName=null;
+function _exSig(cats, vers, vids){
+  return JSON.stringify({c:cats.slice().sort(), v:vers.slice().sort(), d:vids.slice().sort()});
+}
+/* 导出对话框：示例文件清单列表（随勾选实时更新，导出前即可知道包内会有哪些文件） */
+function _exChk(id){ const e=$(id); return !!(e&&e.checked); }
+function renderExFileList(){
+  const ul=$('exFileListUl'); if(!ul) return;
+  const rows=[];
+  const add=(k,v)=>rows.push('<li><span class="fk">'+esc(k)+'</span><span class="fv">'+esc(v)+'</span></li>');
+  if(_exChk('exCatsVersions')){
+    const vs=Array.from(document.querySelectorAll('.exVer:checked')).map(e=>e.value);
+    add('slides.json','方案讲稿：所选版本的逐页讲稿 + 音频索引'+(vs.length?'（'+vs.join('、')+'）':'（未选版本）'));
+  }
+  if(_exChk('exCatsAudio')){
+    add('audio/narr_<版本>_<页>.wav','逐页讲解音频');
+    add('audio/full_<版本>.wav','整篇合成音频');
+  }
+  if(_exChk('exCatsVideo')){
+    const vids=Array.from(document.querySelectorAll('.exVid:checked')).map(e=>e.value);
+    if(vids.length){ vids.forEach(f=>add('video/'+f,'数字分身视频')); }
+    else{ add('video/demo_av_full_<版本>.mp4','整场分身视频（当前暂无可选视频，可先在「⑤ 正式演示」生成）'); }
+    add('video/demo_av_full_<版本>_dur.json','逐页翻页时间轴（播放版按页同步用）');
+  }
+  if(_exChk('exCatsAvatar')){
+    add('portraits/portraits.json','分身形象清单（默认分身 / 形象名 / 使用场景）');
+    add('portraits/<分身>__<形象>.jpg','分身形象图（每人可有多张）');
+  }
+  ul.innerHTML = rows.length ? rows.join('')
+    : '<li><span class="fv">尚未选择任何内容，导出包将为空。</span></li>';
+}
+
+async function openExportPlayback(){
+  if(S.playback){ alert('当前为便携播放版，不支持导出；请在完整版中导出播放文件。'); return; }
+  let vids=[];
+  try{ const r=await getJSON('/api/playback_files'); vids=r.videos||[]; }catch(e){}
+  const vers=(S.versions||[]);
+  const verChk = vers.map(v=>'<label class="chk"><input type="checkbox" class="exVer" value="'+esc(v.id)+'" checked> '
+      +esc(v.name)+'（'+(v.count||0)+'页）</label>').join('')
+      || '<span class="muted">暂无版本</span>';
+  const vidChk = vids.map(f=>'<label class="chk"><input type="checkbox" class="exVid" value="'+esc(f)+'" checked> '
+      +esc(f)+'</label>').join('')
+      || '<span class="muted">暂无整场分身视频（可在「⑤ 正式演示」点「生成整场分身视频」后导出）</span>';
+  const body = `
+    <p class="muted">选择要导出的内容，生成 zip 后可在「便携播放版（⑧）」导入离线演示。带 <b>*</b> 为必选项。</p>
+    <div class="exSec">
+      <label class="exHead"><input type="checkbox" id="exCatsVersions" checked> <b>方案讲稿 *</b>（slides.json，含所选版本）</label>
+      <div class="exIndent" id="exVerBox">${verChk}</div>
+    </div>
+    <div class="exSec">
+      <label class="exHead"><input type="checkbox" id="exCatsVideo" checked> <b>数字分身视频</b>（整场 / 逐页分身视频）</label>
+      <div class="exIndent" id="exVidBox">${vidChk}</div>
+    </div>
+    <div class="exSec">
+      <label class="exHead"><input type="checkbox" id="exCatsAudio" checked> <b>讲解音频</b>（讲解录音 wav）</label>
+    </div>
+    <div class="exSec">
+      <label class="exHead"><input type="checkbox" id="exCatsAvatar" checked> <b>个人形象</b>（分身图 + 人设）</label>
+    </div>
+    <div class="exSec">
+      <label class="exHead" style="cursor:pointer" onclick="(function(){var b=$('exFileList');if(!b)return;b.style.display=(b.style.display==='none')?'':'none';})()">
+        <b>📄 示例文件清单列表</b>（点此展开 / 收起 · 随上方勾选实时变化）</label>
+      <div class="exIndent" id="exFileList">
+        <p class="muted" style="margin:2px 0 0">导出包内的目录结构示例如下（实际文件以当前项目资源为准）：</p>
+        <ul class="flist" id="exFileListUl"></ul>
+        <p class="muted" style="margin:6px 0 0">💡 该 zip 可在「便携播放版（⑧ 导入播放文件）」中直接导入离线演示。</p>
+      </div>
+    </div>
+    <div class="exSec">
+      <label class="exHead"><input type="checkbox" id="exPlayer" checked> <b>📱 打包为「离线便携播放包」</b></label>
+      <div class="exIndent">
+        <p class="muted" style="margin:2px 0 0">勾选后会额外放入 <code>player.html</code>（离线播放器）、<code>manifest.json</code>（播放清单）与幻灯片页图。
+           解压后<b>双击 player.html 就能播</b>；同一份包可直接塞进安卓 APK、统信 deb 与 Win 便携播放包，三端通用、全程离线。
+           不勾选则只导出资源 zip，供「便携播放版」导入回放。</p>
+      </div>
+    </div>
+    <div class="exSec">
+      <label class="exHead"><b>🎚 导出精度 / 压缩比例</b></label>
+      <div class="exIndent">
+        <select id="exQuality" style="width:100%;padding:6px">
+          <option value="lossless">无损：原样拷贝（体积最大，零损耗）</option>
+          <option value="standard" selected>标准：音频 mp3 192k + 视频 x264 CRF23（推荐）</option>
+          <option value="compact">精简：音频 mp3 128k + 视频 720p CRF27（体积最小）</option>
+        </select>
+        <p class="muted" style="margin:4px 0 0">压缩由本机 ffmpeg 完成，不联网；未安装 ffmpeg 时自动回落为无损原样拷贝。音频转 mp3、视频转 h264 后再打包，播放端均可正常播放。</p>
+      </div>
+    </div>
+    <div id="exMsg" class="out" style="display:none"></div>
+    <div class="bar" id="exBarWrap" style="display:none"><i id="exBar"></i></div>
+  `;
+  const foot = `
+    <button class="btn" id="exGo">📀 生成并下载</button>
+    <button class="btn ghost" id="exStop" disabled>⏹ 停止</button>
+    <a class="btn ghost" id="exDl" style="display:none" target="_blank" rel="noopener">⬇ 下载文件</a>
+    <button class="btn ghost" onclick="closeModal()">关闭</button>
+  `;
+  openModal('导出播放文件', body, foot);
+  $('exGo').onclick=doExportPlayback;
+  $('exStop').onclick=()=>{ _exStop=true;
+    $('exMsg').style.display='block'; $('exMsg').className='out';
+    $('exMsg').textContent='已请求停止，按钮已恢复可用；若服务端已处理完最后一步，上一次生成的文件仍保留。';
+    $('exStop').disabled=true; $('exGo').disabled=false; };
+  // 勾选变化时实时刷新「示例文件清单列表」
+  document.querySelectorAll('#exVerBox input,#exVidBox input,#exCatsVersions,#exCatsVideo,#exCatsAudio,#exCatsAvatar')
+    .forEach(e=>e.addEventListener('change', renderExFileList));
+  renderExFileList();
+  // 若已有上次导出，给出提示与直接下载
+  if(_lastExSig){
+    $('exMsg').style.display='block'; $('exMsg').className='out';
+    $('exMsg').innerHTML='上次已导出：<b>'+esc(_lastExName||'')+'</b>。调整选择可重新生成，或使用下方「下载」获取上次文件。';
+    $('exDl').href=_lastExFile||''; $('exDl').style.display='';
+  }
+}
+async function doExportPlayback(){
+  const needVersions=$('exCatsVersions').checked;
+  const needVideo=$('exCatsVideo').checked;
+  const needAudio=$('exCatsAudio').checked;
+  const needAvatar=$('exCatsAvatar').checked;
+  const cats=[];
+  if(needVersions) cats.push('versions');
+  if(needVideo) cats.push('video');
+  if(needAudio) cats.push('audio');
+  if(needAvatar) cats.push('personas');   // 后端以 personas 类别承载"个人形象"
+  if(!cats.length){ _showEx('请至少选择一项内容。','bad'); return; }
+  const selVer=Array.from(document.querySelectorAll('.exVer:checked')).map(e=>e.value);
+  const selVid=Array.from(document.querySelectorAll('.exVid:checked')).map(e=>e.value);
+  if(needVersions && !selVer.length){ _showEx('请至少选择一个讲解版本。','bad'); return; }
+  const quality=($('exQuality')&&$('exQuality').value)||'lossless';
+  const includePlayer=!!($('exPlayer')&&$('exPlayer').checked);
+  const sig=_exSig(cats, needVersions?selVer:[], needVideo?selVid:[])+'|q:'+quality
+            +'|p:'+(includePlayer?1:0);
+  // 防重复导出：与上次完全相同的选择不再重复生成
+  if(sig===_lastExSig && _lastExFile){
+    _showEx('该播放文件已导出（<b>'+esc(_lastExName||'')+'</b>），无需重复导出。可直接下载，或调整选择后重新生成。','');
+    $('exDl').href=_lastExFile; $('exDl').style.display='';
+    return;
+  }
+  _exStop=false;
+  $('exGo').disabled=true; $('exStop').disabled=false;
+  $('exBarWrap').style.display='block'; $('exBar').style.width='25%';
+  _showEx('正在生成播放文件…（打包可能需十几秒，请稍候）','');
+  try{
+    const r=await postJSON('/api/resources',{act:'export',cats,
+      versions: needVersions?selVer:[], videos: needVideo?selVid:[], quality,
+      include_player: includePlayer});
+    $('exBar').style.width='100%';
+    if(r.ok){
+      _lastExSig=sig; _lastExName=r.name; _lastExFile=r.zip;
+      const mb=r.size?(r.size/1048576).toFixed(1)+' MB':'未知';
+      const ff=r.ffmpeg?'':'⚠ 未检测到 ffmpeg，已按<b>无损原样</b>拷贝。';
+      _showEx('✅ 已生成 <b>'+r.count+'</b> 项 · 精度 <b>'+esc(r.quality||quality)+'</b> · 体积 <b>'+mb+'</b>。'+ff
+        +'<br>文件：<b>'+esc(r.name)+'</b><br>'
+        +'服务器已保存于：<code>'+esc(r.path||'')+'</code><br>'
+        +'已自动开始下载；若未弹出，请点下方「下载文件」。也可在「便携播放版（⑧）」导入此 zip。'
+        +(includePlayer?'<br>📱 <b>这是离线便携播放包</b>：解压后双击 <code>player.html</code> 即可播放，'
+          +'也可直接放进安卓 APK / 统信 deb / Win 便携包三端使用。':''),'');
+      $('exDl').href=r.zip; $('exDl').setAttribute('download', r.name||'myme_playback.zip');
+      $('exDl').style.display='';
+      dlZip(r.zip, r.name);
+    } else {
+      _showEx('❌ '+(r.error||'导出失败'),'bad');
+    }
+  }catch(e){ _showEx('❌ '+e,'bad'); }
+  finally{ $('exGo').disabled=false; $('exStop').disabled=true; }
+}
+function _showEx(html, cls){
+  const m=$('exMsg'); if(!m) return;
+  m.style.display='block'; m.className='out'+(cls?(' '+cls):'');
+  m.innerHTML=html;
+}
+function dlZip(url,name){
+  // 用锚点点击触发下载（比 window.open 可靠，避免被浏览器弹窗拦截而无反应）
+  try{
+    const a=document.createElement('a'); a.href=url;
+    if(name) a.setAttribute('download', name);
+    a.style.display='none'; document.body.appendChild(a); a.click();
+    setTimeout(()=>a.remove(), 1500);
+  }catch(e){}
+}
+// 兼容旧的面板按钮名（保留 id=exportPlayback 按钮，转调对话框）
+function exportPlayback(){ openExportPlayback(); }
+
+/* ================= 便携播放版：导入播放文件 ================= */
+async function importPlayback(){
+  pickZip(async f=>{
+    const n=await uploadZipFile(f);
+    if(n!==null){ $('playImportHint').textContent='已导入 '+n+' 项，前往「⑤ 正式演示」即可播放';
+      await loadSlides(); await loadVersions(); await loadPersons(); renderPlayList(); switchTab('5'); }
+  });
+}
+function renderPlayList(){
+  const list=$('playList'); if(!list) return;
+  if(!S.slides.length){ list.innerHTML='<div class="muted">尚未导入。</div>'; return; }
+  list.innerHTML='<div class="muted">已载入 '+S.slides.length+' 页讲解，可前往「⑤ 正式演示」播放。</div>';
+}
+
+/* ================= 播放版 / 完整版 UI 切换 ================= */
+function applyPlaybackMode(){
+  const authTabs=['1','2','3','4','6','7'];
+  if(S.playback){
+    authTabs.forEach(t=>{ const el=document.querySelector('.tab[data-t="'+t+'"]'); if(el) el.style.display='none'; });
+    const t8=$('tab8'); if(t8) t8.style.display='';
+    // 隐藏演示面板里的"创作"类按钮（生成视频 / 新增版本 / 翻译）
+    ['genDemoVid','genFullVid','verNew','verTrans'].forEach(id=>{ const e=$(id); if(e) e.style.display='none'; });
+    const avLab=$('demoAvatarVid'); if(avLab&&avLab.closest('label')) avLab.closest('label').style.display='none';
+    const ex=$('exportPlayback'); if(ex) ex.style.display='none';
+    document.querySelectorAll('.exItem').forEach(e=>e.style.display='none');   // 播放版不导出
+    // 顶部提示横幅
+    let b=document.getElementById('pbBanner');
+    if(!b){ b=document.createElement('div'); b.id='pbBanner';
+            b.style.cssText='padding:10px 14px;margin:8px 0;background:#fff7ed;color:#9a3412;border:1px solid #fdba74;border-radius:10px;font-size:14px';
+            const m=document.querySelector('main'); if(m) m.prepend(b); }
+    b.textContent='🎬 便携播放版 · 仅演示播放（请先「⑧ 导入播放文件」）';
+    if(!S.slides.length) switchTab('8'); else switchTab('5');
+  } else {
+    const t8=$('tab8'); if(t8) t8.style.display='none';
+    const ex=$('exportPlayback'); if(ex) ex.style.display='';   // 完整版：演示面板显示"导出播放文件"
+    document.querySelectorAll('.exItem').forEach(e=>e.style.display='');   // 完整版：菜单显示导出
+  }
+  refreshTabGroups();
+}
+/* 播放版只剩「⑤ 正式演示 / ⑧ 导入播放文件」，分组标题与分隔线会变成孤儿，直接隐藏 */
+function refreshTabGroups(){
+  const bar=$('tabs'); if(!bar) return;
+  const show=!S.playback;
+  bar.querySelectorAll('.tgroup,.tsep').forEach(e=>{ e.style.display = show?'':'none'; });
+}
+
+/* ============ 便携播放版：启动引导（首次进入自动弹出一次） ============ */
+function openMenuByName(name){
+  closeMenus();
+  const ms=Array.from(document.querySelectorAll('#menubar .menu'));
+  const m=ms.find(d=>{const b=d.querySelector('button'); return b&&b.textContent.indexOf(name)>=0;});
+  if(m){ m.classList.add('open'); try{ m.scrollIntoView({block:'nearest'}); }catch(e){} }
+}
+function showStartupGuide(force){
+  const key='mymeGuideSeen';
+  if(!force){ try{ if(localStorage.getItem(key)==='1') return; }catch(e){} }
+  const has=!!(S.slides&&S.slides.length);
+  const body=`
+    <p class="muted">便携播放版只做一件事：<b>把完整版导出的演示包播出来</b>。按下面三步即可开始。</p>
+    <div class="guide">
+      <div class="gstep"><div class="gno">1</div><div class="gtxt">
+        <b>导入播放文件</b>拿到完整版导出的 <code>myme_playback_xxx.zip</code>，在此导入。
+        方案 / 音频 / 视频 / 分身形象会保存到本机，可反复播放。
+        ${has?'<div style="color:var(--accent);margin-top:4px">✅ 当前已载入 '+S.slides.length+' 页讲解，可直接进入第 3 步。</div>':''}
+        <div class="gact"><button class="btn" onclick="closeModal();switchTab('8')">前往「⑨ 播放文件」→</button></div>
+      </div></div>
+      <div class="gstep"><div class="gno">2</div><div class="gtxt">
+        <b>选择分身</b>在顶部菜单「🧑 分身」中选择本次出镜的人与形象（随时可再换）。
+        <div class="gact"><button class="btn ghost" onclick="closeModal();openMenuByName('分身')">打开「分身」菜单</button></div>
+      </div></div>
+      <div class="gstep"><div class="gno">3</div><div class="gtxt">
+        <b>开始播放</b>到「⑤ 正式演示」点「▶ 开始演示」，数字分身按页播放讲解并自动同步翻页；
+        中途可用「⏸ 领导提问」打断答疑，答完「继续演示」从断点续播。
+        <div class="gact"><button class="btn" onclick="closeModal();switchTab('5')">前往「⑤ 正式演示」→</button></div>
+      </div></div>
+    </div>
+    <p class="muted" style="margin-top:10px">💡 想再看一次：帮助菜单 →「🎬 启动引导（首次使用）」。</p>`;
+  openModal('🎬 欢迎使用便携播放版', body,
+    '<button class="btn ghost" onclick="closeModal()">关闭</button>'+
+    '<button class="btn" onclick="closeModal()">开始使用</button>');
+  try{ localStorage.setItem(key,'1'); }catch(e){}
+}
+
+/* ================= 启动 ================= */
+(async function init(){
+  try{ S.settings=await getJSON('/api/settings'); S.settings=S.settings.settings||S.settings; }
+  catch(e){ S.settings={}; }
+  try{ const lc=await getJSON('/api/llm_config'); S.llmConfig=lc.config||{}; }
+  catch(e){ S.llmConfig={}; }
+  // 读取运行模式（完整版 / 便携播放版），据此切换 UI 与可用功能
+  try{ const m=await getJSON('/api/meta'); S.playback=!!(m&&m.playback); }catch(e){ S.playback=false; }
+  if(S.settings.lang){$('lang1').value=S.settings.lang;$('lang2').value=S.settings.lang;$('lang3').value=S.settings.lang;}
+  applySettings();
+  await loadPersons();
+  refreshDemoAvatar();
+  await loadSlides();
+  await loadVersions();
+  await loadSources();
+  await loadQA();
+  applyPlaybackMode();   // 播放版隐藏创作菜单、显示导入页；完整版显示"导出播放文件"
+  await loadProjects();  // 顶部项目切换条：当前项目 / 新建 / 重命名 / 删除
+  syncDemoBtnState();   // 初始：开始演示可用，其余相斥按钮灰显
+  // 便携播放版：首次进入弹出启动引导（仅一次，帮助菜单可再次打开）
+  if(S.playback){ try{ showStartupGuide(false); }catch(e){} }
+  const url=curAvatarUrl();
+  if(url){$('box3').innerHTML='<div class="avatarwrap"><img src="'+url+'" alt="分身形象"></div>';applyAvatarTransform();}
+})();
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeMenus();}});
+</script></body></html>
