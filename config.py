@@ -91,9 +91,12 @@ EMBEDDED_PY = (os.environ.get("MYME_EMBEDDED_PY") or "").strip() or (
     else ""
 )
 # Qwen3-TTS 节点目录（qwen_tts 包所在）
-QWEN_TTS_NODES = os.path.join(COMFYUI_ROOT, "custom_nodes", "qwen3-tts-comfyui")
-# 语音克隆基座模型（1.7B，支持中/英等 10 种语言）
-QWEN_TTS_MODEL = os.path.join(COMFYUI_ROOT, "models", "qwen-tts", "Qwen3-TTS-12Hz-1.7B-Base")
+# 树根为空时显式保持空串：否则会拼成相对串（如 "custom_nodes/qwen3-tts-comfyui"），
+# 被 os.path.exists 按当前工作目录判定，产生「已配置但路径其实是相对串」的假象。
+if COMFYUI_ROOT:
+    QWEN_TTS_NODES = os.path.join(COMFYUI_ROOT, "custom_nodes", "qwen3-tts-comfyui")
+    # 语音克隆基座模型（1.7B，支持中/英等 10 种语言）—— 注意：本体是【目录】不是单文件
+    QWEN_TTS_MODEL = os.path.join(COMFYUI_ROOT, "models", "qwen-tts", "Qwen3-TTS-12Hz-1.7B-Base")
 # 用户声纹样本（炎冰本人 ~10 分钟 24kHz 单声道）
 VOICE_SAMPLE = os.path.join(WORKSPACE, "voice", "yanbing-sample-01.wav")
 # 各分身声纹映射（person id -> wav）。新增分身：把干净参考 wav 放 voice/ 并在此登记。
