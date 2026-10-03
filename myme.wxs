@@ -1,0 +1,39 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <!--
+    按用户安装（perUser）：目标目录为当前用户的 LocalAppData\myme，
+    不需要管理员提权。双击安装时不再因写入 ProgramFiles 需要 UAC 而报
+    2503 / 2502 错误。
+  -->
+  <Package Name="PPT制作及分身演示 (myme)" Manufacturer="myme" Version="2.4.0"
+           Scope="perUser" UpgradeCode="a1b2c3d4-0000-1111-2222-333344445555">
+    <SummaryInformation Description="本地 PPT 制作与分身演示：用你的声音讲 PPT 并自动答疑（本地部署 PWA）" />
+    <!-- 单文件 MSI（cab 内嵌）。注意：本机(win32)生成含 ~59MB exe 的 msi 时，wix 进程在
+         "Generating database" 阶段被杀（疑似 OLE 复合文档流嵌入大 PE 被实时防护/内存限制拦截），
+         已临时改用 7z 自解压安装包（仓库根 _build_sfx.py -> dist/myme-setup.exe）。
+         在正常环境可直接 `wix build myme.wxs -o dist/myme-setup.msi` 出单文件 MSI。 -->
+    <MediaTemplate EmbedCab="yes" />
+    <MajorUpgrade DowngradeErrorMessage="已安装较新版本，请先卸载。" />
+    <Feature Id="Main" Title="PPT制作及分身演示" Level="1">
+      <Component Directory="INSTALLFOLDER" Guid="b1b2c3d4-0000-1111-2222-333344445556">
+        <File Id="MymeExe" Source="dist\myme.exe" KeyPath="yes" />
+        <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuDir" Name="PPT制作及分身演示"
+                  Target="[INSTALLFOLDER]myme.exe" WorkingDirectory="INSTALLFOLDER"
+                  Description="启动本地 PPT 制作与分身演示 Web 服务并打开浏览器" Advertise="no" />
+        <Shortcut Id="DesktopShortcut" Directory="DesktopFolder" Name="PPT制作及分身演示"
+                  Target="[INSTALLFOLDER]myme.exe" WorkingDirectory="INSTALLFOLDER"
+                  Description="启动本地 PPT 制作与分身演示 Web 服务并打开浏览器" Advertise="no" />
+      </Component>
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <!-- 按用户安装：装到 %LocalAppData%\myme，无需管理员 -->
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="INSTALLFOLDER" Name="myme" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ProgramMenuDir" Name="PPT制作及分身演示" />
+    </StandardDirectory>
+    <StandardDirectory Id="DesktopFolder" />
+  </Fragment>
+</Wix>
