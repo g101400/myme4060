@@ -1240,6 +1240,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if p.path in _PLAYBACK_FORBIDDEN:
                 self._json({"ok": False,
                             "error": "播放版仅支持演示播放；创作功能请使用完整版。"}); return
+        # v2.6.7 只读自检类接口：GET / POST 双通道（前端「主链路自检」「软件升级」都走 POST，
+        # 早期只挂在 do_GET 上，POST 会掉进兜底分支返回 unknown endpoint）。
+        if p.path == "/api/pipeline":
+            self._json(pipeline_check()); return
+        if p.path == "/api/upgrade":
+            self._json(check_upgrade()); return
         # 大文件 zip 直传（二进制流）：必须在读 JSON body 之前分流，
         # 避免前端把几百 MB 的 zip 转 base64 塞 JSON 撑爆 WebView2（Out of Memory）。
         # 播放版仍需允许 /api/upload_zip 导入播放包，故不放入 _PLAYBACK_FORBIDDEN。
@@ -3500,16 +3506,28 @@ def _build_manifest(slides_doc, only_versions, quality, packed_videos):
     vs = slides_doc.get("versions") or {}
     if only_versions:
         vs = {k: v for k, v in vs.items() if k in set(only_versions)}
-    # 可选项：分身列表（默认分身 + 各形象），播放端据此渲染"选分身"下拉
+    # 可选项：分身列表，播放端据此渲染"选分身"下拉 —— 也是四片段的第一维。
+    # ⚠ 这里必须是「分身（炎冰 / 金子）」而不是「形象（日常·炎冰 / 正式·证件…）」：
+    # 换脸要连声音一起换，而声音是按分身 id 解析的（config.resolve_voice），
+    # 形象只是同一个人的几张脸。拿形象当分身会生成一堆同名片段、且换脸不换声。
     personas = []
     try:
-        lib = list_portraits()
-        personas.append({"id": "default",
-                         "name": (lib.get("default") or {}).get("name") or "默认分身"})
-        for pid, meta in (lib.get("personas") or {}).items():
-            personas.append({"id": pid, "name": (meta or {}).get("name") or pid})
+        # 分身表（persons.json）：[{id:yanbing,name:炎冰},{id:jinzi,name:金子}]
+        for _p in ((persons.list_persons() or {}).get("persons") or []):
+            _pid = (_p or {}).get("id")
+            if not _pid or _pid == "default":
+                continue
+            personas.append({"id": _pid, "name": (_p or {}).get("name") or _pid})
     except Exception:
         personas = []
+    if not personas:
+        # 兜底：至少保证当前激活分身有段，别让播放端一个片段都没有
+        try:
+            cur = get_current_persona()
+            if cur.get("id"):
+                personas = [{"id": cur["id"], "name": cur.get("name") or cur["id"]}]
+        except Exception:
+            personas = []
     out = []
     for vid, v in vs.items():
         raw = (v or {}).get("slides") or []
@@ -3560,8 +3578,16 @@ def _build_manifest(slides_doc, only_versions, quality, packed_videos):
                     "created": (v or {}).get("created", ""),
                     "slides": pages,
                     "full": {"video": full, "dur": dur}})
+    # 片段只固化为「当前演示版本」这一版：2 分身 × 2 语言 = 正好四个（炎冰·中文 /
+    # 炎冰·英文 / 金子·中文 / 金子·英文）。若跟着所有版本都铺开，段数会随版本数膨胀，
+    # 播放端下拉一下全是同名的段，反而看不出该验哪一段。
+    _cur = (slides_doc.get("meta") or {}).get("currentVersion") or ""
+    _ids = [v["id"] for v in out]
+    _seg_src = [v for v in out if v["id"] and v["id"] == _cur] or out
+    segments = _build_segments(_seg_src, personas)
     return {"app": "myme", "manifest": 1, "generated": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "personas": personas, "versions": out, "segments": _build_segments(out, personas)}
+            "personas": personas, "versions": out, "segments": segments,
+            "currentVersion": _cur or (_ids[0] if _ids else "")}
 
 
 def _build_segments(versions, personas):
@@ -3608,6 +3634,7 @@ def _build_segments(versions, personas):
                     "id": "%s_%s" % (per["id"], lg),
                     "name": per["name"] + " · " + lg_name,
                     "person": per["id"], "person_name": per["name"],
+                    "vname": v.get("name") or v.get("id", ""),
                     "lang": lg, "lang_name": lg_name,
                     "ready": not missing, "missing": missing,
                     "vid": v.get("id", ""),

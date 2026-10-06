@@ -75,3 +75,10 @@ choose
 go
 .batin
 .bat.log
+
+# ---- 本轮起的带号构建目录（PyInstaller 为绕开删除守卫换新 work/dist 目录）----
+build26*/
+dist26*/
+_ios_stage/
+_tmp/
+_scratch/

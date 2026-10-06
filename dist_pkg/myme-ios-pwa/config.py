@@ -22,7 +22,9 @@ if getattr(_sys, "frozen", False):
     DATA_DIR = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "myme")
     os.makedirs(DATA_DIR, exist_ok=True)
 else:
-    DATA_DIR = WORKSPACE
+    # 开发/联调用：MYME_DATA 可把运行数据指到别的目录（例如指向 %LOCALAPPDATA%\myme
+    # 的真实用户数据，或换机复现时指到拷贝出来的那份）。不设则等于包目录。
+    DATA_DIR = (os.environ.get("MYME_DATA", "") or "").strip() or WORKSPACE
 
 # ============ 语音克隆 TTS（复用已验证管线）============
 # ComfyUI 内置 python（自带 torch 2.10+cu130 / transformers 5.5 / soundfile）
@@ -575,7 +577,7 @@ if PLAYBACK_MODE:
     USE_AVATAR_SERVICE = False
 
 # ============ 版本号（同时用于关于/安装包标识）============
-VERSION = "2.6.7"
+VERSION = "2.6.9"
 
 # ============ 应用名称（多分身通用，不绑定具体人或行业）============
 # 产品名：PPT制作及分身演示。首页标题/关于/安装包均用此名，
