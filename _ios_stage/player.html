@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>myme 便携播放器（离线）</title>
+<style>
+:root{--bg:#0b1020;--panel:#151a2e;--line:#2a3352;--fg:#e8ecf6;--mut:#9aa5c4;--acc:#4f8cff;--ok:#22c55e;--warn:#f59e0b}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
+  font-family:"Microsoft YaHei","PingFang SC",system-ui,-apple-system,sans-serif}
+body{display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;gap:8px;align-items:center;padding:8px 12px;background:var(--panel);
+  border-bottom:1px solid var(--line);flex-wrap:wrap}
+header .t{font-weight:700;font-size:15px;margin-right:4px}
+header select,header button{background:#1e2540;color:var(--fg);border:1px solid var(--line);
+  border-radius:8px;padding:6px 10px;font-size:13px}
+header button:hover{border-color:var(--acc)}
+header .sp{flex:1}
+.tag{font-size:12px;color:var(--mut)}
+main{flex:1;display:flex;min-height:0}
+#stage{flex:1.4;position:relative;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden}
+#stage img,#stage video{max-width:100%;max-height:100%;object-fit:contain}
+#ph{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+  flex-direction:column;gap:10px;color:var(--mut);font-size:15px;text-align:center;padding:20px}
+#ph.on{display:flex}
+/* 分身视频画中画：默认右下角缩小显示，可关闭（只显示 PPT） */
+#pip{position:absolute;right:14px;bottom:14px;width:30%;max-width:360px;min-width:150px;
+  aspect-ratio:16/9;background:#000;border:2px solid rgba(255,255,255,.28);border-radius:10px;
+  overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.55);z-index:6}
+#pip.hide{display:none}
+#pip video{width:100%;height:100%;object-fit:cover;display:block}
+#pip .x{position:absolute;top:4px;right:4px;width:22px;height:22px;border:0;border-radius:6px;
+  background:rgba(0,0,0,.55);color:#fff;font-size:13px;line-height:1;cursor:pointer}
+#side{width:38%;min-width:260px;max-width:520px;background:var(--panel);border-left:1px solid var(--line);
+  padding:14px 16px;overflow:auto}
+#side h2{margin:0 0 10px;font-size:17px;line-height:1.4}
+#side .txt{white-space:pre-wrap;line-height:1.75;font-size:14px;color:#d8def0}
+#side .notes{margin-top:12px;padding:10px;border-left:3px solid var(--acc);color:var(--mut);font-size:13px}
+#side .na{color:var(--mut);font-size:13px}
+footer{background:var(--panel);border-top:1px solid var(--line);padding:8px 12px;
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+footer button{background:#1e2540;color:var(--fg);border:1px solid var(--line);border-radius:8px;
+  padding:7px 12px;font-size:13px;cursor:pointer}
+footer button:hover{border-color:var(--acc)}
+footer button.p{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+#bar{flex:1;min-width:120px;height:6px;background:#0e1428;border-radius:4px;overflow:hidden}
+#bar i{display:block;height:100%;width:0;background:var(--ok)}
+.pg{font-variant-numeric:tabular-nums;font-size:13px;color:var(--mut)}
+select#rate{background:#1e2540;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+#list{position:fixed;right:0;top:0;bottom:0;width:280px;background:#10162c;border-left:1px solid var(--line);
+  transform:translateX(100%);transition:.2s;overflow:auto;padding:10px;z-index:9}
+#list.on{transform:none}
+#list .it{padding:8px 10px;border-radius:8px;cursor:pointer;font-size:13px;line-height:1.4}
+#list .it:hover{background:#1b2340}
+#list .it.cur{background:var(--acc);color:#fff}
+#toast{position:fixed;left:50%;top:16px;transform:translateX(-50%);background:#1e2540;border:1px solid var(--line);
+  padding:8px 14px;border-radius:10px;font-size:13px;opacity:0;transition:.2s;pointer-events:none;z-index:20}
+#toast.on{opacity:1}
+@media (max-width:820px){main{flex-direction:column}#side{width:auto;max-width:none;border-left:0;border-top:1px solid var(--line);max-height:40%}#list{width:80%}#pip{width:42%;min-width:120px}}
+</style>
+</head>
+<body>
+<header>
+  <span class="t">▶ myme 便携播放器</span>
+  <button id="btnImport" title="选择完整版导出的便携播放包 zip（也支持已解压的 manifest.json 目录）">📥 导入播放包</button>
+  <input type="file" id="fileZip" accept=".zip,application/zip" hidden>
+  <select id="segSel" title="播放片段（分身 × 语言，默认四个：炎冰·中文 / 炎冰·英文 / 金子·中文 / 金子·英文）"></select>
+  <select id="ver" title="选择播放文件（版本，兼容旧包）"></select>
+  <select id="langSel" title="配音语言（无英文配音时会提示并回落到中文）">
+    <option value="zh">中文</option><option value="en">English</option></select>
+  <select id="avSel" title="分身形象（形象与声纹一一对应）" style="display:none"></select>
+  <button id="btnPip" title="显示/隐藏分身画中画">🧑 分身：开</button>
+  <span class="sp"></span>
+  <span id="meta" class="tag"></span>
+  <button id="btnTopPlay" class="p" style="background:#4f8cff;border:1px solid #4f8cff;color:#fff">▶ 播放</button>
+  <label class="tag"><input type="checkbox" id="auto" checked> 自动连播</label>
+  <button id="btnList">☰ 目录</button>
+  <button id="btnFs">⛶ 全屏</button>
+</header>
+
+<main>
+  <div id="stage">
+    <video id="vid" playsinline webkit-playsinline></video>
+    <img id="page" alt="">
+    <div id="ph">
+      <div style="font-size:34px">📦</div>
+      <div id="phMsg">未找到播放包</div>
+      <div style="font-size:12px;max-width:420px">把完整版导出的「便携播放包 zip」解压到本播放器同一目录
+        （manifest.json / slides.json / audio / video / images 与之并列）后刷新页面即可。</div>
+    </div>
+    <!-- 分身视频画中画：默认右下角缩小显示，可关闭（只显示 PPT） -->
+    <div id="pip" class="hide">
+      <video id="pipVid" playsinline webkit-playsinline muted></video>
+      <button class="x" id="pipClose" title="关闭分身">✕</button>
+    </div>
+  </div>
+  <aside id="side">
+    <h2 id="sTitle">—</h2>
+    <div class="txt" id="sText"></div>
+    <div class="notes" id="sNotes" style="display:none"></div>
+  </aside>
+</main>
+
+<footer>
+  <button id="bPrev">⏮ 上一页</button>
+  <button class="p" id="bPlay">▶ 播放</button>
+  <button id="bStop">⏹ 停止</button>
+  <button id="bNext">下一页 ⏭</button>
+  <button id="bFull">🎬 整场视频</button>
+  <span id="bar"><i></i></span>
+  <span class="pg" id="pg">0 / 0</span>
+  <select id="rate" title="倍速">
+    <option value="0.75">0.75x</option><option value="1" selected>1x</option>
+    <option value="1.25">1.25x</option><option value="1.5">1.5x</option><option value="2">2x</option>
+  </select>
+</footer>
+
+<div id="list"></div>
+<div id="toast"></div>
+
+<!-- 便携包导出时会生成 manifest.js（内联清单），file:// 场景下唯一零请求的读取路径；
+     没有此文件时 onerror 静默，由后续 fetch/XHR 兜底 -->
+<script src="manifest.js" onerror="void 0"></script>
+<script>
+/* ============================================================
+   myme 便携播放器（纯静态 · 离线 · 零依赖） v2.6.1
+   ------------------------------------------------------------
+   布局（按播放端反馈重做）：
+     · 默认以「PPT 演示页图」为主视图（大图）；
+     · 数字分身视频缩在右下角画中画（可关闭，只看法图）；
+     · 顶部可选：播放文件（版本）/ 配音语言（中·英）/ 分身形象；
+     · 配音按所选语言切换（audio / audio_en），分身视频静音播放，
+       避免与配音重复出声，口型仍与配音对齐（视频本就由同一段配音驱动）。
+   ============================================================ */
+var M=null, VER=null, IDX=0, AUTO=true, FULLMODE=false, TIMELINE=null;
+var LANG="zh", AV_SEL="default", PIP_ON=true, SEG=null;
+var $ = function(id){ return document.getElementById(id); };
+function toast(m){ var t=$('toast'); t.textContent=m; t.classList.add('on');
+  clearTimeout(t._h); t._h=setTimeout(function(){t.classList.remove('on');},2200); }
+function enc(s){ return (s==null?'':String(s)); }
+function base(u){ return enc(u).split('?name=').pop().split('/').pop(); }
+
+/* ---------- 加载数据 ----------
+   ⚠ 安卓 / 统信便携端的血泪教训：**不能用 fetch 读本地 JSON**。
+     - 安卓 WebView 加载 file:///android_asset/player.html 时，fetch 走的是网络栈，
+       对 file:// 一律返回 "Failed to fetch"，页面只会白屏提示"读取播放包失败"。
+     - 桌面浏览器直接双击 player.html（file://）同理，被同源策略拦掉。
+   因此这里做「四级兜底」，从最可靠的到最兼容的依次尝试：
+     ① window.__MYME_MANIFEST__ —— 导出时内联进 manifest.js，零请求，任何环境都能读；
+     ② fetch —— 有 http 服务时（统信 serve.py / 本地预览）最快；
+     ③ XMLHttpRequest —— 部分老 WebView 允许 XHR 读 file:// 而 fetch 不行；
+     ④ slides.json 旧包 —— 早期导出的包只有 slides.json，按约定拼媒体名。            */
+function get(u){
+  return fetch(u,{cache:'no-store'}).then(function(r){
+    if(!r.ok) throw new Error(u+' '+r.status);
+    return r.json();
+  });
+}
+/* XHR 版（file:// 下比 fetch 更宽容；WebView setAllowFileAccessFromFileURLs 后可用） */
+function getXhr(u){
+  return new Promise(function(res, rej){
+    try{
+      var x=new XMLHttpRequest();
+      x.open('GET',u,true);
+      x.onreadystatechange=function(){
+        if(x.readyState!==4) return;
+        if((x.status>=200&&x.status<300)||(x.status===0&&x.responseText)){
+          try{ res(JSON.parse(x.responseText)); }catch(e){ rej(e); }
+        } else { rej(new Error(u+' '+x.status)); }
+      };
+      x.onerror=function(){ rej(new Error('xhr error')); };
+      x.send();
+    }catch(e){ rej(e); }
+  });
+}
+/* 动态插 <script src="xxx.js">（在 file:// 下不受同源限制，是最后一张底牌） */
+function getJsonp(u){
+  return new Promise(function(res, rej){
+    var s=document.createElement('script');
+    s.src=u;
+    var done=false;
+    s.onload=function(){ done=true;
+      if(window.__MYME_FILE__){ res(window.__MYME_FILE__); }
+      else if(window.__MYME_MANIFEST__){ res(window.__MYME_MANIFEST__); }
+      else { rej(new Error('no data')); } };
+    s.onerror=function(){ if(!done) rej(new Error('script error')); };
+    document.head.appendChild(s);
+  });
+}
+function fromSlides(d){
+  // 回退：直接吃 slides.json（版本 -> 页），媒体名靠约定拼
+  var vs = d.versions || {}, out=[];
+  Object.keys(vs).forEach(function(k){
+    var v = vs[k]||{}, slides=v.slides||v||[];
+    out.push({ id:k, name:v.name||k, created:v.created||'', personas:[],
+      full: guessFull(k), slides: slides.map(function(s){
+        return { idx:s.idx, title:s.title||'', text:s.text||'', notes:s.notes||'',
+          img: s.img ? ('images/'+base(s.img)) : (s.images&&s.images[0] ? ('images/'+base(s.images[0])) : ''),
+          audio: s.audio ? ('audio/'+base(s.audio)) : guessAudio(s.idx),
+          audio_en: s.audio_en ? ('audio/'+base(s.audio_en)) : '',
+          video: guessVideo(k, s.idx), videoAlt:{} };
+      }) });
+  });
+  return { app:'myme', personas:[], versions: out };
+}
+function pad(n){ n=parseInt(n,10)||0; return (n<10?'0':'')+n; }
+function guessAudio(i){ return 'audio/narr-'+pad(i)+'.wav'; }
+function guessVideo(v,i){ return 'video/demo_av_'+v+'_'+i+'.mp4'; }
+function guessFull(v){ return { video:'video/demo_av_full_'+v+'.mp4', dur:'video/demo_av_full_'+v+'_dur.json' }; }
+
+/* ============================================================
+   便携播放包导入：纯原生解 zip（零依赖）
+   ------------------------------------------------------------
+   播放器要能「打开一个 zip 就播」，但离线场景拿不到 JSZip。
+   浏览器原生 DecompressionStream('deflate-raw') 就能解压 deflate 原始块，
+   于是这里手写一个小 ZIP 读取器（EOCD → central directory → local header → inflate）。
+   解压结果只进内存（不落盘），供本页播放使用。
+   ============================================================ */
+var ZIP_FILES = {};          // name -> {data:Uint8Array, name}
+function unzip(u8){
+  // 1) 找 End Of Central Directory（从尾部 22 字节起反向扫）
+  var eocd=-1;
+  for(var i=u8.length-22;i>=Math.max(0,u8.length-65558);i--){
+    if(u8[i]===0x50&&u8[i+1]===0x4b&&u8[i+2]===0x05&&u8[i+3]===0x06){ eocd=i; break; }
+  }
+  if(eocd<0) return Promise.reject(new Error('不是有效的 zip（找不到目录尾记录）'));
+  var cdOff = u8[eocd+16]|u8[eocd+17]<<8|u8[eocd+18]<<16|u8[eocd+19]<<24;
+  var cdSize= u8[eocd+12]|u8[eocd+13]<<8|u8[eocd+14]<<16|u8[eocd+15]<<24;
+  var end = Math.min(cdOff+cdSize, u8.length), p = cdOff, files = [];
+  // 2) 遍历中央目录条目
+  while(p+46<=end && u8[p]===0x50 && u8[p+1]===0x4b && u8[p+2]===0x01 && u8[p+3]===0x02){
+    var method   = u8[p+10]|u8[p+11]<<8;
+    var nameLen  = u8[p+28]|u8[p+29]<<8;
+    var extraLen = u8[p+30]|u8[p+31]<<8;
+    var cmtLen   = u8[p+32]|u8[p+33]<<8;
+    var lhOff    = (u8[p+42]|u8[p+43]<<8|u8[p+44]<<16|u8[p+45]<<24)>>>0;
+    var name = '';
+    for(var k=0;k<nameLen;k++) name += String.fromCharCode(u8[p+46+k]);
+    // central 里的压缩后大小（method 0 = 原样字节数）：local header 在启用 data descriptor
+    // （flags bit 3）时 compSize 会被写成 0，只有中央目录里的才是可信值。
+    // ⚠ 必须在 p += 之前读：中央目录字段偏移都相对于当前条目起始。
+    var csize = (u8[p+20]|u8[p+21]<<8|u8[p+22]<<16|u8[p+23]<<24)>>>0;
+    p += 46+nameLen+extraLen+cmtLen;
+    if(/\/$/.test(name)) continue;                 // 目录项跳过
+    files.push({method:method, name:name, lhOff:lhOff, csize:csize});
+  }
+  // 3) 逐个取数据（local header 里再读一次文件名长度，因为可能有 extra 字段偏移）
+  var jobs = files.map(function(f){
+    var q=f.lhOff, nl, el, dStart;
+    if(!(u8[q]===0x50&&u8[q+1]===0x4b&&u8[q+2]===0x03&&u8[q+3]===0x04))
+      return Promise.resolve({name:f.name, data:null});
+    nl = u8[q+26]|u8[q+27]<<8;
+    el = u8[q+28]|u8[q+29]<<8;
+    dStart = q+30+nl+el;
+    var raw = u8.subarray(dStart);
+    // ⚠ subarray 只是视图、长度会一直到 zip 尾，必须按中央目录记录的 csize 截断，
+    //   否则 stored 条目会把后面所有文件的数据一起吞进来（表现为音频/图片损坏）。
+    if(f.method===0) return Promise.resolve({name:f.name, data:raw.subarray(0, f.csize||raw.length)});
+    if(typeof DecompressionStream==='undefined') return Promise.resolve({name:f.name, data:null});
+    var cs = new DecompressionStream('deflate-raw');
+    var blob = new Blob([raw]);
+    return new Response(blob.stream().pipeThrough(cs)).arrayBuffer()
+      .then(function(ab){ return {name:f.name, data:new Uint8Array(ab)}; })
+      .catch(function(){ return {name:f.name, data:null}; });
+  });
+  return Promise.all(jobs).then(function(rs){
+    rs.forEach(function(r){ ZIP_FILES[r.name] = r; });
+    return rs;
+  });
+}
+function zipToBytes(name){
+  var e = ZIP_FILES[name];
+  if(!e) throw new Error('播放包里没有 '+name);
+  return new Blob([e.data]);
+}
+function findZipEntry(re){
+  var keys = Object.keys(ZIP_FILES);
+  for(var i=0;i<keys.length;i++) if(re.test(keys[i])) return keys[i];
+  return null;
+}
+/* 从导入的 zip 里取清单并载入：优先 manifest.json，其次内联版 manifest.js */
+function loadFromZip(file){
+  return file.arrayBuffer().then(function(ab){ return unzip(new Uint8Array(ab)); })
+  .then(function(){
+    var k = findZipEntry(/manifest\.json$/);
+    if(!k) throw new Error('zip 里没有 manifest.json（不是本软件导出的便携播放包）');
+    var txt = new TextDecoder('utf-8').decode(ZIP_FILES[k].data);
+    var man = null;
+    try{ man = JSON.parse(txt); }catch(e){
+      // 内联版：manifest.js 里 `window.__MYME_MANIFEST__='<json>'`
+      var m = txt.match(/__MYME_MANIFEST__\s*=\s*'?(\{[\s\S]*\})'?\s*;?/);
+      if(!m) throw new Error('manifest.json 解析失败');
+      try{ man = JSON.parse(m[1]); }
+      catch(e2){ try{ man = JSON.parse(m[1].replace(/^'|'$/g,'')); }catch(e3){ throw new Error('manifest 内容不是合法 JSON'); } }
+    }
+    return man;
+  });
+}
+/* 把包内媒体换成 blob: URL，清单里的 images/audio/video 前缀不再拼给浏览器 */
+function applyZipPackage(man){
+  M = man;
+  ['audio','video','images'].forEach(function(){});
+  return M;
+}
+function zipUrl(path){
+  if(!path) return '';
+  var full = String(path).split('?')[0];
+  if(ZIP_FILES[full]) return URL.createObjectURL(new Blob([ZIP_FILES[full].data]));
+  var base = full.split('/').pop();
+  var k = findZipEntry(new RegExp('(^|/)'+base.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'$'));
+  if(k) return URL.createObjectURL(new Blob([ZIP_FILES[k].data]));
+  return base;                       // 同目录已有实体文件时直接返回原路径（http 场景）
+}
+function load(){
+  /* ① 内联清单（安卓 assets / 任意 file:// 场景的最可靠路径，零请求） */
+  if(window.__MYME_MANIFEST__){ M = window.__MYME_MANIFEST__; return Promise.resolve(M); }
+  /* ② fetch（有 http 服务时最快）→ ③ XHR（部分 WebView 允许 XHR 读 file://）
+     → ④ <script> 注入 manifest.js → ⑤ 旧包 slides.json */
+  return get('manifest.json')
+    .catch(function(){ return getXhr('manifest.json'); })
+    .catch(function(){ return getJsonp('manifest.js'); })
+    .then(function(m){ M = m; return M; })
+    .catch(function(){
+      return get('slides.json')
+        .catch(function(){ return getXhr('slides.json'); })
+        .then(function(d){ M = fromSlides(d); return M; });
+    });
+}
+
+/* ---------- 渲染 ---------- */
+function renderVers(){
+  var sel=$('ver'); sel.innerHTML='';
+  (M.versions||[]).forEach(function(v,i){
+    var o=document.createElement('option'); o.value=v.id; o.textContent=v.name||v.id; sel.appendChild(o);
+  });
+  // 分身下拉：由清单 personas 渲染（默认分身 + 各形象）
+  var as=$('avSel');
+  if(M.personas && M.personas.length){
+    as.style.display=''; as.innerHTML='';
+    M.personas.forEach(function(p){
+      var o=document.createElement('option'); o.value=p.id; o.textContent=p.name||p.id; as.appendChild(o);
+    });
+    AV_SEL = as.value || 'default';
+  } else { as.style.display='none'; AV_SEL='default'; }
+  /* 播放片段（分身 × 语言）：导出包默认给四个（炎冰/金子 × 中/英），
+     缺资源的段也照列不藏 —— 列出来才能"一眼看出这段是哑的"，
+     藏起来只会让用户打开后才发现没声音、还以为播放器坏了。 */
+  var segs = (M.segments||[]);
+  var ss = $('segSel');
+  if(segs.length){
+    ss.style.display=''; ss.innerHTML='';
+    /* 多个版本打进同一个包时，段名前面带上版本，免得下拉里全是重名选项 */
+    var multi = ((M.versions||[]).length > 1);
+    segs.forEach(function(g){
+      var o=document.createElement('option'); o.value=g.id;
+      o.textContent = (multi ? (g.vname||g.vid||'')+' / ' : '') + g.name
+                    + (g.ready ? '' : '（缺：'+(g.missing||'资源')+'）');
+      ss.appendChild(o);
+    });
+  } else { ss.style.display='none'; SEG=null; }
+  if(!M.versions||!M.versions.length){ $('ph').classList.add('on'); $('phMsg').textContent='播放包里没有可用版本'; return; }
+  VER = M.versions[0]; IDX=0; $('ph').classList.remove('on');
+  $('meta').textContent = (VER.name||'') + ' · ' + (VER.slides||[]).length + ' 页' + (VER.created?(' · '+VER.created):'');
+  if(segs.length){
+    /* 默认落在「当前版本」里最齐的那一组，其次是任意 ready 段 */
+    var pool = segs;
+    if(((M.versions||[]).length > 1) && VER && VER.id){
+      var mine = segs.filter(function(g){return g.vid===VER.id;});
+      if(mine.length) pool = mine;
+    }
+    var pick = (pool.filter(function(g){return g.ready;})[0]) || pool[0];
+    setSeg(pick.id, false);
+  }
+  renderList(); show();
+}
+/* 片段 = 分身 × 语言 一次设到位：声音、形象、配音语言三者同时换，
+   杜绝"选了金子还出炎冰的声音""切了英文还在念中文"这类只换一半的错觉。 */
+function segById(id){ return (M.segments||[]).filter(function(g){return g.id===id;})[0] || null; }
+function syncSegSel(){
+  var ss=$('segSel'); if(!ss) return;
+  var g = segById((AV_SEL||'default')+'_'+LANG);
+  if(g) ss.value=g.id;
+}
+function setSeg(id, autoplay){
+  var g=segById(id); if(!g) return;
+  SEG=g; LANG=g.lang; AV_SEL=g.person;
+  /* 片段带着导出时固化的版本 id：版本下拉跟着切，并重建目录，
+     避免"上面选了金子·英文、下面却还在播另一个版本"这种对不上的错觉。 */
+  var vswitched=false;
+  if(g.vid && M.versions){
+    var hit=M.versions.filter(function(v){return v.id===g.vid;})[0];
+    if(hit && hit!==VER){
+      VER=hit; var vs=$('ver'); if(vs) vs.value=g.vid;
+      IDX=0; vswitched=true;
+    }
+  }
+  var ls=$('langSel'); if(ls) ls.value=LANG;
+  var as=$('avSel'); if(as) as.value=AV_SEL;
+  syncSegSel(); renderPip(cur());
+  if(vswitched) renderList();
+  if(!g.ready) toast('片段「'+g.name+'」缺 '+g.missing+'；可用上方下拉切到别的片段对比测试');
+  if(autoplay) play();
+}
+function cur(){ return (VER && VER.slides && VER.slides[IDX]) || null; }
+function renderList(){
+  var l=$('list'); l.innerHTML='<div style="font-size:12px;color:#9aa5c4;margin:4px 0 8px">点击跳页</div>';
+  (VER.slides||[]).forEach(function(s,i){
+    var d=document.createElement('div'); d.className='it'+(i===IDX?' cur':'');
+    d.textContent = (i+1)+'. '+(s.title||('第 '+(i+1)+' 页'));
+    d.onclick=function(){ go(i, true); };
+    l.appendChild(d);
+  });
+}
+/* 当前分身应播的视频：优先 videoAlt[所选分身]，否则默认 video */
+/* 包内媒体路径 -> blob: URL（只在通过「导入播放包」打开时调用，幂等） */
+function mapZipUrls(){
+  (M.versions||[]).forEach(function(v){
+    if(v.full && v.full.video) v.full.video = zipUrl(v.full.video);
+    (v.slides||[]).forEach(function(s){
+      s.img = zipUrl(s.img); s.audio = zipUrl(s.audio);
+      s.audio_en = s.audio_en ? zipUrl(s.audio_en) : '';
+      s.video = zipUrl(s.video);
+      if(s.videoAlt) Object.keys(s.videoAlt).forEach(function(k){ s.videoAlt[k]=zipUrl(s.videoAlt[k]); });
+    });
+  });
+}
+function personName(id){ var p=(M.personas||[]).filter(function(x){return x.id===id;})[0]; return p?(p.name||id):id; }
+function curAvatarVideo(s){
+  if(!s) return "";
+  if(AV_SEL && s.videoAlt && s.videoAlt[AV_SEL]) return s.videoAlt[AV_SEL];
+  return s.video || "";
+}
+/* 渲染右下角分身画中画（仅当开启且本页有视频） */
+function renderPip(s){
+  var pip=$('pip'), pv=$('pipVid');
+  if(!PIP_ON){ pip.classList.add('hide'); return; }
+  var u = curAvatarVideo(s);
+  if(u){ pip.classList.remove('hide'); if(pv.getAttribute('src')!==u) pv.src=u; }
+  else { pip.classList.add('hide'); }
+}
+function show(){
+  var s=cur(); if(!s) return;
+  $('sTitle').textContent = s.title || ('第 '+(IDX+1)+' 页');
+  $('sText').textContent  = s.text || '（本页无文本）';
+  var n=$('sNotes'); if(s.notes){ n.style.display=''; n.textContent='备注：'+s.notes; } else { n.style.display='none'; }
+  $('pg').textContent = (IDX+1)+' / '+(VER.slides||[]).length;
+  var v=$('vid'), im=$('page');
+  if(FULLMODE){ im.style.display='none'; $('pip').classList.add('hide'); v.style.display=''; }
+  else {
+    v.style.display='none';
+    if(s.img){ im.style.display=''; im.src=s.img; im.onerror=function(){ im.style.visibility='hidden'; }; im.onload=function(){ im.style.visibility=''; }; }
+    else { im.style.display=''; im.removeAttribute('src'); im.style.visibility=''; }
+    renderPip(s);
+  }
+  [].forEach.call(document.querySelectorAll('#list .it'),function(e,i){ e.classList.toggle('cur', i===IDX); });
+}
+
+/* ---------- 播放控制 ---------- */
+function stopMedia(){
+  var v=$('vid'), pv=$('pipVid'), a=$('aud');
+  try{ v.pause(); }catch(e){}
+  try{ pv.pause(); }catch(e){}
+  try{ a.pause(); }catch(e){}
+  $('bPlay').textContent='▶ 播放';
+}
+function play(){
+  var s=cur(); if(!s) return;
+  stopMedia();
+  var a=$('aud'), pv=$('pipVid');
+  a.playbackRate=parseFloat($('rate').value);
+  pv.playbackRate=a.playbackRate;
+  if(FULLMODE){
+    if(!VER.full||!VER.full.video){ toast('本版本没有整场视频'); FULLMODE=false; show(); return; }
+    v=$('vid'); v.src=VER.full.video; v.currentTime=0; v.play().catch(function(){ toast('视频无法播放（格式/编码不支持）'); });
+    $('bPlay').textContent='⏸ 暂停'; bindBar(v); return;
+  }
+  /* 分身视频（静音，避免与配音重复出声）+ 配音（按所选语言）
+     ⚠ 换分身后本页若没有这个人的片子，也要说清楚（不能静默换成默认脸，
+     否则用户会以为"金子的片子根本没生成"）。 */
+  renderPip(s);
+  if(PIP_ON && s.videoAlt && Object.keys(s.videoAlt).length && AV_SEL && !s.videoAlt[AV_SEL]){
+    toast('第 '+(IDX+1)+' 页没有「'+personName(AV_SEL)+'」的分身视频，已用默认分身画面（配音不受影响）');
+  }
+  if(!$('pip').classList.contains('hide')){
+    pv.muted=true; pv.currentTime=0;
+    pv.play().catch(function(){ /* 静音视频自动播放通常被允许 */ });
+  }
+  /* ⚠ 语言与配音必须一一对得上：选了 English 而本页没有英文配音时，
+     绝不能静默播中文（用户会以为"英文选项是坏的"），必须明确告知并给出可操作的下一步。 */
+  if(LANG==='en' && !s.audio_en){
+    toast('本页没有英文配音（第 '+(IDX+1)+' 页），已回落到中文；可在完整版重新生成英文讲解');
+  }
+  var au = (LANG==='en' && s.audio_en) ? s.audio_en : s.audio;
+  if(au){
+    a.src=au; a.currentTime=0;
+    a.play().catch(function(){ toast('本页配音无法播放：'+au); });
+    bindBar(a);
+  } else {
+    if(!$('pip').classList.contains('hide')){
+      toast('本页没有配音，仅播放分身画面');
+    } else {
+      toast('本页没有配音（可只看法图）');
+    }
+  }
+  $('bPlay').textContent='⏸ 暂停';
+}
+function bindBar(m){
+  var bar=$('bar').firstElementChild;
+  if(m._bound) return; m._bound=true;
+  m.addEventListener('timeupdate',function(){
+    if(!m.duration) return;
+    bar.style.width = (m.currentTime/m.duration*100)+'%';
+    if(FULLMODE && TIMELINE) syncTimeline(m.currentTime);
+  });
+  m.addEventListener('ended',function(){
+    bar.style.width='100%';
+    $('bPlay').textContent='▶ 播放';
+    if(FULLMODE){ FULLMODE=false; show(); return; }
+    if(AUTO && IDX < VER.slides.length-1){ go(IDX+1, true); }
+  });
+}
+function syncTimeline(t){
+  // 整场视频按 dur.json 时间轴自动翻页
+  for(var i=TIMELINE.length-1;i>=0;i--){ if(t+0.05 >= TIMELINE[i]){ if(IDX!==i){ IDX=i; show(); } return; } }
+}
+function loadTimeline(){
+  TIMELINE=null;
+  if(!VER || !VER.full || !VER.full.dur) return Promise.resolve();
+  return get(zipUrl(VER.full.dur)).then(function(d){
+    var arr = d.timeline || d.durs || d.durations || d.pages || null;
+    if(Array.isArray(arr)){ TIMELINE=arr.map(Number); }
+    else if(d && typeof d==='object'){ TIMELINE=Object.keys(d).sort(function(a,b){return (+a)-(+b);}).map(function(k){return +d[k];}); }
+  }).catch(function(){ TIMELINE=null; });
+}
+function go(i, autoplay){
+  if(!VER) return;
+  IDX = Math.max(0, Math.min((VER.slides||[]).length-1, i));
+  stopMedia(); show();
+  if(autoplay) setTimeout(play, 60);
+}
+function toggle(){
+  var v=$('vid'), pv=$('pipVid'), a=$('aud');
+  var playing = (!v.paused && v.src) || (!a.paused && a.src) || (!pv.paused && pv.src);
+  if(playing){ stopMedia(); } else { play(); }
+}
+
+/* ---------- 事件 ---------- */
+$('bPrev').onclick=function(){ go(IDX-1, AUTO); };
+$('bNext').onclick=function(){ go(IDX+1, AUTO); };
+$('bPlay').onclick=toggle;
+$('bStop').onclick=function(){ stopMedia(); $('bar').firstElementChild.style.width='0'; };
+$('bFull').onclick=function(){
+  if(!VER) return;
+  if(!VER.full || !VER.full.video){ toast('本版本没有整场视频（需在完整版先生成）'); return; }
+  FULLMODE=!FULLMODE; stopMedia(); show();
+  if(FULLMODE){ loadTimeline().then(play); toast('整场视频模式（时间轴同步翻页）'); }
+  else toast('已切回逐页模式');
+};
+$('rate').onchange=function(){ var r=parseFloat(this.value); $('vid').playbackRate=r; $('aud').playbackRate=r; $('pipVid').playbackRate=r; };
+$('auto').onchange=function(){ AUTO=this.checked; };
+$('btnList').onclick=function(){ $('list').classList.toggle('on'); };
+$('btnFs').onclick=function(){
+  var el=document.documentElement;
+  if(!document.fullscreenElement){ (el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el); }
+  else { (document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document); }
+};
+$('btnTopPlay').onclick=toggle;
+$('btnImport').onclick=function(){ $('fileZip').click(); };
+$('fileZip').onchange=function(){
+  var f=this.files && this.files[0]; this.value='';
+  if(!f) return;
+  toast('正在解析「'+f.name+'」…');
+  loadFromZip(f).then(function(man){
+    Object.keys(ZIP_FILES).forEach(function(k){ /* 保持解压结果在内存 */ });
+    applyZipPackage(man);
+    mapZipUrls();
+    VER=null; IDX=0; FULLMODE=false; TIMELINE=null;
+    renderVers();
+    $('ph').classList.remove('on');
+    var n=(M.versions||[]).length;
+    toast(n? ('已导入播放包：'+n+' 个版本 · 点 ▶ 播放') : '导入成功，但包内没有可用版本');
+  }).catch(function(e){
+    toast('导入失败：'+(e && e.message ? e.message : e));
+  });
+};
+$('btnPip').onclick=function(){
+  PIP_ON=!PIP_ON; this.textContent = PIP_ON ? '🧑 分身：开' : '🧑 分身：关';
+  renderPip(cur());
+  if(PIP_ON && !$('aud').paused){ play(); }   // 正在播则立即把分身画面接上
+};
+$('pipClose').onclick=function(){ $('btnPip').click(); };
+$('segSel').onchange=function(){ setSeg(this.value, false); renderList(); show(); };
+$('langSel').onchange=function(){
+  LANG=this.value; syncSegSel();
+  // 整包压根没英文时给一次性提醒（逐页缺失由 play() 提示），别让用户以为英文选项是坏的
+  if(LANG==='en'){
+    var anyEn=(M.versions||[]).some(function(v){ return (v.slides||[]).some(function(s){return !!s.audio_en;}); });
+    if(!anyEn) toast('这个包里没有英文配音，全程会播中文；可在完整版重新生成英文讲解再导出');
+  }
+  if(!$('aud').paused || !$('pipVid').paused) play();
+};
+$('avSel').onchange=function(){
+  AV_SEL=this.value; syncSegSel();
+  renderPip(cur());
+  // 形象切换即人切换：提示声纹也会跟着换（一一对应），避免"选了金子声音还是炎冰"的错觉
+  var opt=this.options[this.selectedIndex];
+  toast('已切换分身：'+(opt?opt.text:AV_SEL)+'（形象与声纹已同步切换）');
+  if(!$('pipVid').paused) $('pipVid').play().catch(function(){});
+};
+$('ver').onchange=function(){
+  VER = (M.versions||[]).filter(function(v){ return v.id===this.value; }.bind(this))[0] ||
+        (M.versions||[])[parseInt(this.selectedIndex,10)];
+  IDX=0; FULLMODE=false; stopMedia();
+  $('meta').textContent=(VER.name||'')+' · '+(VER.slides||[]).length+' 页';
+  renderList(); show();
+};
+document.addEventListener('keydown',function(e){
+  if(e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+  if(e.key==='ArrowRight'){ go(IDX+1, AUTO); }
+  else if(e.key==='ArrowLeft'){ go(IDX-1, AUTO); }
+  else if(e.key===' '){ e.preventDefault(); toggle(); }
+  else if(e.key==='Escape' && $('list').classList.contains('on')){ $('list').classList.remove('on'); }
+});
+
+/* ---------- 启动 ---------- */
+load().then(function(){
+  if(!M || !(M.versions||[]).length){ $('ph').classList.add('on'); return; }
+  if(Object.keys(ZIP_FILES).length) mapZipUrls();
+  renderVers(); toast('已载入 '+(M.versions||[]).length+' 个版本，点▶开始');
+}).catch(function(e){
+  $('ph').classList.add('on');
+  $('phMsg').innerHTML = '读取播放包失败：'+enc(e.message)
+    +'<br><span style="font-size:12px">提示：请把完整版导出的「便携播放包」整个解压后再打开本页；'
+    +'解压后目录里应有 manifest.json、audio、video、images。'
+    +'<br>若仍失败，请用随包的启动方式（安卓点图标 / 统信开始菜单），不要直接用浏览器打开文件。</span>';
+});
+</script>
+<audio id="aud" style="display:none"></audio>
+</body>
+</html>

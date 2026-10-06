@@ -39,27 +39,24 @@ def _persist(vid, base):
     app._save_slides()
 
 
-def _probe_tts(vid):
-    """探一次英文配音能不能出。出不来就别在每一页上重复烧时间。
+def _probe_tts():
+    """先看 TTS 常驻服务在不在（一次 HTTP 探活，3 秒封顶）。
 
-    典型情形：TTS 常驻服务（127.0.0.1:8777）没拉起，回退子进程也连不上，
-    此时仍先把英文讲稿落盘，等服务起来了再补配音。
+    ⚠ 不要拿"真合成一次"当探测：服务没起来时 narrate 会回退到子进程，
+    那是要冷启动 ComfyUI 嵌式 python 的，一次好几分钟，探个活能卡上一节课。
+    探活不通就只落英文讲稿，等服务起来了重跑本脚本即可（讲稿会跳过、只补配音）。
     """
-    probe = os.path.join(config.DIR_NARR, "narr_%s_probe.wav" % vid)
+    url = "http://%s:%d/" % (config.TTS_SERVICE_URL.split("//")[-1].split(":")[0]
+                             if "//" in config.TTS_SERVICE_URL else "127.0.0.1",
+                             config.TTS_SERVICE_PORT)
     try:
-        ok = app.narrate.synth_one("probe", "English", probe,
-                                   seed=1, ref=app.resolve_voice())
+        import urllib.request
+        with urllib.request.urlopen(url, timeout=3) as r:
+            r.read(64)
     except Exception as e:
-        log("TTS 探测失败，跳过英文配音（%s）" % e)
+        log("TTS 常驻服务不在（%s）——只落英文讲稿，英文配音稍后补；"
+            "跑法：先让 start_myme.bat 拉起 TTS，再跑本脚本" % type(e).__name__)
         return False
-    if not ok:
-        log("TTS 探测失败（服务未响应），跳过英文配音；英文讲稿照常落盘")
-        return False
-    try:
-        if os.path.exists(probe):
-            os.remove(probe)
-    except Exception:
-        pass
     return True
 
 
@@ -100,7 +97,7 @@ def main():
         out_en = os.path.join(config.DIR_NARR, "narr_%s_%02d_en.wav" % (vid, sl["idx"]))
         try:
             if tts_ok is None:
-                tts_ok = _probe_tts(vid)
+                tts_ok = _probe_tts()
             if not tts_ok:
                 continue
             ok_en = app.narrate.synth_one(en, "English", out_en,
