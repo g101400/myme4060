@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "models": [
+    {
+      "id": "4da9710ffd",
+      "name": "模型4da9",
+      "provider": "ollama",
+      "base_url": "http://localhost:11434",
+      "api_key": "",
+      "chat_model": "",
+      "embed_model": "",
+      "caps": [
+        "text"
+      ],
+      "temperature": 0.7,
+      "max_tokens": 1200,
+      "timeout": 60,
+      "model": "probe",
+      "path": "",
+      "kind": "llm"
+    }
+  ],
+  "assign": {
+    "text": {
+      "primary": "",
+      "backup": ""
+    },
+    "code": {
+      "primary": "",
+      "backup": ""
+    },
+    "image": {
+      "primary": "",
+      "backup": ""
+    },
+    "embed": {
+      "primary": "",
+      "backup": ""
+    }
+  },
+  "comfyui": {
+    "enabled": false,
+    "dir": "",
+    "launch_file": "",
+    "api_url": "http://127.0.0.1:8188",
+    "ckpt": "",
+    "lora": "",
+    "auto_launch": false
+  },
+  "folders": {
+    "ppt": "",
+    "image": "",
+    "doc": "",
+    "import": "",
+    "export": "",
+    "path": "C:\\Users\\admin",
+    "name": "probe"
+  },
+  "runtime": {
+    "comfyui_root": "H:\\ComfyUI_Mie_2026_V8.0\\ComfyUI",
+    "embedded_py": "H:\\ComfyUI_Mie_2026_V8.0\\python_embeded\\python.exe",
+    "liveportrait": "D:\\Users\\WorkBuddy\\Claw\\myme\\LivePortrait",
+    "ts_deps": "",
+    "ffmpeg": "C:\\Users\\admin\\.local\\bin\\ffmpeg.EXE",
+    "key": "probe",
+    "value": "1"
+  }
+}

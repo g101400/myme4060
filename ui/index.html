@@ -1486,7 +1486,7 @@ function dlgDemoAvatar(){
   }).catch(()=>{const el=$('demoAvBody'); if(el) el.innerHTML='<p class="muted">加载失败：服务未就绪。</p>';});
 }
 function dlgSoftware(){openModal('软件配置清单列表',`
-  <p class="muted">当前版本 <b>v2.6.7</b>。本机运行数字分身所依赖的软件与模型清单（均为本地部署，无云端依赖）。</p>
+  <p class="muted">当前版本 <b>v2.6.8</b>。本机运行数字分身所依赖的软件与模型清单（均为本地部署，无云端依赖）。</p>
 
   <h4 style="margin:12px 0 4px">分发包怎么选（装给别人的第一步）</h4>
   <ul class="flist">
@@ -1653,6 +1653,27 @@ function dlgChangelog(){openModal('版本变更',`
         （多源导入 → 生成文稿 → 制作 PPT → 生成音频讲解 → 生成视频 → 正式演示 → 智能答疑 → 总结沉淀 → 导出交付），
         每一步写清"喂什么 / 出什么 / 从哪个入口进"；
         新增「🔍 主链路自检」把九步的产物扫一遍，哪一步空着、下一步该点哪，一次看全。</li>
+  </ul>
+  <h4 style="margin:14px 0 6px">v2.6.8（10-06 四片段收口：片段只按分身生成 · 自检 GET/POST 双通道 · 英文配音补录）</h4>
+  <ul style="margin:0;padding-left:20px" class="muted">
+    <li><b>片段的第一维改回「分身」，不再把形象当分身</b>：之前导出清单用
+        <span class="fk">list_portraits()</span>（那是同一人的几张脸：日常·炎冰 / 正式·证件 / 讲台·讲师 / 户外·轻松），
+        结果四个形象 × 两种语言 × 多个版本 = 一堆同名片段，而且换脸并不会换声。
+        现在按 <span class="fk">persons.json</span> 的<b>分身表</b>（炎冰 / 金子）生成，
+        再乘当前演示版本的中文/英文，正好<b>四个片段</b>。</li>
+    <li><b>片段只固化「当前演示版本」</b>：跟着每个版本都铺开会随版本数膨胀，
+        播放端下拉里全是重名项，反而看不出该验哪一段。段里带上版本名，
+        包里有多个版本时下拉会显示「版本 / 分身 · 语言」。</li>
+    <li><b>修复「主链路自检 / 软件升级」用 POST 调不通</b>：这两条只读自检接口原先只挂在
+        <span class="fk">do_GET</span> 上，前端走 POST 就掉进兜底分支返回
+        <span class="fk">unknown endpoint</span>（表现为按钮点了没反应）。
+        现在两条接口 GET / POST 都通，并做了一次全量前后端接口审计（前端引用的 62 个接口与后端两套分发表逐一对齐）。</li>
+    <li><b>换脸换声的前提：分身表要认得这两个人</b>：若 <span class="fk">persons.json</span>
+        退化成「把形象当成分身」（金子消失只剩 4 张脸），声音是按分身 id 解析的，
+        界面选谁都出同一把嗓音。可用 <span class="fk">gen_en_narration.py</span> 同款的
+        「分身归位」思路修回 <span class="fk">{"default":"yanbing","persons":[{"id":"yanbing","avatars":[...]},{"id":"jinzi","avatars":[...]}]}</span> 结构。</li>
+    <li><b>英文讲稿/配音可单独补录</b>：新增 <span class="fk">gen_en_narration.py</span>，
+        只给当前演示版本补英文讲稿与英文配音，不重造已有中文音频；四片段中的英文段补齐后即为可播。</li>
   </ul>
   <h4 style="margin:14px 0 6px">v2.6.5（10-06 分身演示体检：象库回填 · 数字人降级出片 · 首页副标题修复）</h4>
   <ul style="margin:0;padding-left:20px" class="muted">

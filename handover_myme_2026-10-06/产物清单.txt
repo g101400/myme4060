@@ -1,0 +1,40 @@
+myme 2.6.6 产物清单（2026-10-06 晚 22:50 全量重打）
+版本号只从 config.VERSION 读取（pack_full.py / pack_portable.py / sync_version_info.py），
+exe 版本资源已用 utf-16-le 校验命中 2.6.6.0（旧版 2.6.5.0 已不在产物里）。
+
+一、Windows
+  dist\myme.exe                        281.8 MB   PyInstaller onefile 主程序（版本资源 2.6.6.0）
+  dist\myme-setup.exe                  279.2 MB   onefile 安装器
+  dist\myme-2.6.6-win-x64-full.msi     289.1 MB   WiX 完整创作端（perUser 免管理员）
+  dist\myme-2.6.6-win-x64-play.zip     279.9 MB   Windows 便携播放包（解压 playback/player.html 即播）
+  dist\myme-2.6.6-runtime.7z           0.0 MB     绿色伴随目录几乎为空：本机未找到 LivePortrait(约682MB)
+                                                  与 ts_deps(约141MB) 两个目录；补件后需重打本组合。
+
+二、安卓 / 统信 / iOS
+  dist\myme-2.6.6-android-play.apk       0.7 MB   安卓离线播放（装完点图标即播，不联网）
+  dist\myme-player_2.6.6_all.deb         0.6 MB   统信/麒麟/Deepin（架构 all，本地 python3 + 浏览器）
+  dist_pkg\myme-ios-pwa.zip              8.5 MB   iOS/iPadOS 静态包（含本轮全部改动后的源码与 ui）
+
+三、本轮（v2.6.6）代码改动文件
+  ui\index.html         新增「📥 多源导入 / 📤 多项导出」两条顶层菜单；syncLangControls() 七控件同步语言；
+                        播放版顶部横幅铺「导入播放包 / ▶ 播放 / ⑩ 播放文件」；帮助与版本变更新增 v2.6.6
+  ui\player.html         修 $('meta') null 白屏；header 加「📥 导入播放包」「▶ 播放」；
+                        内置零依赖 ZIP 读取器（EOCD→中央目录→local header→DecompressionStream('deflate-raw')）；
+                        切英文无英文配音时明确提示；换分身提示"形象与声纹已同步切换"
+  persons.py            旧迁移按 id 分组：一人一个 person，形象只挂给自己（修「选金子声音还是炎冰」）
+  persons.json          炎冰(yanbing.png) / 金子(jinzi.png) 各一人一形象，note 置空
+  app.py                端口即模式：起在 7861 自动进入播版
+  config.py             VERSION = 2.6.6
+  sync_version_info.py  打包前把 version_info.txt 的 FileVersion/ProductVersion 同步到 config.VERSION
+  version_info.txt       2.6.6.0
+
+四、源码与副本一致性（diff -q 全 same）
+  app.py / avatar.py / config.py / persons.py / ui/index.html / ui/player.html
+  ↔ dist_pkg\myme-ios-pwa\ 同名文件
+
+五、当前环境待补件（非代码问题）
+  - LivePortrait（约 682MB）、ts_deps（约 141MB）全盘未找到 → 口型驱动不可用
+  - TTS 常驻服务因 ts_deps 未配置而报
+    "check_model_inputs() missing 1 required positional argument: 'func'"
+  → 现状：数字人是「静态肖像 + 配音」可用；声纹口型不可用。
+    补件后在「设置 → 运行时目录配置 / 运行环境自检」登记即可恢复。

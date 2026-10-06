@@ -350,9 +350,12 @@ function renderVers(){
   var ss = $('segSel');
   if(segs.length){
     ss.style.display=''; ss.innerHTML='';
+    /* 多个版本打进同一个包时，段名前面带上版本，免得下拉里全是重名选项 */
+    var multi = ((M.versions||[]).length > 1);
     segs.forEach(function(g){
       var o=document.createElement('option'); o.value=g.id;
-      o.textContent = g.name + (g.ready ? '' : '（缺：'+(g.missing||'资源')+'）');
+      o.textContent = (multi ? (g.vname||g.vid||'')+' / ' : '') + g.name
+                    + (g.ready ? '' : '（缺：'+(g.missing||'资源')+'）');
       ss.appendChild(o);
     });
   } else { ss.style.display='none'; SEG=null; }
@@ -360,7 +363,13 @@ function renderVers(){
   VER = M.versions[0]; IDX=0; $('ph').classList.remove('on');
   $('meta').textContent = (VER.name||'') + ' · ' + (VER.slides||[]).length + ' 页' + (VER.created?(' · '+VER.created):'');
   if(segs.length){
-    var pick = (segs.filter(function(g){return g.ready;})[0]) || segs[0];
+    /* 默认落在「当前版本」里最齐的那一组，其次是任意 ready 段 */
+    var pool = segs;
+    if(((M.versions||[]).length > 1) && VER && VER.id){
+      var mine = segs.filter(function(g){return g.vid===VER.id;});
+      if(mine.length) pool = mine;
+    }
+    var pick = (pool.filter(function(g){return g.ready;})[0]) || pool[0];
     setSeg(pick.id, false);
   }
   renderList(); show();
@@ -376,9 +385,20 @@ function syncSegSel(){
 function setSeg(id, autoplay){
   var g=segById(id); if(!g) return;
   SEG=g; LANG=g.lang; AV_SEL=g.person;
+  /* 片段带着导出时固化的版本 id：版本下拉跟着切，并重建目录，
+     避免"上面选了金子·英文、下面却还在播另一个版本"这种对不上的错觉。 */
+  var vswitched=false;
+  if(g.vid && M.versions){
+    var hit=M.versions.filter(function(v){return v.id===g.vid;})[0];
+    if(hit && hit!==VER){
+      VER=hit; var vs=$('ver'); if(vs) vs.value=g.vid;
+      IDX=0; vswitched=true;
+    }
+  }
   var ls=$('langSel'); if(ls) ls.value=LANG;
   var as=$('avSel'); if(as) as.value=AV_SEL;
   syncSegSel(); renderPip(cur());
+  if(vswitched) renderList();
   if(!g.ready) toast('片段「'+g.name+'」缺 '+g.missing+'；可用上方下拉切到别的片段对比测试');
   if(autoplay) play();
 }

@@ -1,0 +1,38 @@
+[tts_service] eager loading model (one-time)â€¦
+H:\ComfyUI_Mie_2026_V8.0\python_embeded\Lib\site-packages\torch\cuda\__init__.py:65: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+'sox' ²»ÊÇÄÚ²¿»òÍâ²¿ÃüÁî£¬Ò²²»ÊÇ¿ÉÔËÐÐµÄ³ÌÐò
+»òÅú´¦ÀíÎÄ¼þ¡£
+SoX could not be found!
+
+    If you do not have SoX, proceed here:
+     - - - http://sox.sourceforge.net/ - - -
+
+    If you do (or think that you should) have SoX, double-check your
+    path variables.
+    
+Traceback (most recent call last):
+  File "D:\Users\WorkBuddy\Claw\myme\tts_service.py", line 165, in <module>
+    run(A.host, A.port, A.eager)
+    ~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\WorkBuddy\Claw\myme\tts_service.py", line 136, in run
+    get_model()
+    ~~~~~~~~~^^
+  File "D:\Users\WorkBuddy\Claw\myme\tts_service.py", line 64, in get_model
+    MODEL = _tw.load_model()
+  File "D:\Users\WorkBuddy\Claw\myme\tts_worker.py", line 121, in load_model
+    from qwen_tts import Qwen3TTSModel
+  File "H:\ComfyUI_Mie_2026_V8.0\python_embeded\Lib\site-packages\qwen_tts\__init__.py", line 21, in <module>
+    from .inference.qwen3_tts_model import Qwen3TTSModel, VoiceClonePromptItem
+  File "H:\ComfyUI_Mie_2026_V8.0\python_embeded\Lib\site-packages\qwen_tts\inference\qwen3_tts_model.py", line 29, in <module>
+    from ..core.models import Qwen3TTSConfig, Qwen3TTSForConditionalGeneration, Qwen3TTSProcessor
+  File "H:\ComfyUI_Mie_2026_V8.0\python_embeded\Lib\site-packages\qwen_tts\core\__init__.py", line 19, in <module>
+    from .tokenizer_12hz.modeling_qwen3_tts_tokenizer_v2 import Qwen3TTSTokenizerV2Model
+  File "H:\ComfyUI_Mie_2026_V8.0\python_embeded\Lib\site-packages\qwen_tts\core\tokenizer_12hz\modeling_qwen3_tts_tokenizer_v2.py", line 476, in <module>
+    class Qwen3TTSTokenizerV2DecoderTransformerModel(Qwen3TTSTokenizerV2DecoderPreTrainedModel):
+    ...<98 lines>...
+            )
+  File "H:\ComfyUI_Mie_2026_V8.0\python_embeded\Lib\site-packages\qwen_tts\core\tokenizer_12hz\modeling_qwen3_tts_tokenizer_v2.py", line 499, in Qwen3TTSTokenizerV2DecoderTransformerModel
+    @check_model_inputs()
+     ~~~~~~~~~~~~~~~~~~^^
+TypeError: check_model_inputs() missing 1 required positional argument: 'func'
