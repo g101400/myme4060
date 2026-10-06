@@ -1486,7 +1486,7 @@ function dlgDemoAvatar(){
   }).catch(()=>{const el=$('demoAvBody'); if(el) el.innerHTML='<p class="muted">加载失败：服务未就绪。</p>';});
 }
 function dlgSoftware(){openModal('软件配置清单列表',`
-  <p class="muted">当前版本 <b>v2.6.8</b>。本机运行数字分身所依赖的软件与模型清单（均为本地部署，无云端依赖）。</p>
+  <p class="muted">当前版本 <b>v2.6.9</b>。本机运行数字分身所依赖的软件与模型清单（均为本地部署，无云端依赖）。</p>
 
   <h4 style="margin:12px 0 4px">分发包怎么选（装给别人的第一步）</h4>
   <ul class="flist">
@@ -1653,6 +1653,26 @@ function dlgChangelog(){openModal('版本变更',`
         （多源导入 → 生成文稿 → 制作 PPT → 生成音频讲解 → 生成视频 → 正式演示 → 智能答疑 → 总结沉淀 → 导出交付），
         每一步写清"喂什么 / 出什么 / 从哪个入口进"；
         新增「🔍 主链路自检」把九步的产物扫一遍，哪一步空着、下一步该点哪，一次看全。</li>
+  </ul>
+  <h4 style="margin:14px 0 6px">v2.6.9（10-07 声音这条链路打通：TTS 死链四连修 · 英文配音实听 · 服务防叠）</h4>
+  <ul style="margin:0;padding-left:20px" class="muted">
+    <li><b>修掉「英文有讲稿、没声音」的根因，一条链路四层各坏一处</b>（详见下方「故障与排查」第 1~4 条）：
+        <span class="fk">qwen_tts</span> 旧写法 <span class="fk">@check_model_inputs()</span> 与
+        transformers 4.57 签名不匹配；ComfyUI 根目录探测撞上<b>盘符相对路径假阳性</b>，
+        模型明明在机器上却报「找不到」；ffmpeg 路径写死 chocolatey（本机是 <span class="fk">.local\bin</span>）；
+        8777 端口被<b>叠了 5 个服务实例</b>，请求被轮流分给新旧进程，时好时坏。</li>
+    <li><b>导出播放包的四个片段，英文两段现在真能出声</b>：跑一次「补录英文讲稿配音」即可，
+        脚本会先翻讲稿再逐页合成，已有讲稿的页自动跳过，中断了也能接着跑。</li>
+    <li><b>TTS 常驻服务防叠</b>：启动前先占坑校验端口，占不上就明说「端口已被占用」并退出，
+        不再出现「重启了却有两个服务在抢请求」这种查不出来的状态。</li>
+    <li><b>报错能查得清</b>：合成失败会把 traceback 打到服务日志（以前只回一句
+        <span class="fk">[WinError 2] 系统找不到指定的文件</span>，根本看不出是哪一步）；
+        补录脚本探活改打 <span class="fk">/ready</span>（以前探根路径 "/"，拿到 404 就误判服务不在、
+        把整轮配音静默跳过了）。</li>
+    <li><b>修掉"整段标 ready，其实只是有一页有声音"的假绿</b>：判定原来写的是
+        <span class="fk">any(...)</span>，只要有 1 页英文配音，整段就显示"可播"，
+        切过去大半页是哑的。现在逐页统计，缺几页就写"英文配音缺 N/30 页"，<b>全部页齐才 ready</b>，
+        并给播放器带上 <span class="fk">pages / pages_ready</span> 两个数字。</li>
   </ul>
   <h4 style="margin:14px 0 6px">v2.6.8（10-06 四片段收口：片段只按分身生成 · 自检 GET/POST 双通道 · 英文配音补录）</h4>
   <ul style="margin:0;padding-left:20px" class="muted">

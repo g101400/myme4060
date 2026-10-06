@@ -19,6 +19,37 @@ for _n in ("stdout", "stderr"):
 
 import numpy as np
 
+
+# ===== transformers 4.57.x 兼容 shim（必须在 import qwen_tts 之前执行）=====
+# 症状：跑 tts_service.py 报 `TypeError: check_model_inputs() missing 1 required positional argument`
+# 根因：qwen_tts/core/tokenizer_12hz/modeling_qwen3_tts_tokenizer_v2.py:499 用了旧写法
+#       `@check_model_inputs()`（装饰器「带括号调用」）。transformers 4.57.0 起该函数
+#       签名变为 `check_model_inputs(func)`（直接当装饰器用），空参调用即缺 1 个必填位置参数。
+# 影响面：只影响「12Hz tokenizer 类上的这个被装饰方法」，与模型本身无关，跳过该函数校验即可。
+# 做法：在 qwen_tts 首次被 import 前，把 transformers.utils.generic.check_model_inputs
+#       换成「兼容双形态」版本 —— 空参调用返回恒等装饰器，带参调用按原语义包装。
+def _install_check_model_inputs_shim():
+    try:
+        import transformers.utils.generic as _tgu
+        _orig = getattr(_tgu, "check_model_inputs", None)
+        if _orig is None or getattr(_orig, "_myme_shim", False):
+            return bool(_orig is not None)
+        def _ci(*a, **k):
+            if not a and not k:          # 旧写法 @check_model_inputs() → 恒等装饰器
+                return lambda fn: fn
+            return _orig(*a, **k)        # 新写法 @check_model_inputs → 原样包装
+        _ci._myme_shim = True
+        _tgu.check_model_inputs = _ci
+        print("[tts] shim: check_model_inputs 兼容旧写法 @check_model_inputs()", flush=True)
+        return True
+    except Exception as _e:
+        print(f"[tts] shim skip: {_e}", flush=True)
+        return False
+
+
+_install_check_model_inputs_shim()
+
+
 # ===== 路径（与 clone_narr.py 一致）=====
 HERE = os.path.dirname(os.path.abspath(__file__))
 # 隔离的 transformers（qwen_tts 官方要求 ==4.57.3）。仅在存在时前置到 sys.path，
@@ -29,24 +60,79 @@ if os.path.isdir(TS_DEPS) and TS_DEPS not in sys.path:
 # 【2026-10-03 修复】原写死 D:\ComfyUI_Mie_2026_V8.0，本机实际在 H 盘 → 本子进程 import qwen_tts 必崩。
 # 改为「环境变量 > 盘符扫描」探测（本文件跑在 ComfyUI 嵌式 python 下，自带 numpy，不引 config 以免副作用）。
 def _probe_comfy_root():
+    # ⚠ 两个历史坑（2026-10-07 修）：
+    # 坑1 盘符缺分隔符：os.path.join("H:", "ComfyUI") 在 ntpath 里命中
+    #     `elif not path or path[-1] in _get_sep(path)+':': path += b` 分支，结果是 "H:ComfyUI"
+    #     （无反斜杠）。Windows 会把 "H:ComfyUI" 当成「H 盘当前工作目录下的相对路径」解析，
+    #     所以 os.path.isdir("H:ComfyUI_Mie_2026_V8.0") 在当时 cwd 恰好就是 ComfyUI 目录时
+    #     返回 True —— 假阳性掩盖了这个 bug 近一个月，直到用它拼模型路径才炸
+    #     （HFValidationError: Repo id must use ... 'H:ComfyUI_Mie_2026_V8.0\models\...'）。
+    #     → 一律改用 drv + os.sep，并对最终结果 os.path.abspath。
+    # 坑2 嵌套布局：本机真实根目录是 <盘>:\ComfyUI_Mie_2026_V8.0\ComfyUI（标准 ComfyUI 布局），
+    #     旧代码只探了 <盘>:\ComfyUI_Mie_2026_V8.0 与 <盘>:\ComfyUI，压根没探嵌套那层。
+    #     → 候选里补上 .../ComfyUI_Mie_2026_V8.0/ComfyUI。
     try:
         import string
-        roots = [d + ":" for d in string.ascii_uppercase]
+        # 用 os.sep 拼盘符，杜绝 "H:" → "H:ComfyUI" 的静默拼接；注意冒号不能丢
+        # （"H" + os.sep == "H\" 根本不是合法盘符根，只有 "H:" + os.sep == "H:\" 才是）
+        roots = [d + ":" + os.sep for d in string.ascii_uppercase]
+        cands = []
         for drv in sorted(roots, key=lambda d: (0 if d[0] not in ("C", "D") else 1, d)):
-            for buf in (os.path.join(drv, "ComfyUI_Mie_2026_V8.0"),
-                        os.path.join(drv, "ComfyUI")):
-                if os.path.isdir(buf):
-                    return buf
+            cands.append(os.path.join(drv, "ComfyUI_Mie_2026_V8.0", "ComfyUI"))
+            cands.append(os.path.join(drv, "ComfyUI_Mie_2026_V8.0"))
+            cands.append(os.path.join(drv, "ComfyUI"))
+        # 强判据：根目录必须同时有 models 与 custom_nodes 子目录（避免盘符相对路径再次骗过 isdir）
+        for buf in cands:
+            try:
+                if (os.path.isdir(os.path.join(buf, "models"))
+                        and os.path.isdir(os.path.join(buf, "custom_nodes"))):
+                    return os.path.abspath(buf)
+            except Exception:
+                continue
     except Exception:
         pass
     return ""
 
 
 COMFYUI_ROOT = (os.environ.get("MYME_COMFYUI_ROOT") or "").strip() or _probe_comfy_root()
+if COMFYUI_ROOT:
+    # 兜底：环境变量也可能被手写成 "H:ComfyUI_X"（缺分隔符），一并归一化成绝对路径
+    COMFYUI_ROOT = os.path.abspath(COMFYUI_ROOT)
 QWEN_TTS_NODES = os.path.join(COMFYUI_ROOT, "custom_nodes", "qwen3-tts-comfyui") if COMFYUI_ROOT else ""
 QWEN_TTS_MODEL = os.path.join(COMFYUI_ROOT, "models", "qwen-tts", "Qwen3-TTS-12Hz-1.7B-Base") if COMFYUI_ROOT else ""
 VOICE_SAMPLE = os.path.join(HERE, "voice", "yanbing-sample-01.wav")
-FF = r"C:\ProgramData\chocolatey\bin\ffmpeg.exe"
+
+
+def _probe_ff():
+    # 旧值写死 C:\ProgramData\chocolatey\bin\ffmpeg.exe，本机并没有装 chocolatey ffmpeg，
+    # 导致 to_24k_mono() 在 subprocess 阶段抛 `[WinError 2] 系统找不到指定的文件`，
+    # 表现为「模型加载成功但每次合成立刻报错」。改为多候选探测 + PATH 兜底。
+    order = [
+        (os.environ.get("MYME_FF") or "").strip(),
+        r"C:\ProgramData\chocolatey\bin\ffmpeg.exe",
+        r"C:\Users\admin\.local\bin\ffmpeg.exe",
+        r"C:\Users\admin\.local\bin\ffmpeg",
+    ]
+    try:
+        import string
+        for d in string.ascii_uppercase:
+            order.append(os.path.join(d + ":\\", "ffmpeg.exe"))
+    except Exception:
+        pass
+    for p in order:
+        if p and os.path.isfile(p):
+            return p
+    try:
+        import shutil
+        p = shutil.which("ffmpeg")
+        if p:
+            return p
+    except Exception:
+        pass
+    return ""
+
+
+FF = _probe_ff()
 
 sys.path.insert(0, QWEN_TTS_NODES)
 
@@ -93,6 +179,30 @@ def _patched_eager_attention_forward(module, query, key, value, attention_mask, 
     return attn_output, attn_weights
 
 
+def _patch_bound_check_model_inputs():
+    # 兜底：若 qwen_tts 在别处已被 import 过，模块命名空间里绑定的仍是旧的
+    # check_model_inputs（from ... import 在 import 时就绑死原名）。此时光改
+    # transformers.utils.generic 已无效，需把兼容版本补到 qwen_tts 各模块自身命名空间。
+    try:
+        import importlib
+        patched = 0
+        for name in ("qwen_tts.core.tokenizer_12hz.modeling_qwen3_tts_tokenizer_v2",
+                     "qwen_tts.core.models.modeling_qwen3_tts"):
+            try:
+                m = importlib.import_module(name)
+            except Exception:
+                continue
+            if getattr(m, "check_model_inputs", None) is None:
+                continue
+            if not getattr(m.check_model_inputs, "_myme_shim", False):
+                m.check_model_inputs = lambda *a, **k: (lambda fn: fn) if (not a and not k) else m.check_model_inputs(*a, **k)
+                patched += 1
+        if patched:
+            print(f"[tts] shim: 已补 {patched} 个 qwen_tts 模块的自有 check_model_inputs 绑定", flush=True)
+    except Exception as _e:
+        print(f"[tts] bound-shim skip: {_e}", flush=True)
+
+
 def _patch_qwen_tts_mask():
     # 不改动共享 ComfyUI 节点文件：在运行时把 qwen_tts 模块内的 eager_attention_forward
     # 替换为上面的对齐版本。该函数被本模块内注意力层以全局名引用，运行时替换即可生效。
@@ -120,6 +230,7 @@ def load_model():
         pass
     from qwen_tts import Qwen3TTSModel
     _patch_qwen_tts_mask()
+    _patch_bound_check_model_inputs()
     t0 = time.time()
     model = Qwen3TTSModel.from_pretrained(QWEN_TTS_MODEL, device_map="cuda", dtype=torch.bfloat16)
     # transformers 5.x 默认 sdpa 对 Qwen3-TTS 自定义模型有形状 bug；

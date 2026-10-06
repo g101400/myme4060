@@ -46,17 +46,20 @@ def _probe_tts():
     那是要冷启动 ComfyUI 嵌式 python 的，一次好几分钟，探个活能卡上一节课。
     探活不通就只落英文讲稿，等服务起来了重跑本脚本即可（讲稿会跳过、只补配音）。
     """
-    url = "http://%s:%d/" % (config.TTS_SERVICE_URL.split("//")[-1].split(":")[0]
-                             if "//" in config.TTS_SERVICE_URL else "127.0.0.1",
-                             config.TTS_SERVICE_PORT)
+    # ⚠ 探活必须打 /ready：tts_service.py 只实现 /ready 与 /tts，打根路径 "/" 会拿到 404，
+    # urllib 抛 HTTPError，于是被误判成「服务没起来」→ 整轮英文配音全被跳过。
+    host = config.TTS_SERVICE_URL.split("//")[-1].split(":")[0] if "//" in config.TTS_SERVICE_URL else "127.0.0.1"
+    url = "http://%s:%d/ready" % (host, config.TTS_SERVICE_PORT)
     try:
         import urllib.request
         with urllib.request.urlopen(url, timeout=3) as r:
-            r.read(64)
+            info = r.read(200).decode("utf-8", "replace")
     except Exception as e:
         log("TTS 常驻服务不在（%s）——只落英文讲稿，英文配音稍后补；"
             "跑法：先让 start_myme.bat 拉起 TTS，再跑本脚本" % type(e).__name__)
         return False
+    # /ready 里带模型名，能顺带确认不是「端口活着但模型没加载」
+    log("TTS 常驻服务在:", info[:120])
     return True
 
 
@@ -76,25 +79,29 @@ def main():
     # 每页都试一次会白白卡十几秒再失败，30 页就是七八分钟。
     tts_ok = None
     for i, sl in enumerate(base, 1):
-        # 断点续跑：已经翻过的页不再重复烧大模型（上次跑挂了也不白干）
-        if (sl.get("narration_en") or "").strip():
-            log("第 %d/%d 页 已有英文讲稿，跳过" % (i, len(base)))
-            continue
+        fn_audio = "narr_%s_%02d_en.wav" % (vid, sl["idx"])
+        p_audio = os.path.join(config.DIR_NARR, fn_audio)
+        # 断点续跑的判据只有「讲稿有」是不够的：真正要跳过的是「讲稿和配音都已经在」。
+        # 旧写法把两者混为一谈 —— 那 9 页只有讲稿没有配音，每轮都被整页跳过，
+        # 英文音频永远补不上，导出清单只能一直标「缺英文配音」。
         en = (sl.get("narration_en") or "").strip()
+        if en and os.path.isfile(p_audio):
+            log("第 %d/%d 页 讲稿与配音都在，跳过" % (i, len(base)))
+            continue
         if not en:
             try:
                 en = app._translate_text(sl.get("narration", "") or "", "English")
             except Exception as e:
                 log("第 %d 页英文讲稿失败: %s" % (i, e))
                 en = ""
-        sl["narration_en"] = en
-        log("第 %d/%d 页 英文讲稿 %d 字" % (i, len(base), len(en)))
+            sl["narration_en"] = en
+            log("第 %d/%d 页 英文讲稿 %d 字" % (i, len(base), len(en)))
         if not en:
             continue
         text_n += 1
         # 边翻边存：30 页一翻就要七八分钟，攒到最后才写盘，中途一挂全部作废
         _persist(vid, base)
-        out_en = os.path.join(config.DIR_NARR, "narr_%s_%02d_en.wav" % (vid, sl["idx"]))
+        out_en = p_audio
         try:
             if tts_ok is None:
                 tts_ok = _probe_tts()

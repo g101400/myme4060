@@ -3613,7 +3613,11 @@ def _build_segments(versions, personas):
     segs = []
     for v in (versions or []):
         pages = v.get("slides") or []
-        has_en = any((p or {}).get("audio_en") for p in pages)
+        # 【v2.6.9 修】原来是 `has_en = any(...)`：只要有 1 页英文配音，整段就标 ready=true，
+        # 用户切过去发现 19 页是哑的，清单却写"可播"——又一次假绿。改成逐页统计缺漏。
+        n_en = sum(1 for p in pages if (p or {}).get("audio_en"))
+        n_pages = len(pages)
+        missing_en = n_pages - n_en
         alt_people = set()
         any_video = False
         for p in pages:
@@ -3625,11 +3629,13 @@ def _build_segments(versions, personas):
         multi_avatar = bool(alt_people)
         for per in people:
             for lg, lg_name in (("zh", "中文"), ("en", "英文")):
-                missing = ""
-                if lg == "en" and not has_en:
-                    missing = "英文配音（当前只有中文，可在完整版重新生成英文讲解）"
-                elif multi_avatar and per["id"] not in alt_people:
-                    missing = "「%s」的分身视频（包内只有其他分身的片子）" % per["name"]
+                # 缺项逐个记、拼成一句话，别用 elif 把第二种缺项整个吃掉
+                miss = []
+                if lg == "en" and missing_en:
+                    miss.append("英文配音缺 %d/%d 页" % (missing_en, n_pages))
+                if multi_avatar and per["id"] not in alt_people:
+                    miss.append("「%s」的分身视频（包内只有其他分身的片子）" % per["name"])
+                missing = "；".join(miss)
                 segs.append({
                     "id": "%s_%s" % (per["id"], lg),
                     "name": per["name"] + " · " + lg_name,
@@ -3638,6 +3644,8 @@ def _build_segments(versions, personas):
                     "lang": lg, "lang_name": lg_name,
                     "ready": not missing, "missing": missing,
                     "vid": v.get("id", ""),
+                    "pages": n_pages,
+                    "pages_ready": (n_en if lg == "en" else n_pages),
                 })
     return segs
 

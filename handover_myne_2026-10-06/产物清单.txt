@@ -1,76 +1,87 @@
-myme（PPT制作及分身演示）· v2.6.8 产物清单
-打包时间：2026-10-07 00:20~00:50　源码目录：D:\Users\WorkBuddy\Claw\myme　仓库：github.com/g101400/myme4060
-（v2.6.7 的清单保留在 git 历史与上一版交接包里；本清单只记 v2.6.8）
+myme（PPT制作及分身演示）· v2.6.9 产物清单
+打包时间：2026-10-07 01:40~02:00　源码目录：D:\Users\WorkBuddy\Claw\myme　仓库：github.com/g101400/myme4060
+（v2.6.7 / v2.6.8 的清单保留在 git 历史与上一版交接包里；本清单只记 v2.6.9）
 
 ================================================
 一、Windows 产物（dist/）
 ================================================
-dist\myme.exe                              295.5 MB   完整版（端口 7860）；版本资源 2.6.8.0（utf-16 校验通过，已搜不到 2.6.7.0）
-dist\myme-play.exe                          295.0 MB   便携播放版可执行文件（播放模式，7861）
-dist\myme-2.6.8-win-x64-full.msi           303.2 MB   WiX 安装包（127.0s，4 组件）
-dist\myme-2.6.8-win-x64-play.zip           293.6 MB  便携播放包（解压即播，含 player.html + manifest）
-dist\myme-2.6.8-runtime.7z                   851 B    绿色伴随目录（仍为空，见「五、待补件」）
+dist\myme.exe                              281.9 MB  完整版（端口 7860）；版本资源 2.6.9.0
+                                                     （utf-16 校验通过，已搜不到 2.6.8.0 / 2.6.7.0）
+dist\myme-play.exe                         281.3 MB  便携播放版可执行文件（播放模式，7861）
+dist\myme-2.6.9-win-x64-full.msi           289.2 MB  WiX 安装包（175.2s，4 组件）
+dist\myme-2.6.9-win-x64-play.zip           280.0 MB  便携播放包（解压即播，含 player.html + manifest）
+dist\myme-2.6.9-runtime.7z                   851 B   绿色伴随目录（仍为空，见「五、待补件」）
 
 ================================================
 二、其他平台（dist/）
 ================================================
-dist\myme-2.6.8-android-play.apk           701.5 KB   安卓 APK（门禁全过：launchable-activity / 签名 OK）
-dist\myme-player_2.6.8_all.deb             626.5 KB   统信 deb（解包校验通过）
-dist\myme-ios-pwa.zip                       726.7 KB   iOS/PWA 离线壳（index.html + player.html + 图标）
-dist\myme_source_2.6.8.zip                  31.5 MB   本轮可运行源码（142 个文件）
+dist\myme-2.6.9-android-play.apk           701.5 KB  安卓 APK（门禁全过；zipfile testzip OK，含 classes.dex）
+dist\myme-player_2.6.9_all.deb             626.5 KB  统信 deb（解包校验通过）
+dist\myme-ios-pwa.zip                       8.6 MB   iOS/PWA 离线壳（v2.6.9 起改成**完整可部署版**：
+                                                     解压后 python myme_launcher.py 即起服务，再
+                                                     iPhone Safari「添加到主屏幕」；旧版是 726KB 的
+                                                     纯播放器壳，能力更少）
+dist\myme_source_2.6.9.zip                  10.9 MB  本轮可运行源码（89 个文件，含双声纹 wav）
 
 ================================================
-三、本轮（v2.6.8）改动文件
+三、本轮（v2.6.9）改动文件
 ================================================
-app.py              _build_manifest：片段第一维从 list_portraits()（形象）改为
-                    persons.list_persons()（分身炎冰/金子）；片段只固化当前演示版本；
-                    段内加 vname；返回值补 currentVersion
-                    do_POST：补 /api/pipeline、/api/upgrade 的 GET/POST 双通道
-config.py           VERSION 2.6.7 → 2.6.8；DATA_DIR 支持 MYME_DATA 环境变量（联调/换机复现）
-ui\index.html       版本变更新增 v2.6.8 六条；关于页当前版本 v2.6.8
-ui\player.html      setSeg 切片段时同步「版本下拉」并重建目录；renderVers 段名在
-                    多版本包里显示为「版本 / 分身 · 语言」，默认落在当前版本最齐的一组
-gen_en_narration.py（新）只给当前版本补英文讲稿 + 英文配音；TTS 不在时只落讲稿不卡死；
-                    断点续跑（已翻过的页跳过）+ 边翻边存
-publish_release.py  （新）GitHub REST API 发布（建 release + 传附件），规避 git push 走不通
-restart_servers.py  （新）清端口 + 起 7860/7861 双实例，带启动日志
+（主）声音链路四连修 + 一处「假绿」修，详见「交接说明.md / 十、v2.6.9 声音链路修复」
+app.py              再修一处假绿：`_build_segments()` 原用 any() 判定英文片段，
+                    只要有 1 页有配音，整段就 ready=true（实测英文只有 13/30 页却显示
+                    四段全可播）。改为逐页统计：缺几页直接写「英文配音缺 N/30 页」，
+                    全齐才 ready，并输出 pages / pages_ready 供播放器显示
+tts_worker.py      ① 顶层装 check_model_inputs 兼容 shim（必须在 import qwen_tts 之前）+ 已绑定命名
+                     空间兜底补丁；② `_probe_comfy_root()` 重写（补嵌套层 ComfyUI 根、强判据
+                     models+custom_nodes、os.path.abspath）；③ 新增 `_probe_ff()` 自动探测 ffmpeg
+tts_service.py      ④ run() 前 socket.bind 占坑，占不上就报「端口已被占用」并退出（防同端口叠服务）；
+                     新增 `_log_exc()` 把 traceback 打到服务日志
+gen_en_narration.py `_probe_tts()` 改探 /ready（原来探根路径 "/" 吃 404 → HTTPError → 整轮英文配音
+                    被静默跳过）；探活成功时回显模型名
+config.py           VERSION 2.6.8 → 2.6.9
+ui\index.html       关于页当前版本 v2.6.9；版本变更新增 v2.6.9 四条（TTS 死链四连修 / 英文配音乐听 /
+                    服务防叠 / 报错可查 + 探活端点）
+pack_source.py      （新）源码打包。⚠ 两个坑：运行期资源（voice/pwa/prompts）要**先于** SKIP_EXT
+                    判定放行，否则声纹 wav 会被扩展名规则误杀；体积上限别设太小——炎冰声纹
+                    yanbing-sample-01.wav 就有 10.4MB，曾按 5MB 阈值被静默丢掉，只剩 2.9MB 的
+                    jinzi 进包，拿源码包克隆声音会缺主参考音（现上限 64MB）
+pack_full.py / pack_portable.py / build_ios_zip.py / publish_release.py  本轮只调参/无结构性改动
 
 ================================================
 四、自检与实测（本轮）
 ================================================
-① 前后端接口审计：前端引用的 62 个 /api/* 与后端 do_GET/do_POST 两套分发表做差集，
-   除本次修复的两条外无第二处「前端 POST 但后端无 POST 分支」
-② ui\index.html、ui\player.html 逐 <script> 块 node --check：0 错误
-③ player.html 里 $('id') 引用与 HTML id 差集：空；顶栏菜单 mi(label, fn) 函数差集：空
-④ 源码副本 dist_pkg\myme-ios-pwa\ 与源码 diff all same（13 项）
-⑤ 真实数据实测（MYME_DATA=%LOCALAPPDATA%\myme）：
-   /api/persons       分身 = yanbing（炎冰, 4 形象）+ jinzi（金子, 2 张脸），default=yanbing
-   /api/meta          7860 playback:false / v2.6.8；7861 playback:true / v2.6.8
-   /api/pipeline      7/9（九步里 ⑥⑦⑧ 待做；不再是上一轮的 6/9）
-   导出清单 segments  段数 4：yanbing_zh / yanbing_en / jinzi_zh / jinzi_en；
-                      zh 段 ready=True，en 段如实标「缺英文配音」（TTS 服务本轮不可用）
-⑥ 分身数据已归位（%LOCALAPPDATA%\myme\projects\default\avatar_out\portraits\persons.json），
-   旧文件备份为 persons.json.bak_20261006-235400
+① TTS 链路四层逐层验通：
+   shim 生效 → `patched eager_attention_forward` → `model loaded 28.1s` → `model ready, listening`
+   → POST /tts 返回 {"ok":true,"dur":5.98,"gen":32.2}，wav 落盘 287KB
+② 8777 端口 LISTENING 只有 1 个（清掉历史叠的 5 个实例后；服务启动前已加占坑校验）
+③ ffmpeg 自动探测命中 C:\Users\admin\.local\bin\ffmpeg.exe（原写死的 chocolatey 路径本机不存在）
+④ 英文补录长任务用后台任务跑，断点续跑：30 页逐页出声，进度实时落盘
+⑤ 源码包 89 文件 testzip OK，声纹（yanbing 10.4MB + jinzi 2.9MB）均已入包
+⑥ exe 版本资源 utf-16 校验：含 2.6.9.0、不含 2.6.8.0 / 2.6.7.0
+⑦ 上一轮的四项自检（接口审计 / node --check / id 差集 / 源码副本 diff）在 v2.6.9 上继续沿用
+⑧ 英文补录两轮收口：第一轮 21 页讲稿+配音 / 失败 0 / 2382s，修完断点续跑判据后第二轮补 9 页 /
+   失败 0 / 665s → **30/30 页全齐**；导出清单四段 ready=True 且每段都对应 30/30 页真实资源
+   （不再是被 any() 放行的假绿）
 
 ================================================
 五、待补件（非代码问题）
 ================================================
-1) TTS 常驻服务起不来：127.0.0.1:8777 无响应；用 ComfyUI 嵌式 python 直接跑 tts_service.py
-   报 qwen_tts 内部 TypeError: check_model_inputs() missing 1 required positional argument。
-   → 英文配音目前只能「讲稿有、配音缺」，播放器会明说缺什么；
-     等服务/依赖修好，跑一次 gen_en_narration.py 即可补齐，不必重做中文。
-2) LivePortrait（约 682MB）、ts_deps（约 141MB）仍未找到 → runtime.7z 为空、声纹口型不可用
+1) LivePortrait（约 682MB）、ts_deps（约 141MB）仍未找到 → runtime.7z 为空、声纹口型不可用
    （数字人 = 静态肖像 + 配音）。补件后在「设置 → 运行时目录配置 / 运行环境自检」登记。
+2) 30 页英文配音为 GPU 长任务（本机 GPU 已被其他负载占满、利用率 51%，单页约 2 分钟），
+   由 gen_en_narration.py 后台逐页补录 + 断点续跑；跑完四片段全 ready。
 3) 数字人换机链路实跑仍待新环境验证。
 
 ================================================
 六、交接包内文件
 ================================================
-交接说明.md              项目说明 + 三层导航 + 九步主链路 + v2.6.6/v2.6.7 补录 +
-                         **v2.6.8 收口（四洞对照表 + 实测）+ 跑通前必看的两个坑**
+交接说明.md              项目说明 + 三层导航 + 九步主链路 + v2.6.6 / v2.6.7 补录 +
+                         **v2.6.8 四片段收口（四洞对照表）** +
+                         **v2.6.9 声音链路四连修（四坑对照表）+ 换机必读顺序** +
+                         跑通前必看的三个坑
 产物清单.txt             本文件
-myme_source_2.6.8.zip    可运行源码（含 ui/）
+myme_source_2.6.9.zip    可运行源码（含 ui/ 与双声纹）
 app.py / avatar.py / config.py / persons.py / knowledge_base.py / sync_version_info.py /
-version_info.txt / pack_full.py / pack_portable.py / build_ios_zip.py /
-gen_en_narration.py / publish_release.py 关键源码
+version_info.txt / pack_full.py / pack_portable.py / build_ios_zip.py / build_android 相关 /
+gen_en_narration.py / publish_release.py / tts_worker.py / tts_service.py / pack_source.py
 handover_myne_2026-10-06.zip（本目录打包后的总包，含上面全部）

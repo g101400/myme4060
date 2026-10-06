@@ -110,13 +110,29 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 _send(self, 500, {"error": req["error"]}); return
             _send(self, 200, req["result"])
         except Exception as e:
+            _log_exc("do_POST", e)
             _send(self, 500, {"error": str(e)})
+
+
+def _log_exc(where, e):
+    # 只回 str(e) 到前端时（如 "[WinError 2] 系统找不到指定的文件。"）根本看不出抛点，
+    # 这里把 traceback 打到服务日志，便于定位是 ref / ffmpeg / 模型哪一步的问题。
+    try:
+        import traceback
+        print(f"[tts][error] {where}: {e}", flush=True)
+        traceback.print_exc()
+    except Exception:
+        pass
 
 
 def _process(req):
     """主线程消费：执行一次 GPU 推理并写文件（CUDA 只在主线程调用）。"""
     try:
         os.makedirs(os.path.dirname(os.path.abspath(req["out"])), exist_ok=True)
+    except Exception as e:
+        _log_exc("makedirs", e)
+        req["error"] = f"输出目录无法创建: {e}"; return
+    try:
         m = get_model()
         if m is None:
             req["error"] = "model not loaded"; return
@@ -127,10 +143,26 @@ def _process(req):
         req["result"] = {"ok": True, "dur": round(dur, 2),
                          "gen": round(time.time() - t0, 1), "out": req["out"]}
     except Exception as e:
+        _log_exc("synth", e)
         req["error"] = str(e)
 
 
 def run(host="127.0.0.1", port=8777, eager=True):
+    # 显式占坑：Windows 下 SO_REUSEADDR 允许同一端口被多次 bind，于是「重启服务」会变成
+    # 叠服务 —— 5 个进程各加载一份 1.7B 模型占显存，请求被轮流分给新旧进程，
+    # 出现「同样的请求有时报 [WinError 2] 有时成功」的鬼影，日志还看不到 traceback。
+    # 宁可拒绝启动并说清楚，也不要静默叠一个。
+    try:
+        import socket
+        _s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            _s.bind((host, port))
+        finally:
+            _s.close()
+    except OSError as e:
+        print(f"[tts_service] 端口 {port} 已被占用（{e}）。若这是你自己刚起的旧服务就不要重复启动；"
+              f"若确认无残留，先结束占用该端口的进程再启动。", flush=True)
+        return 1
     if eager:
         print("[tts_service] eager loading model (one-time)…", flush=True)
         get_model()
