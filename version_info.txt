@@ -16,12 +16,12 @@ VSVersionInfo(
       StringTable('080404b0', [
         StringStruct('CompanyName', '小七'),
         StringStruct('FileDescription', 'PPT制作及分身演示'),
-        StringStruct('FileVersion', '2.6.9.0'),
+        StringStruct('FileVersion', '2.7.0.0'),
         StringStruct('InternalName', 'myme'),
         StringStruct('LegalCopyright', '© 2026 小七'),
         StringStruct('OriginalFilename', 'myme.exe'),
         StringStruct('ProductName', 'PPT制作及分身演示'),
-        StringStruct('ProductVersion', '2.6.9.0'),
+        StringStruct('ProductVersion', '2.7.0.0'),
       ])
     ]),
     VarFileInfo([VarStruct('Translation', [2052, 1200])]),

@@ -522,6 +522,25 @@ code{background:#f1f5f9;border:1px solid var(--line-soft);border-radius:5px;padd
       </div>
       <div class="out" id="o4">待导入…</div>
     </div>
+    <div class="card"><h3><span class="dot"></span>多源导入 · 目录批量（18 种格式 · 整目录拖进来）</h3>
+      <p class="muted">点「浏览目录」挑一个文件夹（如 <b>D:/资料</b>），可递归扫描，自动识别 <b>PDF / Word / Excel / CSV / PPT / 网页(HTML) / EPUB / 图片OCR / 文本 / Markdown / JSON</b> 十八种格式，逐份抽取正文 → 自适应分块（heading / heuristic / recursive 三档自动选，带层级面包屑）→ 写向量。</p>
+      <div class="row" style="margin-top:8px">
+        <div style="flex:2;min-width:220px"><label>目录路径</label>
+          <input type="text" id="ingDir" placeholder="如：D:/资料 或 选好后自动填入"></div>
+        <div style="flex:1;min-width:120px"><label>分类标签</label>
+          <input type="text" id="ingCat" placeholder="如：项目方案"></div>
+        <div style="display:flex;align-items:flex-end;gap:8px">
+          <label class="ck"><input type="checkbox" id="ingRecursive" checked> 含子目录</label>
+          <button class="btn" id="ingRun">📥 批量导入</button>
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn ghost" id="ingPickDir">📂 浏览目录</button>
+        <div style="flex:1;min-width:140px"><label>只导这些格式（可选）</label>
+          <input type="text" id="ingExt" placeholder="留空=全部；如 pdf,xlsx,docx"></div>
+      </div>
+      <div class="out" id="ingOut">待批量导入…</div>
+    </div>
     <div class="card"><h3><span class="dot"></span>知识库范围（勾选参与检索的来源）</h3>
       <div class="row" style="margin-bottom:6px">
         <button class="btn ghost" id="selAll">全选</button>
@@ -542,6 +561,34 @@ code{background:#f1f5f9;border:1px solid var(--line-soft);border-radius:5px;padd
         <button class="btn ghost" id="kbStatsBtn">📊 统计</button>
       </div>
       <div class="out" id="kbMgrOut" style="margin-top:8px">点击「📊 统计」查看知识库规模与重复情况；「🧹 重建」可一键去重/压缩。</div>
+    </div>
+
+    <div class="card"><h3><span class="dot"></span>AI 自动 Wiki（从知识库长出一棵互链的文档树）</h3>
+      <p class="muted">模型先<b>读完全部语料、规划出主题清单</b>（「APP 基础介绍 / 获取与安装 / 基本功能 / 数据导入导出…」），再对每个主题回库检索、逐页写成 <b>Markdown 页面</b>，页面之间用 <code>[[互链]]</code> 互相引用，最后自动产出<b>知识图谱</b>（mermaid + wiki_graph.json）与 <b>00-索引页</b>。全网/offline 全在本地完成，可反复重建。适合把一堆散文档整理成一套有结构、能导航的手册。</p>
+      <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+        <div style="min-width:130px"><label>主题数量</label>
+          <input type="number" id="wikiN" value="6" min="2" max="20"></div>
+        <div style="display:flex;align-items:flex-end;gap:8px">
+          <button class="btn ghost" id="wikiPlan">🔎 先出选题清单</button>
+          <button class="btn" id="wikiRun">📖 生成 Wiki</button>
+          <button class="btn ghost" id="wikiOpen" style="display:none">📂 打开 Wiki 目录</button>
+        </div>
+      </div>
+      <div class="out" id="wikiOut">先点「先出选题清单」看看模型打算写哪几页，确认后再生成（生成过程可在进度条上看到第几页写到哪）。</div>
+    </div>
+
+    <div class="card"><h3><span class="dot"></span>在线答疑 · 增强检索（拆问法 / 去重 / 带出处）</h3>
+      <p class="muted">普通问答只发一条原句去检索，命中面窄。这里先把你的问题<b>拆成几个子问法</b>（「怎么导入数据」「导入支持哪些格式」「具体步骤」），分别检索后<b>去重</b>（正文指纹 + 向量余弦，并页重复只留一条），再压缩进上下文让模型作答——<b>每条结论都标出处（来源页 + 面包屑章节 + 相似度）</b>。多轮问答会带上上一轮，继续追问不用重说。</p>
+      <textarea id="qaQ" rows="3" style="width:100%" placeholder="例如：这个系统支持哪些数据导入方式？导入前要注意什么？"></textarea>
+      <div class="row" style="margin-top:8px">
+        <div style="flex:1;min-width:160px"><label>上一轮问答（可选，追问时自动带上）</label>
+          <input type="text" id="qaHist" placeholder="留空；多轮追问一般由系统自动拼接"></div>
+        <div style="display:flex;align-items:flex-end;gap:10px">
+          <label class="ck"><input type="checkbox" id="qaExpand" checked> 拆分子问法（更全，稍慢）</label>
+          <button class="btn" id="qaRun">❓ 问答</button>
+        </div>
+      </div>
+      <div class="out" id="qaOut">待提问…</div>
     </div>
   </div>
 
@@ -1486,7 +1533,7 @@ function dlgDemoAvatar(){
   }).catch(()=>{const el=$('demoAvBody'); if(el) el.innerHTML='<p class="muted">加载失败：服务未就绪。</p>';});
 }
 function dlgSoftware(){openModal('软件配置清单列表',`
-  <p class="muted">当前版本 <b>v2.6.9</b>。本机运行数字分身所依赖的软件与模型清单（均为本地部署，无云端依赖）。</p>
+  <p class="muted">当前版本 <b>v2.7.0</b>。本机运行数字分身所依赖的软件与模型清单（均为本地部署，无云端依赖）。</p>
 
   <h4 style="margin:12px 0 4px">分发包怎么选（装给别人的第一步）</h4>
   <ul class="flist">
@@ -1679,6 +1726,32 @@ function dlgChangelog(){openModal('版本变更',`
         缺哪件就写清「怎么补、缺了会坏哪一步」，<span class="fk">--json</span> 可直接贴给运维。</li>
     <li><b>ffmpeg 改成自动探测</b>：不再写死 chocolatey 路径，登记路径 → 常见绿色版位置 → PATH 依次找，
         换台机器没先装 choco 也能直接出视频。</li>
+  </ul>
+  <h4 style="margin:14px 0 6px">v2.7.0（10-07 知识库三层升级：自适应分块 · 多源导入 · AI 自动 Wiki · 答疑增强）</h4>
+  <ul style="margin:0;padding-left:20px" class="muted">
+    <li><b>自适应分块 + 层级面包屑</b>：入库前先给文档做「画像」（标题数/密度/主导层级/编号小节/中英德章节/表格代码率…），
+        自动挑 <span class="fk">heading / heuristic / recursive</span> 三档之一切分；
+        每块自带<b>面包屑</b>（如「项目总览 › 分块策略」），面包屑算进向量、不算进正文，所以既能提升召回、又能在界面上还原出处层级。
+        设 <span class="fk">MYME_KB_PARENT_CHILD=1</span> 可开<b>父子分块</b>：小块（384）用于命中，大块（4096）用于返回上下文。</li>
+    <li><b>多源导入扩到 18 种格式 + 整目录批量</b>：原来只吃 txt/md/docx/pptx，现在补上
+        <span class="fk">PDF / Excel / CSV / HTML / EPUB / JSON / 图片OCR</span>。
+        「④ 知识库」新增<b>「多源导入 · 目录批量」</b>：选一个文件夹（可含子目录、可只挑几种格式）一次性扫进向量库，
+        任何一份失败都不中断整批，最后给你「成功 N / 失败 M + 失败原因」的汇总。</li>
+    <li><b>AI 自动 Wiki</b>：从知识库<b>长出一棵互链文档树</b>——模型先读全量语料规划主题，再逐主题回库检索、写成
+        Markdown 页（强制标 <span class="fk">[来源:]</span> 并互相 <span class="fk">[[链接]]</span>），
+        最后自动出 <b>00-索引页</b> 与 <b>知识图谱</b>（mermaid + wiki_graph.json，可反复重建）。
+        先点「🔎 先出选题清单」确认选题，再点「📖 生成 Wiki」，后台带逐页进度。</li>
+    <li><b>在线答疑增强</b>：原链路「一个问题 → 检索 → 生成」命中面窄。现在先<b>拆子问法</b>（「怎么导入 / 支持什么格式 / 具体步骤」）分别检索，
+        <b>正文指纹 + 向量余弦双重去重</b>（PPT 每页都带相同页眉时只留一条），压缩后作答，
+        <b>每条结论标「来源页 + 章节 + 相似度」</b>；多轮追问自动带上上一轮，不用重说。</li>
+    <li><b>修掉「CLI 读空库、界面读真库」</b>：私有库原先挂在源码目录那份旧壳库上，打包后的界面读的却是
+        <span class="fk">%LOCALAPPDATA%\myme</span> 的真库，两条路结论互相打架。现统一由<b>项目根</b>
+        （<span class="fk">MYME_KP_ROOT</span> &gt; <span class="fk">MYME_DATA</span> &gt; 真实用户根 &gt; 包目录）解析。</li>
+    <li><b>重复问句不再吃 60 秒</b>：本机 Ollama 刚跑过大模型后切回嵌入模型要重新加载，
+        同一个问题问第二遍也要等。现在按「模型 + 文本」缓存向量，命中即 0.1 秒。</li>
+    <li><b>声纹口型恢复 + 随行包</b>：官方 <span class="fk">LivePortrait/LivePortrait</span> 已迁移为 <span class="fk">KlingAIResearch/LivePortrait</span>，
+        权重走镜像拿下，并单独隔离出 <span class="fk">ts_deps/</span>（transformers 4.57 等）避免被 ComfyUI 的 5.5 顶掉；
+        <span class="fk">pack_runtime.py</span> 打成 605MB 随行包。本机 RTX 4060 实测<b> 11.1 秒 </b>出片（此前 CPU 跑 8 分钟没出）。</li>
   </ul>
   <h4 style="margin:14px 0 6px">v2.6.8（10-06 四片段收口：片段只按分身生成 · 自检 GET/POST 双通道 · 英文配音补录）</h4>
   <ul style="margin:0;padding-left:20px" class="muted">
@@ -2571,6 +2644,105 @@ $('kbImportBtn').onclick=()=>$('fKb').click();
 $('kbRebuildBtn').onclick=openKbRebuild;
 if($('kbScopeBtn')) $('kbScopeBtn').onclick=dlgKbScopes;
 $('fKb').onchange=e=>{ const f=e.target.files[0]; if(f) importKb(f); e.target.value=''; };
+
+/* ============ v2.7 多源导入（目录批量） ============ */
+$('ingPickDir').onclick=()=>{
+  const inp=document.createElement('input'); inp.type='file'; inp.setAttribute('webkitdirectory','');
+  inp.onchange=()=>{ const f=inp.files&&inp.files[0]; if(!f) return;
+    let p=f.webkitRelativePath||f.name; $('ingDir').value=p.split('/')[0]; };
+  inp.click();
+};
+$('ingRun').onclick=async()=>{
+  const dir=($('ingDir').value||'').trim();
+  if(!dir){ alert('先选一个目录（点「📂 浏览目录」或直接填路径）'); return; }
+  const btn=$('ingRun'); btn.disabled=true; btn.textContent='导入中…';
+  const out=$('ingOut'); out.textContent='正在扫描并逐份入库（大目录需要一点时间）…';
+  try{
+    const r=await postJSON('/api/kb/ingest',{
+      mode:'dir', path:dir, recursive:$('ingRecursive').checked,
+      ext:($('ingExt').value||'').trim(),
+      category:($('ingCat').value||''),
+    });
+    if(r.error){ out.textContent='❌ '+r.error; return; }
+    const ok=(r.ok||[]).map(x=>'✅ '+x.file+'（'+x.chunks+' 段）').join('　');
+    const bad=(r.fail||[]).map(x=>'⚠️ '+x.file+'：'+x.err).join('\n');
+    out.innerHTML='扫描 <b>'+r.scanned+'</b> 份 → 成功 <b>'+r.imported+'</b> / 失败 <b>'+r.failed+'</b>'+
+      (ok?'<br>'+ok:'')+(bad?'<br>'+bad:'');
+  }catch(e){ out.textContent='❌ 导入失败：'+e; }
+  finally{ btn.disabled=false; btn.textContent='📥 批量导入'; }
+};
+
+/* ============ v2.7 AI 自动 Wiki ============ */
+$('wikiPlan').onclick=async()=>{
+  const out=$('wikiOut'); out.textContent='正在读语料并规划主题（约十几秒）…';
+  try{
+    const r=await postJSON('/api/kb/wiki',{act:'plan',topics:+$('wikiN').value||6});
+    if(r.error){ out.textContent='❌ '+r.error; return; }
+    const t=(r.topics||[]).map((x,i)=>(i+1)+'. <b>'+esc(x.topic)+'</b>　'+esc((x.question||''))).join('<br>');
+    out.innerHTML='规划出 <b>'+(r.topics||[]).length+'</b> 个主题：<br>'+t+
+      '<br><span class="muted">确认后点「📖 生成 Wiki」开始逐页撰写。</span>';
+  }catch(e){ out.textContent='❌ 规划失败：'+e; }
+};
+let _wikiJob=null, _wikiOut='';
+$('wikiRun').onclick=async()=>{
+  const out=$('wikiOut');
+  try{
+    const r=await postJSON('/api/kb/wiki',{act:'run',topics:+$('wikiN').value||6});
+    if(r.error){ out.textContent='❌ '+r.error; return; }
+    _wikiJob=r.job; out.textContent='已提交，开始生成…';
+    pollWiki();
+  }catch(e){ out.textContent='❌ 提交失败：'+e; }
+};
+async function pollWiki(){
+  const out=$('wikiOut');
+  for(let i=0;i<720;i++){
+    try{
+      const r=await getJSON('/api/progress?job='+encodeURIComponent(_wikiJob));
+      if(r.error){ out.textContent='❌ '+r.error; return; }
+      const done=r.done;
+      out.textContent='[ '+(r.page||0)+'/'+(r.total||0)+' ] '+esc(r.stage||'处理中…');
+      if(done){
+        if(r.error) out.textContent='❌ '+r.error;
+        else{
+          _wikiOut=r.wiki_out||_wikiOut;
+          $('wikiOpen').style.display='';
+          out.innerHTML='✅ Wiki 生成完：<b>'+(r.wiki_pages||r.page)+'</b> 页'+
+            (r.wiki_secs?'，用时 '+r.wiki_secs+' 秒':'')+
+            ' · 图谱 '+(r.graph||0)+' 节点<br><span class="muted">'+esc(_wikiOut)+'</span>';
+        }
+        return;
+      }
+    }catch(e){ out.textContent='轮询失败：'+e; return; }
+    await new Promise(s=>setTimeout(s,3000));
+  }
+  out.textContent='⏳ 生成时间较长，仍在后台进行（可继续做别的事）。';
+};
+$('wikiOpen').onclick=async()=>{
+  if(!_wikiOut){ alert('Wiki 还没生成过，先点「📖 生成 Wiki」。'); return; }
+  try{
+    const r=await postJSON('/api/open_path',{path:_wikiOut});
+    if(!r.ok) alert('📂 '+r.error);
+  }catch(e){ alert('📂 打开失败：'+e); }
+};
+
+/* ============ v2.7 增强答疑 ============ */
+$('qaRun').onclick=async()=>{
+  const q=($('qaQ').value||'').trim();
+  if(!q){ alert('先填一个问题'); return; }
+  const out=$('qaOut'); out.textContent='思考中（拆问法 + 多路检索 + 去重）…';
+  const t0=Date.now();
+  try{
+    const r=await postJSON('/api/kb/qa',{q:q, history:($('qaHist').value||'').trim(),
+      expand:$('qaExpand').checked, max_chars:6000});
+    if(r.error){ out.textContent='❌ '+r.error; return; }
+    const src=(r.sources||[]).map(s=>'· '+esc(s.label)+(s.breadcrumb?'　'+esc(s.breadcrumb):'')+
+      '（相似度 '+((s.score||0)).toFixed(2)+'）').join('<br>');
+    out.innerHTML='<b>答复</b>（'+(((Date.now()-t0)/1000).toFixed(1))+'s，参考 '+r.ctx_chars+' 字）<br>'+
+      esc(r.answer||'')+'<br><br><b>出处</b><br>'+src+
+      '<br><span class="muted">> '+esc(q)+'</span>';
+    $('qaHist').value=q+'｜'+String(r.answer||'').replace(/\n/g,' ').slice(0,120);
+  }catch(e){ out.textContent='❌ 回答失败：'+e; }
+};
 
 async function loadKbStats(){
   try{

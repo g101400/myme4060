@@ -16,6 +16,7 @@ myme.llm_client — 统一大模型接入层（纯标准库 urllib）
 """
 import os
 import json
+import hashlib
 import urllib.request
 import urllib.error
 import config
@@ -105,14 +106,34 @@ def chat(messages, model=None, temperature=None, max_tokens=None, cfg=None):
     return (r.get("choices") or [{}])[0].get("message", {}).get("content", "").strip()
 
 
+# —— 嵌入结果缓存（矢量是确定性的，同 model+同文本必然同结果）——
+# 【2026-10-07 实测】本机 Ollama 在「刚被大语言模型占用过之后」要切回 bge-m3，
+# 一次冷加载约 60s；同样的 Query 再来一遍就是 0.1s。答疑/检索里同一个问句会被反复问
+# （多查询扩展拆出的子问法彼此相近、UI 上同问题重问），每次都吃这 60s 很难看。
+# 这里按 (model, 文本指纹) 缓存，上限 4096 条（1024 维 float 列表约 40KB/条 → 上限约 160MB）。
+_EMBED_CACHE = {}
+_EMBED_CACHE_MAX = 4096
+
+
 def embed(text, model=None, cfg=None):
-    """文本向量化。返回 list[float]。"""
+    """文本向量化。命中缓存直接返回（同 model + 同文本），否则走本地 Ollama。"""
     cfg = cfg or load_llm_config()
     model = model or cfg.get("embed_model") or "bge-m3"
+    if cfg.get("provider") != "ollama" and not cfg.get("provider"):
+        pass  # 未显式指定 provider 时也兼容走 ollama 分支（保持原行为）
+    key = (model, hashlib.md5((text or "").encode("utf-8", "ignore")).hexdigest())
+    hit = _EMBED_CACHE.get(key)
+    if hit is not None:
+        return hit
     timeout = int(cfg.get("timeout", 300))
     base = (cfg.get("base_url") or "http://localhost:11434").rstrip("/")
     if cfg.get("provider") == "ollama":
         r = _post_json(f"{base}/api/embeddings", {"model": model, "prompt": text}, timeout)
-        return r["embedding"]
-    r = _post_json(f"{base}/v1/embeddings", {"model": model, "input": text}, timeout, cfg.get("api_key", ""))
-    return r["data"][0]["embedding"]
+        vec = r["embedding"]
+    else:
+        r = _post_json(f"{base}/v1/embeddings", {"model": model, "input": text}, timeout, cfg.get("api_key", ""))
+        vec = r["data"][0]["embedding"]
+    if len(_EMBED_CACHE) >= _EMBED_CACHE_MAX:
+        _EMBED_CACHE.clear()          # 简单淘汰：满了整表清（上限 4096，清一次代价可接受）
+    _EMBED_CACHE[key] = vec
+    return vec

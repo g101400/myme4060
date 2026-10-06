@@ -445,7 +445,7 @@ def _extract_json(text):
         return {}
 
 
-# ============ v2.6.1 根据知识库生成文字材料（总结报告 / 半年汇报 / …）============
+# ============ 根据知识库生成文字材料（总结报告 / 半年汇报 / …）============
 # 与「制作 PPT」的书面文档不同：这里不依赖 PPT 提纲，而是直接拿【知识库检索到的素材】
 # 按所选模板（总结报告 / 半年汇报 / 工作总结 / 项目汇报 / 季度汇报 / 自定义）起草成文。
 _KB_DOC_TEMPLATES = {
@@ -1398,6 +1398,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._handle_kb_backup(data)
         elif p.path == "/api/kb_rebuild":
             self._handle_kb_rebuild(data)
+        elif p.path == "/api/kb/ingest":
+            # v2.7 多源导入（18 种格式 + 目录批量）；长任务本身不慢，但整批可能几十个文件，
+            # 这里保持同步返回汇总（单文件失败不中断整批），前端只显示汇总。
+            self._handle_kb_ingest(data)
+        elif p.path == "/api/kb/wiki":
+            self._handle_kb_wiki(data)
+        elif p.path == "/api/kb/qa":
+            self._handle_kb_qa(data)
+        elif p.path == "/api/open_path":
+            self._handle_open_path(data)
         elif p.path == "/api/make_mindmap":
             # v2.6.4 补漏：UI v2.6.4 变更条目承诺「文字材料 doc / 思维导图 / PPT」，
             # 但应用侧此前只有 PPT 与书面稿 doc —— 思维导图能力只在技能侧 gen_local.py，
@@ -1915,7 +1925,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if data:
                 s = save_settings(data)
                 # ⚠ 「选择分身」必须同步落到 persons.json，否则后端取声纹/形象时读到的
-                #    还是旧 default → 界面选金子、语音却合成炎冰（v2.6.1 修复）。
+                #    还是旧 default → 界面选金子、语音却合成炎冰（此前修过的坑）。
                 if data.get("person") or data.get("avatar"):
                     persons.set_active(data.get("person"), data.get("avatar"))
                 self._json({"ok": True, "settings": s,
@@ -2246,6 +2256,155 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     self._json({"ok": False, "error": "检索失败：%s" % e})
                 return
             self._json({"ok": False, "error": "未知操作：%s" % act})
+        except Exception as e:
+            self._json({"ok": False, "error": str(e)})
+
+    # ==================== v2.7 多源导入（18 种格式 + 目录批量）====================
+    def _handle_kb_ingest(self, data):
+        """多源导入：单文件 / 目录批量 / 显式路径表。
+
+        入参 {mode: "file"|"dir"|"paths", path: "...", recursive: true,
+              ext: "pdf,xlsx", limit: 200}
+        返回 {ok, ok[], fail[], scanned, note} —— 单文件失败不中断整批（WeKnora 做法）。"""
+        import kb_chunking  # noqa: F401  确保分块内核可用（缺则下面 import 报明确错误）
+        import doc_ingest
+        mode = (data.get("mode") or "dir").strip()
+        kbname = data.get("kb_name") or KB_NAME
+        try:
+            if mode == "paths":
+                files = [p for p in (data.get("paths") or [])
+                         if isinstance(p, str) and p.strip()]
+                files = [p.strip() for p in files]
+            elif mode == "file":
+                p = (data.get("path") or "").strip()
+                if not p or not os.path.isfile(p):
+                    self._json({"ok": False, "error": "文件不存在：%s" % p}); return
+                files = [p]
+            else:
+                p = (data.get("path") or "").strip()
+                if not p or not os.path.isdir(p):
+                    self._json({"ok": False, "error": "目录不存在：%s" % p}); return
+                exts = [("." + x.strip().lstrip(".").lower()) for x in
+                        (data.get("ext") or "").split(",") if x.strip()] or None
+                scanned = doc_ingest.iter_files(
+                    p, exts=exts, recursive=bool(data.get("recursive", True)))
+                files = [fp for fp, _e in scanned]
+                if not files:
+                    self._json({"ok": False, "error":
+                                "该目录下没有可识别的文档（支持：%s）"
+                                % "、".join(doc_ingest.SUPPORTED_EXT),
+                                "scanned": scanned}); return
+            if not files:
+                self._json({"ok": False, "error": "没有可导入的文件"}); return
+            ok_list, fail_list = [], []
+            cat = data.get("category") or "多源导入"
+            for fp in files:
+                try:
+                    # ingest_document 返回 {added, removed, total, skipped}（无 ok 字段，
+                    # 内容未变时 skipped="unchanged"），所以用 added 判成败 —— 判错会
+                    # 把「成功入库」的文件全报成失败（本版第一个坑就踩在这）。
+                    r = knowledge_base.ingest_document(fp, kbname, category=cat)
+                    # 不抛异常即视为入库（added=0 可能是空文档或内容未变，
+                    # 这两种都不是错误，但要如实告诉用户「抽不出正文 / 内容未变」）
+                    note = ""
+                    if r.get("skipped") == "empty":
+                        note = "没抽到正文（格式不受支持或文件是空的）"
+                    elif r.get("skipped") == "unchanged":
+                        note = "内容未变，跳过向量化"
+                    ok_list.append({"file": os.path.basename(fp),
+                                    "chunks": r.get("added", 0), "note": note})
+                except Exception as e:
+                    fail_list.append({"file": os.path.basename(fp), "err": str(e)})
+            self._json({"ok": True, "ok": ok_list, "fail": fail_list,
+                        "imported": len(ok_list), "failed": len(fail_list),
+                        "scanned": len(files),
+                        "note": "成功 %d / 失败 %d" % (len(ok_list), len(fail_list))})
+        except Exception as e:
+            self._json({"ok": False, "error": str(e)})
+
+    # ==================== v2.7 AI 自动 Wiki ====================
+    def _handle_kb_wiki(self, data):
+        """AI 自动 Wiki：异步任务（Planner 选题 → Writer 逐页写 → 图谱/索引落盘）。
+
+        入参 {act: "plan"|"run", topics: 6, max_chars: 12000}
+        act=plan 只出主题清单（秒回，前端先给用户看选题）；act=run 起后台任务。"""
+        import kb_wiki
+        act = (data.get("act") or "plan").strip()
+        try:
+            if act == "plan":
+                # 注意：plan_topics(语料, n=…)，主题数是关键字参数。
+                # 写成 plan_topics(n) 会把数字当成语料（int 不支持切片，直接 500）。
+                blob = kb_wiki.corpus_blob()
+                if not blob:
+                    self._json({"ok": False, "error": "知识库里没有可索引的语料，先导点文档进来"}); return
+                topics = kb_wiki.plan_topics(blob, n=int(data.get("topics") or 6))
+                self._json({"ok": True, "act": "plan", "topics": topics})
+                return
+            if act == "run":
+                cnt = int(data.get("topics") or 6)
+                jid = _job_new(total=cnt)
+                t = threading.Thread(target=_wiki_job, args=(jid, int(data.get("max_chars") or 12000)),
+                                     daemon=True)
+                t.start()
+                self._json({"ok": True, "act": "run", "job": jid})
+                return
+            self._json({"ok": False, "error": "未知操作：%s" % act})
+        except Exception as e:
+            self._json({"ok": False, "error": str(e)})
+
+    # ==================== v2.7 AI Wiki 后台任务 ====================
+    # 走通用 JOBS 通道（前端已在轮询 /api/progress），给每页刷进度。
+    def _wiki_job(jid, max_chars=12000):
+        import kb_wiki
+        def _prog(i, total, topic, body):
+            _job_update(jid, page=i, total=total, stage="正在写：%s" % topic)
+        try:
+            _job_update(jid, stage="正在规划主题…", page=0)
+            r = kb_wiki.generate_wiki(progress=_prog, ctx_max_chars=max_chars)
+            if not r.get("ok"):
+                _job_update(jid, done=True, error=r.get("reason") or "生成失败")
+                return
+            _job_update(jid, done=True, page=r.get("pages") or 0, stage="完成",
+                        wiki_out=r.get("out"), wiki_pages=r.get("pages"),
+                        wiki_secs=r.get("secs"),
+                        graph=(r.get("graph") or {}).get("nodes", []).__len__())
+        except Exception as e:
+            _job_update(jid, done=True, error=str(e))
+
+    # ==================== v2.7 增强答疑（多查询扩展 + 去重 + 追问）====================
+    def _handle_kb_qa(self, data):
+        """在线答疑增强：拆子问法 → 混合检索 → 指纹/向量去重 → 上下文压缩 → 生成。
+
+        入参 {q, history, expand, max_chars}
+        history 形如 "上轮问题|上轮答案"（多轮用 && 连接）。"""
+        try:
+            import kb_qa
+            q = (data.get("q") or "").strip()
+            if not q:
+                self._json({"ok": False, "error": "请填问题"}); return
+            hist = (data.get("history") or "").strip() or None
+            r = kb_qa.answer_with_history(q, names=[data.get("kb_name") or KB_NAME],
+                                          history=hist,
+                                          expand=(data.get("expand", True) not in (0, "0", False)),
+                                          max_chars=data.get("max_chars"))
+            self._json({"ok": True, **r})
+        except Exception as e:
+            self._json({"ok": False, "error": str(e)})
+
+    # ---------- 在资源管理器里打开一个本地路径（Wiki 产物 / 目录）----------
+    def _handle_open_path(self, data):
+        try:
+            p = os.path.abspath(data.get("path") or "")
+            if not os.path.exists(p):
+                self._json({"ok": False, "error": "路径不存在：%s" % p}); return
+            try:
+                if os.path.isdir(p):
+                    os.startfile(p)
+                else:
+                    subprocess.Popen(["explorer", "/select,", p])
+            except Exception:
+                os.startfile(os.path.dirname(p) if os.path.isfile(p) else p)
+            self._json({"ok": True, "path": p})
         except Exception as e:
             self._json({"ok": False, "error": str(e)})
 
@@ -3499,7 +3658,7 @@ def _build_manifest(slides_doc, only_versions, quality, packed_videos):
 
     播放端（安卓 APK / 统信 deb / Win 便携包里的 player.html）只读这一个文件，
     不必理解主程序的 slides.json 结构，也不依赖任何服务端接口。
-    新增（v2.6.1 反馈）：audio_en（英配）、personas（可选分身列表）、
+    新增：audio_en（英配）、personas（可选分身列表）、
     videoAlt（各分身逐页视频变体，供播放端"选分身"切换）。
     """
     wav2mp3 = (quality != "lossless")

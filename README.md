@@ -6,7 +6,19 @@
 > ② 修复 **阻断级环境错配**：源码原写死 D:/ComfyUI_Mie_2026_V8.0，本机 ComfyUI 实际在 **H 盘** → TTS / Sonic / 数字人服务全部拉不起来，已改为「环境变量 → 设置登记 → 全盘扫描」三级探测（`config.py` / `tts_worker.py`），命中须含 `custom_nodes` 才算 ComfyUI 真身；现已实跑验证命中 H 盘。
 > ③ 修复出包路径： `_build_sfx.py` 原写死旧工作区，改为相对脚本目录；
 > ④ 源码态已实跑验证（`/api/meta` = 2.6.3、`/api/projects`、`/api/scope` 全绿）；三平台（Win / 安卓 APK / 统信 deb）已重出。
-> 公开源码仓：<https://github.com/g101400/myme4060>　当前版本 **v2.6.9**：播放包默认含「分身 × 语言」四个片段、讲解默认双语（中/英）、顶栏「📚 知识库」并入导入·向量重建优化·输出三组、帮助支持 GitHub 升级、九步主链路与流程自检。
+> 公开源码仓：<https://github.com/g101400/myme4060>　当前版本 **v2.7.0**：吸收 [WeKnora v0.8.2](https://github.com/Tencent/WeKnora) 精华，知识库补齐三层能力——**自适应分块（带层级面包屑 / 父子分块）**、**多源导入（18 种格式 + 整目录批量）**、**AI 自动 Wiki（互链文档树 + 知识图谱）**；答疑升级为「拆子问法 → 多路检索 → 指纹+向量去重 → 带出处作答 → 多轮追问」；并修复了「CLI 读旧壳库 / UI 读真库」的数据根同源问题。更详细的分条说明见文末「最新版本 v2.7.0」。
+
+### 最新版本 v2.7.0（2026-10-07）
+
+| # | 变化 | 说明 |
+|---|------|------|
+| 1 | **自适应分块**（`kb_chunking.py`） | 移植 WeKnora 的文档画像 + `heading/heuristic/recursive` 三档自动选档；每块带**层级面包屑**（`项目总览 › 分块策略`），面包屑计入 embedding 不计入正文，Start/End 可还原；`MYME_KB_PARENT_CHILD=1` 开父子分块（子块 384 命中、父块 4096 返回）。已接入 `knowledge_base` 入库与检索。 |
+| 2 | **多源导入 18 种格式 + 目录批量**（`doc_ingest.py`） | 新增 PDF(PyPDF2) / Excel(openpyxl+zip 双路) / CSV / HTML(bs4 或白名单) / JSON(嵌套扁平) / EPUB(container→opf→xhtml) / 图片 OCR(有 tesseract 才跑)；`iter_files()` + `ingest_dir()` 支持递归、格式过滤、单文件失败不中断整批。 |
+| 3 | **AI 自动 Wiki**（`kb_wiki.py`） | 读全量语料 → 模型规划主题 → 逐主题回库检索 → 写 Markdown 页（强制 `[来源:]` 与 `[[互链]]`）→ 自动出 `00-索引.md` + mermaid / `wiki_graph.json` 知识图谱。UI 上先「先出选题清单」再生成，后台任务带逐页进度。 |
+| 4 | **在线答疑增强**（`kb_qa.py`） | 拆 2~3 个子问法分别检索（WeKnora 多查询扩展思路）、正文指纹 + 向量余弦 0.92 双重去重、上下文压缩后作答，**每条结论标来源页 + 面包屑 + 相似度**；多轮用「上一轮问答压缩拼接」而非每轮全库重检。 |
+| 5 | **数据根同源修复** | 原 `DIR_KB` 挂 `DATA_DIR`，dev 态指向源码目录那份旧壳库、UI 指向 `%LOCALAPPDATA%\myme` 的真库，两条路互打架。现统一由 `KP_ROOT`（`MYME_KP_ROOT` > `MYME_DATA` > 真实用户根 > 包目录）解析。 |
+| 6 | **嵌入缓存**（`llm_client.py`） | 本机 Ollama 在刚跑过大模型后切回 bge-m3 要 ~60s 冷加载；按 `(model, 文本指纹)` 缓存后，重复问句 0.1s 命中。 |
+| 7 | **声纹口型恢复 + 随行包** | 换回 `KlingAIResearch/LivePortrait` 官方源（原 `LivePortrait/LivePortrait`、`Kedream66/LivePortrait` 均已 404）+ HF 权重（走 hf-mirror），并单独隔离出 `ts_deps/`（transformers 4.57 等）前置 `sys.path`；`pack_runtime.py` 打成 605MB 随行包，本机 RTX 4060 实测 **11.1 秒** 出片（此前 CPU 跑 8 分钟未完）。 |
 
 # myme · 本地数字分身 —— 用「炎冰」的声音讲 PPT 并自动答疑
 
