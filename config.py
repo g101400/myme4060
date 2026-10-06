@@ -56,17 +56,20 @@ def _probe_comfy_root():
             # ② 裸 ComfyUI ③ 外层目录兜底。
             # 判定「真身」的硬条件：有 custom_nodes 子目录（否则路径语义会错位，
             # 导致 python_embeded / qwen3-tts-comfyui 都推导错）。
-            for buf in (os.path.join(drv, "ComfyUI_Mie_2026_V8.0", "ComfyUI"),
-                        os.path.join(drv, "ComfyUI_Mie_2026_V8.0"),
-                        os.path.join(drv, "ComfyUI")):
+            # 注意 drv 用 "H:" + os.sep（不是裸 "H:"）—— 裸盘符 join 出的是
+            # drive-relative path（见 _canon_drive_path 注释），此处直接按规范形式拼。
+            dd = drv + os.sep
+            for buf in (os.path.join(dd, "ComfyUI_Mie_2026_V8.0", "ComfyUI"),
+                        os.path.join(dd, "ComfyUI_Mie_2026_V8.0"),
+                        os.path.join(dd, "ComfyUI")):
                 try:
                     if os.path.isdir(buf) and os.path.isdir(os.path.join(buf, "custom_nodes")):
                         return buf
                 except Exception:
                     continue
-            for buf in (os.path.join(drv, "ComfyUI_Mie_2026_V8.0", "ComfyUI"),
-                        os.path.join(drv, "ComfyUI_Mie_2026_V8.0"),
-                        os.path.join(drv, "ComfyUI")):
+            for buf in (os.path.join(dd, "ComfyUI_Mie_2026_V8.0", "ComfyUI"),
+                        os.path.join(dd, "ComfyUI_Mie_2026_V8.0"),
+                        os.path.join(dd, "ComfyUI")):
                 try:
                     if os.path.isdir(buf):
                         return buf
@@ -81,19 +84,33 @@ _COMFY_ROOT_RAW = (
     (os.environ.get("MYME_COMFYUI_ROOT") or "").strip()
     or _probe_comfy_root()
 )
-COMFYUI_ROOT = _COMFY_ROOT_RAW
-# 树根为空时不要把路径拼成相对串（会被误判为「已配置」），显式给空
+# 盘符规整：os.path.join("H:", "xxx") == "H:xxx" 是 Windows 的【drive-relative path】
+# （盘符后无分隔符），语义是「H: 盘的当前工作目录下的 xxx」，不是「H:\xxx」。
+# 它通常能靠 per-drive CWD 碰巧命中，但只要该盘 CWD 被改过就静默指错 —— 典型沉默失败。
+# 故此处统一规整成规范绝对路径（补分隔符 + normpath）。
+def _canon_drive_path(p):
+    if not p:
+        return ""
+    p = str(p).strip()
+    if len(p) >= 2 and p[1] == ":":
+        if len(p) == 2:
+            return p + os.sep          # "H:" -> "H:\"
+        if p[2] not in ("\\", "/"):
+            p = p[:2] + os.sep + p[2:]  # "H:xxx" -> "H:\xxx"
+    return os.path.normpath(p)
+
+
+COMFYUI_ROOT = _canon_drive_path(_COMFY_ROOT_RAW)
+# 树根为空时不要把路径拼成相对串（会被误判为「已配置」），统一显式给空
+# （只有这一处最终赋值；历史上曾出现重复赋值块，后一处会静默覆盖前一处）
 QWEN_TTS_NODES = os.path.join(COMFYUI_ROOT, "custom_nodes", "qwen3-tts-comfyui") if COMFYUI_ROOT else ""
+# 语音克隆基座模型（1.7B，支持中/英等 10 种语言）—— 注意：本体是【目录】不是单文件
 QWEN_TTS_MODEL = os.path.join(COMFYUI_ROOT, "models", "qwen-tts", "Qwen3-TTS-12Hz-1.7B-Base") if COMFYUI_ROOT else ""
 EMBEDDED_PY = (os.environ.get("MYME_EMBEDDED_PY") or "").strip() or (
     os.path.abspath(os.path.join(COMFYUI_ROOT, "..", "python_embeded", "python.exe"))
     if (COMFYUI_ROOT and os.path.isfile(os.path.join(COMFYUI_ROOT, "..", "python_embeded", "python.exe")))
     else ""
 )
-# Qwen3-TTS 节点目录（qwen_tts 包所在）
-QWEN_TTS_NODES = os.path.join(COMFYUI_ROOT, "custom_nodes", "qwen3-tts-comfyui")
-# 语音克隆基座模型（1.7B，支持中/英等 10 种语言）
-QWEN_TTS_MODEL = os.path.join(COMFYUI_ROOT, "models", "qwen-tts", "Qwen3-TTS-12Hz-1.7B-Base")
 # 用户声纹样本（炎冰本人 ~10 分钟 24kHz 单声道）
 VOICE_SAMPLE = os.path.join(WORKSPACE, "voice", "yanbing-sample-01.wav")
 # 各分身声纹映射（person id -> wav）。新增分身：把干净参考 wav 放 voice/ 并在此登记。
@@ -189,6 +206,12 @@ TTS_TOP_K = 20
 TTS_TEMP = 0.9
 TTS_REP_PEN = 1.05
 TTS_SEED_BASE = 42
+
+# ============ 讲解默认双语 ============
+# 生成语音讲稿时，除中文之外默认再出一份「英文讲稿 + 英文配音」。
+# 原因（用户反馈）：导出去的播放包只有中文，播放端一切英文就全回落，
+# 看起来像"英文功能坏了"，实际是压根没生成。设 MYME_BILINGUAL=0 可关掉（只出中文）。
+NARR_BILINGUAL = os.environ.get("MYME_BILINGUAL", "1").lower() not in ("0", "false", "no", "off")
 
 # ============ 常驻 TTS 服务（消除冷加载）============
 # 把 Qwen3-TTS 模型常驻一个嵌式 python 进程，app/narrate 走 HTTP 热合成；
@@ -392,11 +415,14 @@ def _rt_pick(key):
 
 
 # --- ComfyUI 根目录（决定嵌入式 python / TTS 模型 / 节点目录）---
-_c = _rt_pick("comfyui_root")
+# ⚠️ 这里是【设置登记】覆盖，必须与文件顶部的探测结果走同一套规整 + 空值保护；
+#    历史上此地直接裸 join，既漏了盘符规整（drive-relative 复发），
+#    又漏了空值保护（树根为空时拼出相对串）。
+_c = _canon_drive_path(_rt_pick("comfyui_root"))
 if _c and os.path.isdir(_c):
-    COMFYUI_ROOT = _c
-    QWEN_TTS_NODES = os.path.join(COMFYUI_ROOT, "custom_nodes", "qwen3-tts-comfyui")
-    QWEN_TTS_MODEL = os.path.join(COMFYUI_ROOT, "models", "qwen-tts", "Qwen3-TTS-12Hz-1.7B-Base")
+    COMFYUI_ROOT = _canon_drive_path(_c)
+    QWEN_TTS_NODES = os.path.join(COMFYUI_ROOT, "custom_nodes", "qwen3-tts-comfyui") if COMFYUI_ROOT else ""
+    QWEN_TTS_MODEL = os.path.join(COMFYUI_ROOT, "models", "qwen-tts", "Qwen3-TTS-12Hz-1.7B-Base") if COMFYUI_ROOT else ""
 # --- 嵌入式 python（TTS / 数字人服务的实际解释器）---
 _p = _rt_pick("embedded_py")
 if _p and os.path.isfile(_p):
@@ -435,6 +461,8 @@ PORTRAITS_DIR = os.path.join(WORKSPACE, "avatar_out", "portraits")
 #   PERSONS_JSON   = persons.json   —— 新「多人×多形象」分身库（persons.py 用）
 PORTRAITS_JSON = os.path.join(PORTRAITS_DIR, "portraits.json")
 PERSONS_JSON = os.path.join(PORTRAITS_DIR, "persons.json")
+# 象库迁入项目制前的老位置（WORKSPACE/avatar_out/portraits），仅用于「换机/换盘后自动回填」，不参与读取。
+_LEGACY_PORTRAITS_DIR = os.path.join(WORKSPACE, "avatar_out", "portraits")
 
 # ============ 项目系统基础常量 ============
 # 所有运行时可变资源（知识库/讲解/数字人/分身象库/版本/问答日志/资源历史）均归属某个项目；
@@ -547,7 +575,7 @@ if PLAYBACK_MODE:
     USE_AVATAR_SERVICE = False
 
 # ============ 版本号（同时用于关于/安装包标识）============
-VERSION = "2.6.3"
+VERSION = "2.6.7"
 
 # ============ 应用名称（多分身通用，不绑定具体人或行业）============
 # 产品名：PPT制作及分身演示。首页标题/关于/安装包均用此名，
@@ -582,8 +610,10 @@ def get_current_persona():
         pid = d.get("default") or (ps[0].get("id") if ps else None)
         p = next((x for x in ps if x["id"] == pid), None) or (ps[0] if ps else None)
         if p:
+            # title 优先取人设自己写的「身份/头衔」；没有才退到备注，最后才是产品名兜底。
+            # 避免「分身备注里随便写一句」把首页副标题顶掉。
             return {"name": p.get("name") or PERSONA["name"],
-                    "title": p.get("note") or PERSONA["title"]}
+                    "title": p.get("title") or p.get("note") or PERSONA["title"]}
     except Exception:
         pass
     return {"name": PERSONA["name"], "title": PERSONA["title"]}
@@ -641,6 +671,30 @@ def _recompute(pid):
     SLIDES_FILE = os.path.join(base, "slides.json")
     QA_LOG_FILE = os.path.join(base, "qa_log.json")
     RESOURCE_HISTORY = os.path.join(base, "resource_history.json")
+    _migrate_legacy_portraits(base)
+
+
+def _migrate_legacy_portraits(base):
+    """象库老位置 -> 当前项目目录的自动回填。
+
+    项目制上线前，象库放在 WORKSPACE/avatar_out/portraits；上线后落到 projects/<pid>/avatar_out/portraits。
+    换机、换盘、重装、备份还原后，老目录里常有形象图而新目录是空的 —— 此时前端「分身形象」下拉会空、
+    生成数字人会报缺图，看起来像功能坏了，其实是路径没接上。
+    这里在每次重算项目路径时把老目录里的形象图与清单补进来（幂等：新目录已有一份就跳过同名文件）。"""
+    try:
+        src, dst = _LEGACY_PORTRAITS_DIR, os.path.join(base, "avatar_out", "portraits")
+        if not (os.path.isdir(src) and not os.path.isdir(dst)):
+            return
+        os.makedirs(dst, exist_ok=True)
+        for fn in os.listdir(src):
+            d = os.path.join(dst, fn)
+            if os.path.exists(d):
+                continue
+            s = os.path.join(src, fn)
+            if os.path.isfile(s):
+                shutil.copy2(s, d)
+    except Exception:
+        pass
 
 
 def get_active_project():

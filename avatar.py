@@ -463,11 +463,16 @@ def drive_avatar(image, audio, out_mp4, resolution=AVATAR_RES, prepare=True,
     motion：微动强度（1.0=自然，0=仅口型）。
     返回 dict: {ok, out_mp4, prepared_audio, note}。模型只加载一次（常驻）。"""
     ensure_avatar_dir()
+    # motion 缺省（调用方未传）时按"自然微动"处理；直接 str(None) 会让子进程 argparse 报
+    # "invalid float value: 'None'" 而直接失败（# 冷启动数字人必炸）。
+    if motion is None:
+        motion = 1.0
     # 音频预处理（始终执行，保证喂给模型的音频合规）
     prepared = os.path.join(config.DIR_AVATAR, "driving_prepared.wav")
     if prepare:
         try:
             prepared = prepare_audio(audio, prepared)
+            note_prep = ""
         except Exception as e:
             prepared = audio
             note_prep = f"音频预处理跳过：{e}"

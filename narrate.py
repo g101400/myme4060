@@ -44,7 +44,10 @@ def _synth_via_subprocess(text, lang_code, out_path, seed, ref):
     r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
                        timeout=300, cwd=os.path.dirname(worker))
     if r.returncode != 0 or not os.path.exists(out_path):
-        print(f"[narrate] TTS 失败: {out_path}\n{r.stderr[-500:]}", flush=True)
+        # stderr 可能因 capture_output 未捕获 / 编码失败而为空或 None，
+        # 直接 r.stderr[-500:] 会抛 TypeError，把「TTS 失败」这段日志本身变成崩溃点。
+        err = (r.stderr or b"").decode("utf-8", "replace")[-500:]
+        print(f"[narrate] TTS 失败: {out_path}\n{err}", flush=True)
         return False
     return True
 

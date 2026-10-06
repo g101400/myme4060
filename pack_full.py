@@ -31,7 +31,27 @@ import xml.sax.saxutils as X
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DIST = os.path.join(HERE, "dist")
-VER = "2.6.3"
+
+
+def _pkg_ver():
+    """包版本号唯一来源：config.VERSION。
+
+    历史坑：这里曾写死 "2.6.3"，而 config.VERSION 已升到 2.6.4 →
+    源码=2.6.4、打出来的 msi 却叫 myme-2.6.3-win-x64-full.msi（源码≠产物）。
+    现在统一从 config 读，升级只需改 config.VERSION 一处；
+    临时试打可用环境变量 MYME_PKG_VER 覆盖。
+    """
+    try:
+        import config as _cfg
+        v = str(getattr(_cfg, "VERSION", "")).strip()
+        if v:
+            return v
+    except Exception:
+        pass
+    return os.environ.get("MYME_PKG_VER", "0.0.0")
+
+
+VER = _pkg_ver()
 PRODUCT = "PPT制作及分身演示"
 MANUF = "小七"
 # ⚠ 升级码（UpgradeCode）：决定"新版本能否覆盖旧版本"。
@@ -356,6 +376,13 @@ RUNTIME_TXT = """myme 运行时绿色伴随目录 v%s
 
 def main():
     args = sys.argv[1:]
+    # 先同步 exe 版本资源（version_info.txt ← config.VERSION），
+    # 否则升级后 msi 名字是新版、exe 属性还是旧版（源码 ≠ 产物）。
+    try:
+        subprocess.run([sys.executable, os.path.join(HERE, "sync_version_info.py")],
+                       check=True, capture_output=True, text=True, encoding="utf-8")
+    except Exception as e:
+        print("[pack_full] ⚠ 版本资源同步失败（继续）：%s" % e)
     os.makedirs("C:/tmp/myme_pkg", exist_ok=True)
     os.makedirs(DIST, exist_ok=True)
     t0 = time.time()

@@ -40,6 +40,7 @@ from config import (VOICE_SAMPLE, PERSONA, EMBEDDED_PY, APP_NAME,
                     AVATAR_ENGINE, SONIC_URL, SONIC_CHECKPOINT, SONIC_UNET,
                     SONIC_DTYPE, SONIC_MIN_RES, SONIC_STEPS, SONIC_FPS, SONIC_TIMEOUT,
                     resolve_avatar, list_portraits, TTS_SEED_BASE, resolve_voice,
+                    NARR_BILINGUAL,
                     WORKSPACE, DATA_DIR, PLAYBACK_MODE, PORT_FULL, PORT_PLAYBACK,
                     get_current_persona,
                     DIR_BACKUP, BACKUP_DECK_EXT, BACKUP_DOC_EXT)
@@ -56,8 +57,14 @@ import zipfile
 
 KB_NAME = "myme_kb"
 # 完整版与播放版采用不同端口：完整版默认 7860，播放版默认 7861（可同时运行互不冲突）。
+# 端口即模式：起在「便携播放版端口 7861」就自动进入播放模式。
+# ⚠ 用户反馈过：把播放器打开在 7861 上看到的却是完整版界面（顶部没有导入播放包、
+# 也没有播放按钮），因为他不知道还要额外设 MYME_PLAYBACK=1 或放 playback.mode 标记文件。
+# 端口本身就是最强的意图信号，这里直接推断，不再要求用户记住任何开关。
 PORT = int(os.environ.get("MYME_PORT",
                           str(PORT_PLAYBACK if PLAYBACK_MODE else PORT_FULL)))
+if str(PORT) == str(PORT_PLAYBACK):
+    PLAYBACK_MODE = True
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -819,8 +826,53 @@ def _job_worker_version(jid, name, lang, words):
         if vid not in VERSION_ORDER:
             VERSION_ORDER.append(vid)
         _apply_version(vid)
+        # ── 默认双语：中文之外再出一份英文讲稿 + 英文配音 ──
+        # 不做这一步，导出去的包里只有中文，播放端一切英文就全回落，
+        # 用户看到的是"切英文没反应"，实际是压根没生成（v2.6.6 同源问题）。
+        en_text_n = en_au_n = en_fail_n = 0
+        if NARR_BILINGUAL:
+            for i, sl in enumerate(base, 1):
+                _job_update(jid, stage="第 %d/%d 页：生成英文讲稿" % (i, total), page=i, total=total)
+                en = (sl.get("narration_en") or "").strip()
+                if not en:
+                    try:
+                        en = _translate_text(sl.get("narration", "") or "", "English")
+                    except Exception as e:
+                        print("[narr] 英文讲稿生成失败（跳过该页）：", e)
+                        en = ""
+                sl["narration_en"] = en
+                if not en:
+                    continue
+                en_text_n += 1
+                out_en = os.path.join(config.DIR_NARR, "narr_%s_%02d_en.wav" % (vid, sl["idx"]))
+                try:
+                    ok_en = narrate.synth_one(en, "English", out_en,
+                                              seed=TTS_SEED_BASE + 100 + i, ref=resolve_voice())
+                except Exception as e:
+                    print("[narr] 英文配音失败（跳过该页）：", e)
+                    ok_en = False
+                if ok_en:
+                    en_au_n += 1
+                else:
+                    en_fail_n += 1
+            for vs in VERSIONS[vid]["slides"]:
+                for sl0 in base:
+                    if sl0["idx"] == vs.get("idx"):
+                        vs["narration_en"] = sl0.get("narration_en", "")
+                        vs["audio_en"] = ("/api/audio?name=" + os.path.basename(
+                            "narr_%s_%02d_en.wav" % (vid, sl0["idx"]))) if (sl0.get("narration_en")
+                            and os.path.isfile(os.path.join(config.DIR_NARR,
+                                                            "narr_%s_%02d_en.wav" % (vid, sl0["idx"])))) else None
+            try:
+                _save_slides()
+            except Exception as e:
+                print("[narr] 英文讲稿回写失败：", e)
         _job_update(jid, stage="完成", done=True, page=total,
-                    summary="已生成新讲解版本「%s」，共 %d 页，已设为当前演示版本。" % (VERSIONS[vid]["name"], total),
+                    summary="已生成新讲解版本「%s」，共 %d 页，已设为当前演示版本。%s" % (
+                        VERSIONS[vid]["name"], total,
+                        ("英文讲稿 %d 页 / 英文配音 %d 页%s。" % (en_text_n, en_au_n,
+                         ("（%d 页英文配音未生成，可在「④ 分身语音讲解」重跑或检查 TTS）" % en_fail_n) if en_fail_n else ""))
+                        if NARR_BILINGUAL else ""),
                     full_audio=("/api/audio?name=" + os.path.basename(full)) if full else None)
     except Exception as e:
         _job_update(jid, done=True, error=str(e), stage="失败")
@@ -1075,7 +1127,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 if os.path.exists(cand):
                     fp = cand
                     break
-            if fp:
+            # 用 isfile 而非 exists：exists 对「目录本身/尾斜杠路径」也会为真，
+            # 之后 open() 抛异常会把整个 do_GET 拖崩（线上实测 avatar_out\ 触发过）。
+            if fp and os.path.isfile(fp):
                 with open(fp, "rb") as f:
                     _send(self, 200, f.read(), "video/mp4")
             else:
@@ -1121,6 +1175,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         "name": cur["name"], "title": cur["title"],
                         "person": act.get("person", ""), "avatar": act.get("avatar", ""),
                         "version": getattr(sys.modules.get("config"), "VERSION", "") or "2.3.0"})
+        elif p.path == "/api/upgrade":
+            self._json(check_upgrade())
+        elif p.path == "/api/pipeline":
+            self._json(pipeline_check())
         elif p.path == "/api/playback_files":
             # 列出可作为"播放文件"导出的整场分身视频（供前端勾选）
             vids = []
@@ -1187,6 +1245,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # 播放版仍需允许 /api/upload_zip 导入播放包，故不放入 _PLAYBACK_FORBIDDEN。
         if p.path == "/api/upload_zip":
             _handle_upload_zip(self); return
+        if p.path == "/api/kb_collect":
+            _handle_kb_collect(self); return
         if p.path == "/api/kb_upload":
             _handle_kb_upload(self); return
         length = int(self.headers.get("Content-Length", 0) or 0)
@@ -1324,11 +1384,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif p.path == "/api/make_ppt":
             self._handle_make_ppt(data)
         elif p.path == "/api/gen_kb_doc":
-            self._handle_gen_kb_doc(data)
+            # 注意：_handle_gen_kb_doc 是模块级函数（签名为 (self, data)，self 即 Handler），
+            # 早期这里误写成 self._handle_gen_kb_doc(data) → AttributeError，
+            # 每次点「根据知识库生成文字材料」都崩（服务端直接断连），已修正为传 self 的模块级调用。
+            _handle_gen_kb_doc(self, data)
         elif p.path == "/api/kb_backup":
             self._handle_kb_backup(data)
         elif p.path == "/api/kb_rebuild":
             self._handle_kb_rebuild(data)
+        elif p.path == "/api/make_mindmap":
+            # v2.6.4 补漏：UI v2.6.4 变更条目承诺「文字材料 doc / 思维导图 / PPT」，
+            # 但应用侧此前只有 PPT 与书面稿 doc —— 思维导图能力只在技能侧 gen_local.py，
+            # 用户在 APP 里点不到。这里补一个Markdown 树形导图（可再导入 Xmind / 幕布）。
+            self._handle_make_mindmap(data)
         else:
             self._json({"error": "unknown endpoint"})
 
@@ -2046,6 +2114,86 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except Exception as e:
             self._json({"error": str(e)})
 
+    # ---------- v2.6.4：思维导图（Markdown 树形）----------
+    @staticmethod
+    def _outline_to_mindmap(topic, outline):
+        """把 PPT 大纲（slides）压成 Markdown 树形导图文本。
+
+        层级：主题(中心主题) → 章节 → 要点 → 子要点。
+        返回 (markdown 文本, 节点数)。
+        """
+        lines = ["# " + (topic or "思维导图"), "",
+                 "> 由本地模型依据知识库生成，中心主题见上。", ""]
+        n = 1
+
+        def node(text, level):
+            nonlocal n
+            n += 1
+            return "%s%s" % ("    " * (level - 1), text)
+
+        for s in outline or []:
+            title = (s.get("title") or "").strip()
+            if not title or "待补充" in title:
+                continue
+            # 大纲首页是封面，标题往往就是主题本身 → 中心主题已经写在 # 行了，
+            # 不跳过就会出现「# 主题」+「- 主题」两行重复（v2.6.4 实测发现）。
+            if title == (topic or "").strip():
+                continue
+            lines.append(node("- " + title, 1))
+            for b in (s.get("bullets") or []):
+                b = (b or "").strip()
+                if not b or "待补充" in b:
+                    continue
+                lines.append(node("- " + b, 2))
+                for sub in (b.get("sub") or [] if isinstance(b, dict) else []):
+                    lines.append(node("- " + str(sub).strip(), 3))
+        return "\n".join(lines) + "\n", n
+
+    def _handle_make_mindmap(self, data):
+        """生成思维导图（Markdown）。
+
+        与 PPT 共用同一套大纲（make_ppt.gen_outline，带知识库检索），
+        但产物是 .md 树形文本而不是 .pptx，便于直接导入 Xmind / 幕布 / 语雀，
+        也作为「多项导出」里的第三项（doc / 思维导图 / PPT）。
+        """
+        try:
+            topic = (data.get("topic") or "").strip()
+            if not topic:
+                self._json({"error": "请填写主题"}); return
+            try:
+                pages = max(3, min(40, int(data.get("pages") or 8)))
+            except Exception:
+                pages = 8
+            style = (data.get("style") or "商务简洁").strip() or "商务简洁"
+            lang = data.get("lang") or "中文"
+            audience = (data.get("audience") or "").strip()
+            scene = (data.get("scene") or "").strip()
+            industry = (data.get("industry") or "").strip()
+            use_kb = data.get("use_kb", True)
+
+            outline, meta = make_ppt.gen_outline(
+                topic, style=style, lang=lang, pages=pages,
+                audience=audience, scene=scene, industry=industry,
+                use_kb=use_kb, kb_name=KB_NAME)
+            if not outline:
+                self._json({"error": "大纲生成失败（未拿到内容）"}); return
+
+            md, nodes = self._outline_to_mindmap(topic, outline)
+            export_dir = app_settings.folders().get("export") or config.DIR_TEST
+            os.makedirs(export_dir, exist_ok=True)
+            safe = re.sub(r"[^\w一-龥]+", "_", topic)[:30] or "mindmap"
+            stamp = int(time.time())
+            out_path = os.path.join(export_dir, "%s_思维导图_%d.md" % (safe, stamp))
+            with open(out_path, "w", encoding="utf-8") as f:
+                f.write(md)
+            art = _artifact("思维导图Markdown", out_path)
+            self._json({"ok": True, "path": art["name"], "name": art["name"],
+                        "download": art["download"], "size": art["size"],
+                        "pages": len(outline), "nodes": nodes,
+                        "gen": meta, "kb_used": use_kb, "md": md})
+        except Exception as e:
+            self._json({"error": str(e)})
+
     def _handle_kb_backup(self, data):
         """导出知识库备份（.mymekb）：把 kb_data/ 整目录打包，返回下载链接与统计。"""
         try:
@@ -2070,6 +2218,26 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
             if act == "run":
                 self._json(knowledge_base.rebuild_kb(KB_NAME))
+                return
+            if act == "reindex":
+                # 重建向量：换过嵌入模型或向量大面积缺失时用（只改 embedding，不动原文）
+                self._json(knowledge_base.reindex_vectors(
+                    KB_NAME, force=bool(data.get("force")), model=data.get("model") or None))
+                return
+            if act == "search":
+                # 检索自检：发一条测试问题，确认检索链路（向量+BM25）是通的
+                q = (data.get("q") or "").strip()
+                if not q:
+                    self._json({"ok": False, "error": "请填测试问题"}); return
+                try:
+                    res = knowledge_base.hybrid_query(q, KB_NAME)
+                    self._json({"ok": True, "q": q,
+                                "hits": [{"title": r.get("title") or "", "source": r.get("source") or "",
+                                          "score": r.get("score", 0), "vec": r.get("vec", 0),
+                                          "text": (r.get("text") or "")[:120]} for r in (res or [])[:5]],
+                                "count": len(res or [])})
+                except Exception as e:
+                    self._json({"ok": False, "error": "检索失败：%s" % e})
                 return
             self._json({"ok": False, "error": "未知操作：%s" % act})
         except Exception as e:
@@ -2215,6 +2383,31 @@ def _silent_wav(out_wav, dur=3.0, sr=16000):
         return None
 
 
+def _static_avatar_video(image_path, audio_path, out_mp4, fps=25):
+    """兜底出片：数字人推理不可用时（未装 LivePortrait / ts_deps，或常驻服务挂了），
+    用「肖像静帧 + 已有配音」直接合成 mp4 —— 与「运行时目录自检」里承诺的降级一致：
+    缺失口型模型时演示仍有画面与声音，不至于整条链路报失败。返回 mp4 路径，失败返回 None。"""
+    try:
+        if not (image_path and os.path.exists(image_path)):
+            return None
+        if not (audio_path and os.path.exists(audio_path)):
+            return None
+        os.makedirs(os.path.dirname(os.path.abspath(out_mp4)), exist_ok=True)
+        ffmpeg = getattr(avatar, "FFMPEG", getattr(config, "FFMPEG", "")) or ""
+        if not ffmpeg:
+            return None
+        cmd = [ffmpeg, "-y", "-loop", "1", "-i", image_path, "-i", audio_path,
+               "-c:v", "libx264", "-tune", "stillimage", "-pix_fmt", "yuv420p",
+               "-r", str(fps), "-c:a", "aac", "-b:a", "128k", "-shortest",
+               out_mp4]
+        r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="ignore")
+        if r.returncode == 0 and os.path.exists(out_mp4) and os.path.getsize(out_mp4) > 0:
+            return out_mp4
+        return None
+    except Exception:
+        return None
+
+
 def _make_avatar(text, lang, image_path, seed, out_mp4, person=None, skip_audio=False):
     """声音复刻 + 视频数字人：热 TTS 合成分身声音（按 person 选声纹，默认炎冰）→ 热/冷 LivePortrait 口型驱动。
     返回 dict: {ok, audio, video, note}。任一环节失败都尽量降级。
@@ -2275,6 +2468,19 @@ def _make_avatar(text, lang, image_path, seed, out_mp4, person=None, skip_audio=
             res["note"] = (res.get("note") or "") + "\n" + (dr.get("note") or "LivePortrait 未就绪")
     except Exception as e:
         res["note"] = (res.get("note") or "") + f"\nLivePortrait 推理异常：{e}"
+    # 3) 兜底：口型推理不可用（未装 LivePortrait/ts_deps，或常驻服务挂了）时，
+    #    用「肖像静帧 + 已合成的配音」出片，保证演示链路不断交付，无口型但有声有画。
+    if ans_audio and os.path.exists(ans_audio):
+        try:
+            if _static_avatar_video(image_path, ans_audio, out_mp4):
+                res["ok"] = True
+                res["video"] = "/api/video?name=" + os.path.basename(out_mp4)
+                res["note"] = ((res.get("note") or "") +
+                               "\n已降级为静态分身视频（肖像 + 配音，无口型动作）。"
+                               "在「设置 → 🗂 运行时目录配置」登记 LivePortrait 与 TTS 依赖包 ts_deps 后重跑，可得口型同步。").strip()
+                return res
+        except Exception as e:
+            res["note"] = (res.get("note") or "") + f"\n静态兜底出片失败：{e}"
     # 声音已合成，视频缺失：仍返回音频，提示视频需安装 LivePortrait
     if skip_audio:
         res["ok"] = False
@@ -2870,6 +3076,82 @@ def _handle_upload_zip(self):
         self._json({"ok": False, "error": str(e)})
 
 
+def _collect_skill_dir():
+    """定位 multi-source-to-kb 技能脚本目录（环境变量 > 紧邻目录 > 默认安装位）。
+
+    技能是独立产物、可能没装；找不到就明确报错，不要假装成功。
+    """
+    cands = [os.environ.get("MYME_COLLECT_SKILL", "").strip(),
+             os.path.join(os.path.dirname(os.path.abspath(__file__)), "_collect_skill"),
+             os.path.join(os.path.expanduser("~"), ".workbuddy", "skills",
+                          "multi-source-to-kb", "scripts")]
+    for c in cands:
+        if c and os.path.isfile(os.path.join(c, "fetch_core.py")):
+            return c
+    return ""
+
+
+def _handle_kb_collect(self):
+    """多源采集入库（multi-source-to-kb 技能：去 Google / 去 NotebookLM 的国内离线版）。
+
+    输入：微信链接 / 网页 / 本地文件 / 粘贴文本 / 检索词（一行一个）
+    处理：采集 → 清洗（剥 Markdown 头 + HTML 去脚本样式）→ 落纯文本 → 本地向量库
+    约定：失败源逐条回报原因，不静默跳过、不拿空壳结果冒充成功。
+    """
+    try:
+        sd = _collect_skill_dir()
+        if not sd:
+            self._json({"ok": False, "error": "未找到 multi-source-to-kb 技能目录；"
+                                              "可将环境变量 MYME_COLLECT_SKILL 指向其 scripts 目录"}); return
+        # 必须在读 body 之前分流（与 /api/kb_upload 同理，否则 body 会被后面分支读走）
+        length = int(self.headers.get("Content-Length", 0) or 0)
+        raw = self.rfile.read(length) if length else b"{}"
+        try:
+            data = json.loads(raw.decode("utf-8"))
+        except Exception:
+            data = {}
+        sources = [str(s).strip() for s in (data.get("sources") or []) if str(s).strip()]
+        category = str(data.get("category") or "")
+        kbname = str(data.get("kb_name") or "myme_kb")
+        if not sources:
+            self._json({"ok": False, "error": "请至少填写一个内容源"}); return
+        if sd not in sys.path:
+            sys.path.insert(0, sd)
+        import fetch_core
+        import kb
+        results = [fetch_core.collect(s) for s in sources]
+        good = [r for r in results if r.get("ok") and r.get("chars")]
+        out = {"ok": True, "engine": kb.engine(), "collected": [], "failed": [],
+               "added": 0, "total": 0}
+        out["failed"] = [{"src": str(r.get("url") or r.get("kind") or ""),
+                          "error": r.get("error") or "内容为空"}
+                         for r in results if not (r.get("ok") and r.get("chars"))]
+        if good:
+            d = os.path.join(config.DIR_TEST, "collected")
+            os.makedirs(d, exist_ok=True)
+            paths = []
+            for i, r in enumerate(good):
+                safe = re.sub(r"[^\w\u4e00-\u9fff]+", "_", r.get("title") or "src").strip("_")[:50] or "src"
+                p = os.path.join(d, "%02d_%s.txt" % (i + 1, safe))
+                with open(p, "w", encoding="utf-8") as f:
+                    f.write(kb.strip_markdown_head(r.get("markdown", "")) + "\n")
+                paths.append(p)
+                out["collected"].append({"title": r.get("title", ""),
+                                         "chars": r.get("chars", 0),
+                                         "strategy": r.get("strategy", "")})
+            ins = kb.ingest_paths(paths, kbname, category)
+            tot = 0
+            for it, rr in zip(out["collected"], ins):
+                it["added"] = rr.get("added", 0)
+                it["error"] = rr.get("error", "")
+                tot = rr.get("total", 0)
+            out["added"] = sum(x.get("added", 0) for x in ins if not x.get("error"))
+            out["total"] = tot
+        self._json(out)
+    except Exception as e:
+        self._json({"ok": False, "error": "采集入库失败：%s" % e})
+
+
 def _handle_kb_upload(self):
     """知识库备份（.mymekb）二进制直传：流式落盘 → 导入还原 kb_data/。
 
@@ -3279,7 +3561,195 @@ def _build_manifest(slides_doc, only_versions, quality, packed_videos):
                     "slides": pages,
                     "full": {"video": full, "dur": dur}})
     return {"app": "myme", "manifest": 1, "generated": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "personas": personas, "versions": out}
+            "personas": personas, "versions": out, "segments": _build_segments(out, personas)}
+
+
+def _build_segments(versions, personas):
+    """导出包默认给出「分身 × 语言」四个播放片段（炎冰·中文 / 炎冰·英文 / 金子·中文 / 金子·英文）。
+
+    这两个维度是用户验收「换脸必须换声、切英文必须换配音」的唯一抓手，
+    所以不放在播放端临时拼，而是导出时就固化成清单：
+      · 资源齐 → ready=true，播放端直接当作一段可播的片子；
+      · 资源缺 → 也照列，ready=false 并写清缺什么（missing），
+        播放端据此给提示，而不是打开后才发现"这段是哑的"。
+    旧包没有 segments 时播放端自动退化成"只按版本播放"，不影响存量包。
+    """
+    people = []
+    seen = set()
+    for p in (personas or []):
+        pid = (p or {}).get("id")
+        if not pid or pid == "default" or pid in seen:
+            continue
+        seen.add(pid)
+        people.append({"id": pid, "name": (p or {}).get("name") or pid})
+    if not people:
+        people = [{"id": "default", "name": "默认分身"}]
+    segs = []
+    for v in (versions or []):
+        pages = v.get("slides") or []
+        has_en = any((p or {}).get("audio_en") for p in pages)
+        alt_people = set()
+        any_video = False
+        for p in pages:
+            if (p or {}).get("video"):
+                any_video = True
+            for k in ((p or {}).get("videoAlt") or {}):
+                alt_people.add(k)
+        # 分身视频变体一个都没有时（只出了默认分身的片子），所有人共用默认 video
+        multi_avatar = bool(alt_people)
+        for per in people:
+            for lg, lg_name in (("zh", "中文"), ("en", "英文")):
+                missing = ""
+                if lg == "en" and not has_en:
+                    missing = "英文配音（当前只有中文，可在完整版重新生成英文讲解）"
+                elif multi_avatar and per["id"] not in alt_people:
+                    missing = "「%s」的分身视频（包内只有其他分身的片子）" % per["name"]
+                segs.append({
+                    "id": "%s_%s" % (per["id"], lg),
+                    "name": per["name"] + " · " + lg_name,
+                    "person": per["id"], "person_name": per["name"],
+                    "lang": lg, "lang_name": lg_name,
+                    "ready": not missing, "missing": missing,
+                    "vid": v.get("id", ""),
+                })
+    return segs
+
+
+# ============================================================
+# 软件升级（GitHub 发行版比对）
+# ============================================================
+GITHUB_REPO = "g101400/myme4060"
+
+
+def _vtuple(v):
+    try:
+        n = [int(x) for x in re.findall(r"\d+", str(v or ""))][:3]
+        return tuple(n) if n else (0,)
+    except Exception:
+        return (0,)
+
+
+def pipeline_check():
+    """主链路自检：把「导入→文稿→PPT→配音→视频→演示→答疑→总结→导出」九步的产物扫一遍。
+
+    为什么要做这个：流程是线性的，前一步没做后一步必然失败（最典型是"没做 PPT 就去生成语音"）。
+    与其让用户撞一次错再回头，不如一次性把九步的完成度摆出来 —— 哪一步空着、空了几样，
+    以及每一步的产物长什么样（where），直接给可跳转的下一步。
+    """
+    import glob as _glob
+    roots = [DATA_DIR, WORKSPACE, config.DIR_KB, config.DIR_NARR,
+             config.DIR_AVATAR, config.DIR_TEST]
+    roots = [r for r in roots if r and os.path.isdir(r)]
+    seen = set()
+
+    def cnt(pattern):
+        n = 0
+        first = ""
+        for r in roots:
+            for m in _glob.glob(os.path.join(r, "**", pattern), recursive=True):
+                st = os.stat(m)
+                if st.st_size > 0:
+                    n += 1
+                    if not first:
+                        first = os.path.basename(m)
+        return n, first
+
+    def fresh(pattern, days=2):
+        """最近 N 天有没有产出（比单纯数文件更能说明"这一步刚跑过"）。"""
+        lim = time.time() - days * 86400
+        n = 0
+        for r in roots:
+            for m in _glob.glob(os.path.join(r, "**", pattern), recursive=True):
+                try:
+                    if os.path.getmtime(m) >= lim:
+                        n += 1
+                except Exception:
+                    pass
+        return n
+
+    try:
+        kb = knowledge_base.kb_stats(KB_NAME) or {}
+    except Exception:
+        kb = {}
+    qa = 0
+    try:
+        qa = len(_load_qa_log() or [])
+    except Exception:
+        qa = 0
+    n_pptx, first_pptx = cnt("*.pptx")
+    n_docx, first_docx = cnt("*.docx")
+    n_mp3, first_mp3 = cnt("*.mp3")
+    n_wav, first_wav = cnt("*.wav")
+    n_mp4, first_mp4 = cnt("*.mp4")
+    n_full, _ = cnt("demo_av_full_*.mp4")
+    n_zip, first_zip = cnt("*.zip")
+    n_kb, first_kb = cnt("*.mymekb")
+    n_pdf, _ = cnt("*.pdf")
+    rows = [
+        {"key": "kb", "name": "① 多源导入 · 知识库入库", "tab": 4, "done": bool(kb.get("exists") and kb.get("chunks")),
+         "count": kb.get("chunks", 0), "unit": " 段", "where": "（知识库：%s 段 / %s 个来源）" % (kb.get("chunks", 0), kb.get("sources", 0)),
+         "todo": "📚 知识库 → 🌐 链接采集 / 📄 本地文档"},
+        {"key": "doc", "name": "② 生成文稿 · 书面材料 / 讲稿", "tab": 1, "done": n_docx > 0,
+         "count": n_docx, "unit": " 个", "where": first_docx or "（还没有 .docx）",
+         "todo": "① 素材与文稿 → 📝 生成文字材料"},
+        {"key": "ppt", "name": "③ 制作 PPT / PDF", "tab": 9, "done": n_pptx > 0,
+         "count": n_pptx, "unit": " 个", "where": first_pptx or "（还没有 .pptx）",
+         "todo": "③ 制作 PPT → 填主题生成"},
+        {"key": "audio", "name": "④ 生成音频讲解 · 中 / 英双语文案", "tab": 10, "done": (n_mp3 + n_wav) > 0,
+         "count": n_mp3 + n_wav, "unit": " 段", "where": first_mp3 or first_wav or "（还没有配音）",
+         "todo": "④ 分身语音讲解 → 🎙️ 生成当前分身语音讲解"},
+        {"key": "video", "name": "⑤ 生成视频 · 分身口型", "tab": 3, "done": n_mp4 > 0,
+         "count": n_mp4, "unit": " 个", "where": first_mp4 or "（还没有分身视频）",
+         "todo": "⑤ 制作视频 → 🎬 生成视频"},
+        {"key": "show", "name": "⑥ 正式演示 · 整场视频", "tab": 5, "done": n_full > 0,
+         "count": n_full, "unit": " 场", "where": "整场演示视频 %d 个" % n_full,
+         "todo": "⑥ 正式演示 → ▶ 开始演示"},
+        {"key": "qa", "name": "⑦ 智能答疑 · 现场问答记录", "tab": 2, "done": qa > 0,
+         "count": qa, "unit": " 条", "where": "答疑记录 %d 条" % qa,
+         "todo": "⑦ 智能答疑 → 提问并勾选「记入答疑记录」"},
+        {"key": "sum", "name": "⑧ 答疑总结 · 沉淀", "tab": 6, "done": qa > 0,
+         "count": qa, "unit": " 条", "where": "（汇总《答疑汇总》）",
+         "todo": "⑧ 答疑总结 → 生成汇总"},
+        {"key": "export", "name": "⑨ 导出交付 · 便携播放包", "tab": 7, "done": (n_zip + n_kb) > 0,
+         "count": n_zip + n_kb, "unit": " 个", "where": first_zip or first_kb or "（还没有导出包）",
+         "todo": "⑨ 导出交付 → 📀 打包便携播放包"},
+    ]
+    done_n = sum(1 for r in rows if r["done"])
+    return {"ok": True, "done": done_n, "total": len(rows), "rows": rows,
+            "fresh": {"pptx": fresh("*.pptx"), "mp4": fresh("*.mp4"), "audio": fresh("*.mp3") + fresh("*.wav")}}
+
+
+def check_upgrade(timeout=8):
+    """查 GitHub 最新发行版并与本地版本比大小。
+
+    断网 / 内网环境下不抛异常、只回 {ok:False, offline:True}，
+    前端据此显示"当前为离线环境，去 GitHub 仓库手动看发行版"，
+    而不是弹一个看不懂的连接错误。
+    """
+    cur = getattr(config, "VERSION", "") or "0"
+    url = "https://api.github.com/repos/%s/releases/latest" % GITHUB_REPO
+    try:
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "myme-upgrade-check",
+            "Accept": "application/vnd.github+json"})
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            d = json.loads(r.read().decode("utf-8", "ignore"))
+    except Exception as e:
+        return {"ok": False, "offline": True, "current": cur, "repo": GITHUB_REPO,
+                "html_url": "https://github.com/%s/releases" % GITHUB_REPO,
+                "msg": "连接 GitHub 失败（%s）" % e}
+    tag = d.get("tag_name") or d.get("name") or ""
+    latest = re.sub(r"^v", "", str(tag).strip().split()[0]) if tag else ""
+    assets = [{"name": a.get("name", ""), "url": a.get("browser_download_url", ""),
+               "size": int(a.get("size", 0) or 0)} for a in (d.get("assets") or [])]
+    has_new = bool(latest) and _vtuple(latest) > _vtuple(cur)
+    return {"ok": True, "current": cur, "latest": latest, "tag": tag,
+            "has_new": has_new,
+            "html_url": d.get("html_url") or ("https://github.com/%s/releases" % GITHUB_REPO),
+            "repo": GITHUB_REPO,
+            "body": (d.get("body") or "")[:1500],
+            "assets": assets,
+            "msg": ("本地已是最新版（%s）" % cur) if not has_new else ("可升级到 %s（当前 %s）" % (latest, cur))}
 
 
 def _res_export_zip(out_zip, cats, only_versions=None, videos=None, quality="lossless",

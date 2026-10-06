@@ -698,6 +698,53 @@ def rebuild_kb(name="myme_kb", dedup_exact=True, dedup_near=True,
     }
 
 
+def reindex_vectors(name="myme_kb", model=None, force=False):
+    """重建向量：换过嵌入模型 / 向量大面积缺失时，用当前嵌入模型把全部块的向量重算一遍。
+
+    与 rebuild_kb 的分工（别搞混，两者作用在不同层）：
+      · rebuild_kb  = 动「索引与冗余」：去重、剔低质、合并来源元数据，原文与向量原样保留；
+      · reindex_vectors = 动「向量本身」：只改 embedding 字段，原文与来源一个字不动。
+    典型场景：settings 里把向量模型从 bge-m3 换成别的，旧向量与新模型不同域，
+    检索会整体失准 —— 这时必须重建一次向量，光去重是修不好的。
+    force=False 时只补缺失的块（快）；force=True 时全量重算（慢但彻底）。
+    """
+    model = model or store_model(name) or EMBED_MODEL
+    store = load_kb(name)
+    chunks = store.get("chunks") or []
+    total = len(chunks)
+    rebuilt = 0
+    already = 0
+    failed = 0
+    t0 = time.time()
+    for c in chunks:
+        txt = (c.get("text") or "").strip()
+        if not txt:
+            continue
+        if (not force) and c.get("embedding"):
+            already += 1
+            continue
+        try:
+            c["embedding"] = ollama_embed(txt, model=model)
+            rebuilt += 1
+        except Exception as e:
+            failed += 1
+            print(f"[kb] 向量重建跳过一段（ embed 失败：{e} ）")
+    store["model"] = model
+    store["reindexed_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+    _save_store(store)
+    return {"ok": True, "name": name, "total": total, "rebuilt": rebuilt,
+            "kept": already, "failed": failed, "model": model,
+            "seconds": round(time.time() - t0, 1)}
+
+
+def store_model(name="myme_kb"):
+    """读知识库里记录的嵌入模型（不存在时返回空串）。"""
+    try:
+        return load_kb(name).get("model") or ""
+    except Exception:
+        return ""
+
+
 # ============================================================
 # 知识库备份导出 / 导入（格式兼容：导出的 .mymekb 可原样导入还原）
 # ============================================================

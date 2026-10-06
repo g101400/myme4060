@@ -1,0 +1,73 @@
+myme（PPT制作及分身演示）· v2.6.7 产物清单
+打包时间：2026-10-06　源码目录：D:\Users\WorkBuddy\Claw\myme　仓库：github.com/g101400/myme4060
+
+================================================
+一、Windows 产物（dist/）
+================================================
+dist\myme.exe                              295.5 MB   完整版（端口 7860），双击即用；版本资源 2.6.7.0（utf-16 校验通过）
+dist\myme-2.6.7-win-x64-full.msi           303.2 MB   WiX 安装包（156.6s，4 组件）
+dist\myme-2.6.7-win-x64-play.zip           ~280.0 MB  便携播放包（双击即播，含 player.html + manifest）
+dist\myme-2.6.7-runtime.7z                   851 B    绿色伴随目录（仍为空，见「四、待补件」）
+dist\myme-play.exe                            —       便携播放版可执行文件（播放模式，7861）
+
+================================================
+二、其他平台（dist/）
+================================================
+dist\myme-2.6.7-android-play.apk           701.5 KB   安卓 APK（门禁全过：launchable-activity / 签名 OK）
+dist\myme-player_2.6.7_all.deb             ~0.6 MB    统信 deb（解包校验通过）
+dist_pkg\myme-ios-pwa.zip                   ~8.95 MB   iOS/PWA 离线壳（含 ui/ 与前端源码）
+
+================================================
+三、本轮（v2.6.7）改动文件
+================================================
+app.py              新增 _build_segments()（四片段）、check_upgrade()（GitHub 升级比对）、
+                    pipeline_check()（九步自检）、/api/kb_rebuild 的 reindex / search 分支、
+                    讲解默认双语（_job_worker_version 追加英文讲稿 + 英文配音）
+config.py           VERSION 2.6.6 → 2.6.7；新增 NARR_BILINGUAL（默认双语开关）
+knowledge_base.py   新增 reindex_vectors()（只重算 embedding）与 store_model()
+ui\index.html       顶栏新增「📚 知识库」（导入/向量重建优化/输出三组）、帮助新增「⬆️ 软件升级」、
+                    🎬 演示向导新增「🔍 主链路自检」、dlgWorkflow 重写为九步主链路、
+                    版本变更新增 v2.6.7 六条、关于页 v2.6.7
+ui\player.html      顶部新增「片段」下拉（分身×语言四段）、setSeg/syncSegSel/segById、
+                    选到缺资源的段给提示、换分身后本页无片子时提示「已用默认分身画面」
+
+================================================
+四、源码副本一致性
+================================================
+dist_pkg\myme-ios-pwa\ 下的 app.py / avatar.py / config.py / persons.py / knowledge_base.py /
+narrate.py / doc_parse.py / pptx_parse.py / qa_brain.py / myme_launcher.py / ui\index.html /
+ui\player.html / prompts / voice 共 13 项，与源码 diff 全部 same。
+
+================================================
+五、前端自检（本轮每次改完都跑）
+================================================
+① ui\index.html、ui\player.html 逐 <script> 块 node --check：0 错误
+② player.html 里所有 $('id') 引用与 HTML id 做差集：空
+③ 顶栏菜单 mi(label, fn) 引用的函数与 function 定义做差集：空
+
+================================================
+六、本机接口实测
+================================================
+/api/meta                  7860 → playback:false / v2.6.7；7861 → playback:true / v2.6.7
+_build_segments()          yanbing_zh / yanbing_en / jinzi_zh / jinzi_en 四段，ready 与 missing 文案正确
+/api/pipeline               本机 6/9（①~⑤⑨ 已完成；⑥整场视频、⑦⑧ 答疑记录为空）
+/api/upgrade                可连通 GitHub，返回最新 v2.6.3（README 未跟版 → push 后打 v2.6.7 tag 才会显示可升级）
+/api/kb_rebuild{act:stats}  63 段 / 4 个来源
+
+================================================
+七、待补件（非代码问题）
+================================================
+LivePortrait（约 682MB）、ts_deps（约 141MB）全盘未找到 → runtime.7z 仍为空。
+现状：数字人是「静态肖像 + 配音」可用；声纹口型不可用。
+补件后在「⚙️ 设置 → 运行时目录配置 / 🧩 运行环境自检」登记即可恢复，之后需重打随行包。
+另：数字人换机链路实跑仍待新环境验证。
+
+================================================
+八、交接包内文件
+================================================
+交接说明.md              项目说明 + 三层导航 + 九步主链路 + v2.6.6/v2.6.7 补录 + 实测 + 使用提示
+产物清单.txt             本文件
+myme_source_2.6.7.zip    可运行源码（含 ui/）
+app.py / avatar.py / config.py / persons.py / knowledge_base.py / sync_version_info.py /
+version_info.txt / pack_full.py / pack_portable.py / build_ios_zip.py   关键源码
+handover_myne_2026-10-06.zip（本目录打包后的总包，含上面全部）

@@ -1,12 +1,12 @@
 # myme · PPT制作及分身演示
 
 > **当前版本 v2.6.3**（2026-10-03）。基于交接包 `handover_myme_2026-10-03`（v2.6.2）同步开发：
+> 🔗 源码：<https://github.com/g101400/myme4060> ｜ 发行版：<https://github.com/g101400/myme4060/releases/latest>（Win / 安卓 APK / 统信 deb 三平台；应用内「❓ 帮助 → ⬆️ 软件升级」可直接查）
 > ① 以交接源为唯一功能基底同步到本目录（含流程重构 ①~⑩、Sonic 双引擎、知识库三层、三端便携）；
-> ② 修复 **阻断级环境错配**：源码原写死 D:/ComfyUI_Mie_2026_V8.0，本机 ComfyUI 实际在 **H 盘** → TTS / Sonic / 数字人服务全部拉不起来，已\u6539\u4e3a\u300c\u73af\u5883\u53d8\u91cf \u2192 \u8bbe\u7f6e\u767b\u8bb0 \u2192 \u5168\u76d8\u626b\u63a2\u300d三级探测（`config.py` / `tts_worker.py`），命中须含 `custom_nodes` 才算 ComfyUI 真身；现已实跑验证命中 H 盘。
-> 　已改为「环境变量 → 设置登记 → 全盘扫描」三级探测（`config.py` / `tts_worker.py`），命中须含 `custom_nodes` 才算真身；
+> ② 修复 **阻断级环境错配**：源码原写死 D:/ComfyUI_Mie_2026_V8.0，本机 ComfyUI 实际在 **H 盘** → TTS / Sonic / 数字人服务全部拉不起来，已改为「环境变量 → 设置登记 → 全盘扫描」三级探测（`config.py` / `tts_worker.py`），命中须含 `custom_nodes` 才算 ComfyUI 真身；现已实跑验证命中 H 盘。
 > ③ 修复出包路径： `_build_sfx.py` 原写死旧工作区，改为相对脚本目录；
 > ④ 源码态已实跑验证（`/api/meta` = 2.6.3、`/api/projects`、`/api/scope` 全绿）；三平台（Win / 安卓 APK / 统信 deb）已重出。
-> 公开源码仓：<https://github.com/g101400/myme4060>
+> 公开源码仓：<https://github.com/g101400/myme4060>　当前版本 **v2.6.7**：播放包默认含「分身 × 语言」四个片段、讲解默认双语（中/英）、顶栏「📚 知识库」并入导入·向量重建优化·输出三组、帮助支持 GitHub 升级、九步主链路与流程自检。
 
 # myme · 本地数字分身 —— 用「炎冰」的声音讲 PPT 并自动答疑
 

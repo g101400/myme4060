@@ -36,7 +36,21 @@ import hashlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DIST = os.path.join(HERE, "dist")
-VER = "2.6.3"
+
+
+def _pkg_ver():
+    """包版本号唯一来源：config.VERSION（同 pack_full.py，见其注释说明历史坑）。"""
+    try:
+        import config as _cfg
+        v = str(getattr(_cfg, "VERSION", "")).strip()
+        if v:
+            return v
+    except Exception:
+        pass
+    return os.environ.get("MYME_PKG_VER", "0.0.0")
+
+
+VER = _pkg_ver()
 TMP = "C:/tmp/myme_pkg"
 BUNDLE = os.path.join(TMP, "portable")            # 解出的便携播放包
 # ⚠ 本环境对批量删除有确认垫片（>50 文件会拦），故一律「新目录 / 覆盖写」，不删旧产物
@@ -47,7 +61,7 @@ SEVENZ = r"C:\Program Files\7-Zip\7z.exe"
 DEB_PORT = 7862
 
 PKG = "myme-player"
-DEB_NAME = "myme-player_2.6.3_all.deb"
+DEB_NAME = "myme-player_%s_all.deb" % VER
 
 
 def log(*a):

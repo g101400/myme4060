@@ -55,14 +55,29 @@ def _migrate_from_legacy():
                for p in items if p.get("file")]
     if not avatars:
         return None
-    return {"default": "yanbing",
-            "persons": [{"id": "yanbing", "name": "炎冰", "note": "从旧版象库迁移",
-                         "avatars": avatars}]}
+    # ⚠ 血泪教训（# 选了金子却还是炎冰的声音）：
+    # 旧版把「多个人脸」全塞进同一个 person 的 avatars，界面上看着是两套形象，
+    # 但 persons.json.default 始终是 yanbing，resolve_voice() 读的也是 default →
+    # 切到"金子"只换了脸、声音还是炎冰。正确模型是：【人 = 声音 + 形象】一一绑定：
+    # 每个 id 独立成 person，头像只挂给自己，声纹由 voice/<id>-sample-01.wav 自动匹配。
+    by_pid = {}
+    for a in avatars:
+        by_pid.setdefault(a["id"], []).append(a)
+    persons = [{"id": pid, "name": av[0].get("name") or pid, "note": "", "avatars": av}
+               for pid, av in by_pid.items()]
+    # 注意：note 保持为空 —— 它是「分身备注」，会显示到首页副标题上，
+    # 早期版本在这里写死"从旧版象库迁移"，导致首页副标题串成内部迁移说明（# 换机后常见问题）。
+    return {"default": persons[0]["id"], "persons": persons}
 
 
 def _default_data():
     m = _migrate_from_legacy()
     if m:
+        # 首次迁移出来的结构直接落盘定型，避免每次启动都重新走一遍迁移分支。
+        try:
+            save(m)
+        except Exception:
+            pass
         return m
     return {"default": "yanbing",
             "persons": [{"id": "yanbing", "name": "炎冰", "note": "", "avatars": []}]}
