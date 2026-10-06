@@ -174,7 +174,49 @@ def resolve_voice(person=None):
     return p if (p and os.path.exists(p)) else VOICE_SAMPLE
 
 # ============ 音频工具 ============
-FFMPEG = r"C:\ProgramData\chocolatey\bin\ffmpeg.exe"
+# 【v2.6.9 补】早先这里写死 chocolatey 路径，本机没装 choco 时就报
+# `[WinError 2] 系统找不到指定的文件`，而真 ffmpeg 常常就在别处。改成「登记优先 + 自动探测」：
+# MYME_FFMPEG > 设置里登记且文件在 > 常见绿色/包管位置 > PATH 兜底。
+FFMPEG = r"C:\ProgramData\chocolatey\bin\ffmpeg.exe"   # 占位，稍后被真实探测覆盖
+_FF_CANDIDATES = [
+    os.environ.get("MYME_FFMPEG", ""),
+    r"C:\Users\admin\.local\bin\ffmpeg.exe",
+    r"C:\Users\admin\.local\bin\ffmpeg.EXE",
+    r"C:\ProgramData\chocolatey\bin\ffmpeg.exe",
+    r"C:\ffmpeg\bin\ffmpeg.exe",
+    r"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
+]
+
+
+def _probe_ffmpeg():
+    """按登记路径 → 常见位置 → PATH 的顺序找 ffmpeg，找不到返回空串。"""
+    try:
+        import shutil
+    except Exception:
+        shutil = None
+    import string
+    for c in _FF_CANDIDATES:  # 登记路径（含环境变量）优先
+        c = (c or "").strip()
+        if c and os.path.isfile(c):
+            return c
+    for drive in string.ascii_uppercase:  # 全盘扫一眼绿色版，别为 1 个 exe 逼用户补件
+        for rel in ("ffmpeg/bin/ffmpeg.exe", "ffmpeg/ffmpeg.exe", "myme-runtime/ffmpeg/bin/ffmpeg.exe"):
+            c = drive + ":" + os.sep + rel
+            if os.path.isfile(c):
+                return c
+    if shutil is not None:
+        try:
+            w = shutil.which("ffmpeg")
+            if w and os.path.isfile(w):
+                return w
+        except Exception:
+            pass
+    return ""
+
+
+_FF = _probe_ffmpeg()
+if _FF:
+    FFMPEG = _FF
 
 # ============ 本地大模型 / 嵌入（Ollama）============
 OLLAMA_BASE = "http://localhost:11434"

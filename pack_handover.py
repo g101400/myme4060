@@ -31,6 +31,7 @@ KEY_SRC = [
     "sync_version_info.py", "version_info.txt", "pack_full.py", "pack_portable.py",
     "build_ios_zip.py", "gen_en_narration.py", "publish_release.py",
     "tts_worker.py", "tts_service.py", "pack_source.py", "narrate.py", "qa_brain.py",
+    "runtime_check.py", "_chk_seg.py",   # runtime_check：换机一键体检；_chk_seg：四段复验
 ]
 
 OTHER = ["README.md", "ui/index.html", "ui/player.html", "tts_service.py"]

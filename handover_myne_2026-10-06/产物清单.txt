@@ -1,5 +1,5 @@
 myme（PPT制作及分身演示）· v2.6.9 产物清单
-打包时间：2026-10-07 01:40~02:00　源码目录：D:\Users\WorkBuddy\Claw\myme　仓库：github.com/g101400/myme4060
+打包时间：2026-10-07 01:40~02:00（首轮）/ 02:52~03:00（二次构建·ffmpeg 自动探测 + runtime_check.py）　源码目录：D:\Users\WorkBuddy\Claw\myme　仓库：github.com/g101400/myme4060
 （v2.6.7 / v2.6.8 的清单保留在 git 历史与上一版交接包里；本清单只记 v2.6.9）
 
 ================================================
@@ -8,7 +8,7 @@ myme（PPT制作及分身演示）· v2.6.9 产物清单
 dist\myme.exe                              281.9 MB  完整版（端口 7860）；版本资源 2.6.9.0
                                                      （utf-16 校验通过，已搜不到 2.6.8.0 / 2.6.7.0）
 dist\myme-play.exe                         281.3 MB  便携播放版可执行文件（播放模式，7861）
-dist\myme-2.6.9-win-x64-full.msi           289.2 MB  WiX 安装包（175.2s，4 组件）
+dist\myme-2.6.9-win-x64-full.msi           280.1 MB  WiX 安装包（二次构建，含 ffmpeg 自动探测 + runtime_check）
 dist\myme-2.6.9-win-x64-play.zip           280.0 MB  便携播放包（解压即播，含 player.html + manifest）
 dist\myme-2.6.9-runtime.7z                   851 B   绿色伴随目录（仍为空，见「五、待补件」）
 
@@ -17,11 +17,11 @@ dist\myme-2.6.9-runtime.7z                   851 B   绿色伴随目录（仍为
 ================================================
 dist\myme-2.6.9-android-play.apk           701.5 KB  安卓 APK（门禁全过；zipfile testzip OK，含 classes.dex）
 dist\myme-player_2.6.9_all.deb             626.5 KB  统信 deb（解包校验通过）
-dist\myme-ios-pwa.zip                       8.6 MB   iOS/PWA 离线壳（v2.6.9 起改成**完整可部署版**：
+dist\myme-ios-pwa.zip                       8.5 MB   iOS/PWA 离线壳（二次构建：同步 config.py / ui/index.html）（v2.6.9 起改成**完整可部署版**：
                                                      解压后 python myme_launcher.py 即起服务，再
                                                      iPhone Safari「添加到主屏幕」；旧版是 726KB 的
                                                      纯播放器壳，能力更少）
-dist\myme_source_2.6.9.zip                  10.9 MB  本轮可运行源码（89 个文件，含双声纹 wav）
+dist\myme_source_2.6.9.zip                  13.1 MB  本轮可运行源码（94 个文件，含双声纹 wav + runtime_check.py）
 
 ================================================
 三、本轮（v2.6.9）改动文件
@@ -38,9 +38,14 @@ tts_service.py      ④ run() 前 socket.bind 占坑，占不上就报「端口�
                      新增 `_log_exc()` 把 traceback 打到服务日志
 gen_en_narration.py `_probe_tts()` 改探 /ready（原来探根路径 "/" 吃 404 → HTTPError → 整轮英文配音
                     被静默跳过）；探活成功时回显模型名
-config.py           VERSION 2.6.8 → 2.6.9
-ui\index.html       关于页当前版本 v2.6.9；版本变更新增 v2.6.9 四条（TTS 死链四连修 / 英文配音乐听 /
-                    服务防叠 / 报错可查 + 探活端点）
+config.py           VERSION 2.6.8 → 2.6.9；并把写死的 chocolatey ffmpeg 改成
+                    `_probe_ffmpeg()` 自动探测（MYME_FFMPEG → 登记路径 → 常见绿色版位置 →
+                    全盘候选 → PATH），换台机器没先装 choco 也能出视频
+ui\index.html       关于页当前版本 v2.6.9；版本变更新增 v2.6.9 五条（TTS 死链四连修 / 英文配音乐听 /
+                    服务防叠 / 报错可查 + 探活端点 / 换机一键体检 + ffmpeg 自动探测）
+runtime_check.py    （新）换机一键体检：① 运行时依赖 ② 外部服务 ③ 数据根 ④ 四段是否全齐，
+                    缺哪件写清「怎么补 / 缺了坏哪一步」；--json 输出可贴运维，默认退出码 1 =
+                    有缺失、--strict = 只因必须项缺失才 1。换机/重装/克隆源码后第一条命令
 pack_source.py      （新）源码打包。⚠ 两个坑：运行期资源（voice/pwa/prompts）要**先于** SKIP_EXT
                     判定放行，否则声纹 wav 会被扩展名规则误杀；体积上限别设太小——炎冰声纹
                     yanbing-sample-01.wav 就有 10.4MB，曾按 5MB 阈值被静默丢掉，只剩 2.9MB 的
@@ -62,6 +67,12 @@ pack_full.py / pack_portable.py / build_ios_zip.py / publish_release.py  本轮�
 ⑧ 英文补录两轮收口：第一轮 21 页讲稿+配音 / 失败 0 / 2382s，修完断点续跑判据后第二轮补 9 页 /
    失败 0 / 665s → **30/30 页全齐**；导出清单四段 ready=True 且每段都对应 30/30 页真实资源
    （不再是被 any() 放行的假绿）
+⑨ runtime_check.py 全量体检跑通：依赖 2 缺（LivePortrait / ts_deps，预期）、5 项服务 4 通、
+   数据根打印为 C:\Users\admin\AppData\Local\myme、当前版本 4 段全 ready 30/30；
+   --json / --strict 两种出口码均验过
+⑩ 一次被自己坑到的复验：在源码目录里 find *.wav 只有 8 个、看着像「配音没生成」，
+   实际是**查错了数据根**——真数据在 %LOCALAPPDATA%\myme。已写进「交接说明·十一、第 4 个坑」，
+   并把数据根打印进 runtime_check / _chk_seg 的复验提示
 
 ================================================
 五、待补件（非代码问题）
@@ -83,5 +94,5 @@ pack_full.py / pack_portable.py / build_ios_zip.py / publish_release.py  本轮�
 myme_source_2.6.9.zip    可运行源码（含 ui/ 与双声纹）
 app.py / avatar.py / config.py / persons.py / knowledge_base.py / sync_version_info.py /
 version_info.txt / pack_full.py / pack_portable.py / build_ios_zip.py / build_android 相关 /
-gen_en_narration.py / publish_release.py / tts_worker.py / tts_service.py / pack_source.py
+gen_en_narration.py / publish_release.py / tts_worker.py / tts_service.py / pack_source.py / runtime_check.py
 handover_myne_2026-10-06.zip（本目录打包后的总包，含上面全部）

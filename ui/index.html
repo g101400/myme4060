@@ -1673,6 +1673,12 @@ function dlgChangelog(){openModal('版本变更',`
         <span class="fk">any(...)</span>，只要有 1 页英文配音，整段就显示"可播"，
         切过去大半页是哑的。现在逐页统计，缺几页就写"英文配音缺 N/30 页"，<b>全部页齐才 ready</b>，
         并给播放器带上 <span class="fk">pages / pages_ready</span> 两个数字。</li>
+    <li><b>换机第一步不用再猜</b>：新增 <span class="fk">runtime_check.py</span> 一键体检
+        ——运行时依赖（ComfyUI / 内置 Python / LivePortrait / ts_deps / ffmpeg）、外部服务
+        （Ollama、TTS、数字人、7860/7861）、数据根在哪、四个片段齐不齐，一次打全；
+        缺哪件就写清「怎么补、缺了会坏哪一步」，<span class="fk">--json</span> 可直接贴给运维。</li>
+    <li><b>ffmpeg 改成自动探测</b>：不再写死 chocolatey 路径，登记路径 → 常见绿色版位置 → PATH 依次找，
+        换台机器没先装 choco 也能直接出视频。</li>
   </ul>
   <h4 style="margin:14px 0 6px">v2.6.8（10-06 四片段收口：片段只按分身生成 · 自检 GET/POST 双通道 · 英文配音补录）</h4>
   <ul style="margin:0;padding-left:20px" class="muted">
