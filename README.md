@@ -200,6 +200,24 @@ python -c "import knowledge_base as k; print(k.ingest_paths(['a.md','b.docx']))"
 - `RETRIEVE_ALPHA`（默认 0.6）：向量权重；技术文档可降到 0.4 提高 BM25 关键词权重。
 - `RETRIEVE_THRESHOLD`（默认 0.0）：向量相似度下限，低于此值直接丢弃，避免"胡编"。
 
+### 7.2.1 换机 / 新环境一键体检（runtime_check.py）
+换机、换盘、重装、克隆源码之后，先跑一条命令再决定补什么件：
+
+```bash
+python runtime_check.py            # 报告：依赖 / 服务 / 数据根 / 四段是否全齐
+python runtime_check.py --json     # 机器可读，可直接贴给运维
+python runtime_check.py --strict   # 只报必须项（可选项缺不挡门），CI 用它
+```
+
+四组检查：① 运行时依赖（ComfyUI 根 / 内置 Python / LivePortrait / ts_deps / ffmpeg，缺哪件给「怎么补 + 缺了坏哪一步」）
+② 外部服务（Ollama、TTS 8777、数字人 8778、主程序 7860、便携播放 7861，探真健康端点）
+③ **数据根在哪**（`MYME_DATA` / `%LOCALAPPDATA%\myme`；别拿源码目录当数据根查，很容易误判"东西没生成"）
+④ 导出四段（分身 × 语言：炎冰中 / 炎冰英 / 金子中 / 金子英）是否都全页齐。
+Exit code：0 = 全齐，1 = 有缺失（`--strict` 下只因必须项缺失才 1）。
+
+> 复验/调试数据请带数据根跑，例如：
+> `MYME_DATA="C:/Users/admin/AppData/Local/myme" python _chk_seg.py`
+
 ### 7.3 PWA 部署注意
 - 本地 `http://127.0.0.1:7860` 可直接"添加到主屏"（Chrome/Edge 菜单）。
 - **公网部署必须 HTTPS**（PWA 安全上下文要求，localhost 例外）；可经反向代理（Nginx/Caddy）挂证书。
