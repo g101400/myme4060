@@ -20,7 +20,7 @@ a = Analysis(
     datas=[('ui/index.html', 'ui'), ('ui/player.html', 'ui'),
            ('icon-192.png', '.'), ('icon-512.png', '.'),
            ('playback.mode', '.')] + _aug_files + _voice_files,
-    hiddenimports=['pypdf', 'doc_ingest', 'prompts.system_prompt'],
+    hiddenimports=['pypdf', 'doc_ingest', 'prompts.system_prompt', 'kb_chunking', 'kb_qa', 'kb_wiki', 'qiaomu_local', 'kb_export', 'domain_water'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

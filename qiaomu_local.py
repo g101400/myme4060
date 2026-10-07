@@ -633,11 +633,12 @@ def run(arg, kb="myme_kb", category="", asr=False, deep=False):
             text, meta = fetch_audio_file(arg) if asr else ("", {})
         elif typ == "dir":
             import doc_ingest
-            files, scanned = doc_ingest.iter_files(arg, recursive=True)
+            # ⚠ iter_files 返回 [(路径, 扩展名), ...] 列表，不是 (列表, 计数) 二元组
+            files = doc_ingest.iter_files(arg)
             if not files:
                 raise RuntimeError("目录里没有可解析的文件")
             parts = []
-            for f in files:
+            for f, _ext in files:          # iter_files 给的是 (路径, 扩展名)
                 try:
                     parts.append("## %s\n%s" % (os.path.basename(f), doc_ingest.extract(f)[0]))
                 except Exception:
