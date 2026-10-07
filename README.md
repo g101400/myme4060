@@ -6,7 +6,7 @@
 > ② 修复 **阻断级环境错配**：源码原写死 D:/ComfyUI_Mie_2026_V8.0，本机 ComfyUI 实际在 **H 盘** → TTS / Sonic / 数字人服务全部拉不起来，已改为「环境变量 → 设置登记 → 全盘扫描」三级探测（`config.py` / `tts_worker.py`），命中须含 `custom_nodes` 才算 ComfyUI 真身；现已实跑验证命中 H 盘。
 > ③ 修复出包路径： `_build_sfx.py` 原写死旧工作区，改为相对脚本目录；
 > ④ 源码态已实跑验证（`/api/meta` = 2.6.3、`/api/projects`、`/api/scope` 全绿）；三平台（Win / 安卓 APK / 统信 deb）已重出。
-> 公开源码仓：<https://github.com/g101400/myme4060>　当前版本 **v2.7.0**：吸收 [WeKnora v0.8.2](https://github.com/Tencent/WeKnora) 精华，知识库补齐三层能力——**自适应分块（带层级面包屑 / 父子分块）**、**多源导入（18 种格式 + 整目录批量）**、**AI 自动 Wiki（互链文档树 + 知识图谱）**；答疑升级为「拆子问法 → 多路检索 → 指纹+向量去重 → 带出处作答 → 多轮追问」；并修复了「CLI 读旧壳库 / UI 读真库」的数据根同源问题。更详细的分条说明见文末「最新版本 v2.7.0」。
+> 公开源码仓：<https://github.com/g101400/myme4060>　当前版本 **v2.8.0**：吸收开源项目 [qiaomu-anything-to-notebooklm](https://github.com/joeseesun/qiaomu-anything-to-notebooklm) 的骨架，把它依赖的 NotebookLM / 微信 MCP / Get 笔记 API / r.jina.ai **整体换成本机链路**——**多源搬运工**（自动认来源：微信 / 网页 / B站 / 播客 / 18 种格式 / 目录 / 关键词，按来源分派提取策略再清洗入库）、**七项产出**（报告 docx / PPTX / 播客音频 / 思维导图 / 测验 / 闪卡 / 数据表）、**三轮递进深度解读**；并新增「领域包」把 **水利古建 · 感知应用 · 三端四平台** 口径做成可编辑配置，按骨架一键出 PPT 后可挂分身演示。更详细的分条说明见文末「最新版本 v2.8.0」。
 
 ### 最新版本 v2.7.0（2026-10-07）
 

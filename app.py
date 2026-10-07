@@ -1408,6 +1408,29 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._handle_kb_qa(data)
         elif p.path == "/api/open_path":
             self._handle_open_path(data)
+        # ---------- v2.8 加工车间 ----------
+        elif p.path == "/api/qm/detect":
+            self._handle_qm_detect(data)
+        elif p.path == "/api/qm/run":
+            self._handle_qm_run(data)
+        elif p.path == "/api/qm/batch":
+            self._handle_qm_batch(data)
+        elif p.path == "/api/qm/deep":
+            self._handle_qm_deep(data)
+        elif p.path == "/api/qm/status":
+            self._handle_qm_status(data)
+        elif p.path == "/api/export/run":
+            self._handle_export_run(data)
+        elif p.path == "/api/domain/list":
+            self._handle_domain(data, "list")
+        elif p.path == "/api/domain/get":
+            self._handle_domain(data, "get")
+        elif p.path == "/api/domain/update":
+            self._handle_domain(data, "update")
+        elif p.path == "/api/domain/ppt":
+            self._handle_domain_ppt(data)
+        elif p.path == "/api/domain/kb":
+            self._handle_domain_kb(data)
         elif p.path == "/api/make_mindmap":
             # v2.6.4 补漏：UI v2.6.4 变更条目承诺「文字材料 doc / 思维导图 / PPT」，
             # 但应用侧此前只有 PPT 与书面稿 doc —— 思维导图能力只在技能侧 gen_local.py，
@@ -2370,6 +2393,210 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         graph=(r.get("graph") or {}).get("nodes", []).__len__())
         except Exception as e:
             _job_update(jid, done=True, error=str(e))
+
+    # ==================== v2.8 加工车间：多源搬运 / 多项产出 / 领域包 ====================
+    QM_TIP = {
+        "weixin": "微信公众号：直连抓取正文，自动去导航页脚",
+        "url": "通用网页：失败时自动升级为爬虫 UA / AMP 兜底",
+        "video": "B站：先取官方字幕，取不到再走本地语音转写",
+        "podcast": "播客：挖音频直链后本地转写（平台有防盗链时给可执行的下一步）",
+        "youtube": "YouTube 国内不可达，请先本地录制，再把文件放进待转写目录",
+        "x_twitter": "X/Twitter 国内不可达，建议粘贴正文或存成 txt 再导入",
+        "document": "本地文档：走既有 18 种格式抽取器",
+        "epub": "EPUB：ebooklib 优先，退 zip+xml",
+        "audio": "音频：勾选「本地转写」后走本机 ASR",
+        "zip": "压缩包：解压后批量抽取",
+        "dir": "目录：递归扫描全部可解析文件",
+        "search": "关键词：不联网，直接查本机知识库",
+    }
+
+    def _handle_qm_detect(self, data):
+        """先识别再搬运，让用户看清「它打算怎么搬」。"""
+        try:
+            import qiaomu_local
+            s = (data.get("input") or "").strip()
+            if not s:
+                return self._json({"ok": False, "error": "请先填一个链接 / 文件路径 / 目录 / 关键词"})
+            typ, site = qiaomu_local.detect_input(s)
+            return self._json({"ok": True, "type": typ, "site": site,
+                               "label": qiaomu_local.TYPE_LABEL.get(typ, "这份内容"),
+                               "tip": self.QM_TIP.get(typ, "")})
+        except Exception as e:
+            return self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
+
+    def _handle_qm_run(self, data):
+        """单条搬运 → 本地向量知识库。"""
+        try:
+            import qiaomu_local
+            s = (data.get("input") or "").strip()
+            if not s:
+                return self._json({"ok": False, "error": "输入为空"})
+            r = qiaomu_local.run(s, kb=data.get("kb") or "myme_kb",
+                                 category=data.get("category") or "多源导入",
+                                 asr=bool(data.get("asr")))
+            return self._json(r)
+        except Exception as e:
+            return self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
+
+    def _handle_qm_batch(self, data):
+        """批量搬运：一行一条（可带 #分类 后缀），单条失败不中断整批。"""
+        try:
+            import qiaomu_local
+            raw = (data.get("inputs") or "").strip()
+            if isinstance(raw, list):
+                items = [str(x).strip() for x in raw if str(x).strip()]
+            else:
+                items = [l.strip() for l in raw.splitlines() if l.strip() and not l.startswith("#")]
+            if not items:
+                return self._json({"ok": False, "error": "至少填一行（一行一个链接 / 路径 / 关键词）"})
+            kb = data.get("kb") or "myme_kb"
+            asr = bool(data.get("asr"))
+            results, ok_n, fail_n = [], 0, 0
+            for it in items:
+                cat, src = it, it
+                if "#" in it:
+                    src, cat = it.rsplit("#", 1)[0].strip(), it.rsplit("#", 1)[1].strip()
+                r = qiaomu_local.run(src, kb=kb, category=cat or "多源导入", asr=asr)
+                r["input"] = it
+                if r.get("ok"):
+                    ok_n += 1
+                else:
+                    fail_n += 1
+                results.append(r)
+            return self._json({"ok": True, "total": len(items), "ok_n": ok_n,
+                               "fail_n": fail_n, "results": results})
+        except Exception as e:
+            return self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
+
+    def _handle_qm_deep(self, data):
+        """三轮递进深度解读（后台）：概览 → 深度挖掘 → 综合反刍。
+
+        12 问 × 每问一次模型调用约 40s，同步会超时，所以挂后台作业轮询。"""
+        try:
+            import qiaomu_local
+            s = (data.get("input") or "").strip()
+            kb = data.get("kb") or "myme_kb"
+            if not s:
+                return self._json({"ok": False, "error": "输入为空"})
+            typ, _ = qiaomu_local.detect_input(s)
+            # 先入库，再围绕刚入库的内容问，保证问得到
+            if typ not in ("search", "unknown"):
+                ing = qiaomu_local.run(s, kb=kb, category=data.get("category") or "深度解读")
+                if not ing.get("ok"):
+                    return self._json({"ok": False, "error": ing.get("error") or "入库失败",
+                                       "ingest": ing})
+            jid = _job_new(total=12)
+            _job_update(jid, stage="已入库，开始三轮提问")
+
+            def _work():
+                try:
+                    r = qiaomu_local.deep_analyze(s, kb=kb)
+                    _job_update(jid, done=True, result=r,
+                                stage="完成 %d/%d 问" % (r.get("answered", 0), r.get("total_questions", 0)))
+                except Exception as e:
+                    _job_update(jid, done=True, error="%s: %s" % (type(e).__name__, e))
+
+            threading.Thread(target=_work, daemon=True).start()
+            return self._json({"ok": True, "job": jid, "stage": "已入库，开始三轮提问"})
+        except Exception as e:
+            return self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
+
+    def _handle_qm_status(self, data):
+        j = _job_get(str(data.get("job") or ""))
+        if not j:
+            return self._json({"ok": False, "error": "作业不存在"})
+        return self._json({"ok": True, "stage": j.get("stage"), "done": j.get("done"),
+                           "error": j.get("error"), "result": j.get("result")})
+
+    def _handle_export_run(self, data):
+        """知识库 → 七种产物之一。"""
+        try:
+            import kb_export
+            kind = (data.get("kind") or "").strip()
+            topic = (data.get("topic") or "").strip()
+            if not kind or not topic:
+                return self._json({"ok": False, "error": "kind 与 topic 都要填"})
+            r = kb_export.export(kind, topic, kb=data.get("kb") or "myme_kb",
+                                 pages=int(data.get("pages") or 8),
+                                 style=(data.get("style") or "商务简洁"))
+            return self._json(r)
+        except Exception as e:
+            return self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
+
+    def _handle_domain(self, data, act):
+        """领域包：读 / 改（水利古建 · 感知应用 · 三端四平台口径）。"""
+        try:
+            import domain_water
+            key = data.get("key") or "water"
+            if act == "list":
+                return self._json({"ok": True, "profiles": domain_water.list_profiles()})
+            if act == "get":
+                return self._json(domain_water.get(key))
+            patch = {}
+            for f in ("name", "note"):
+                if f in data:
+                    patch[f] = data[f]
+            for f in ("tri_ends", "four_platforms"):
+                v = data.get(f)
+                if isinstance(v, str):
+                    patch[f] = [x.strip() for x in v.splitlines() if x.strip()]
+                elif isinstance(v, list):
+                    patch[f] = [str(x) for x in v if str(x).strip()]
+            if data.get("terms"):
+                patch["terms"] = [x for x in str(data["terms"]).splitlines() if x.strip()]
+            return self._json(domain_water.update(key, patch))
+        except Exception as e:
+            return self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
+
+    def _handle_domain_kb(self, data):
+        """把领域口径（三端四平台 / 术语）当文档并入知识库，让答疑按同一口径说话。"""
+        try:
+            import domain_water, qiaomu_local
+            key = data.get("key") or "water"
+            txt = domain_water.kb_entry(key)
+            if not txt.strip():
+                return self._json({"ok": False, "error": "领域口径是空的"})
+            r = qiaomu_local.ingest_text(domain_water.load_all().get(key, {}).get("name") or key,
+                                         txt, kb=data.get("kb") or "myme_kb",
+                                         category="领域口径")
+            return self._json({"ok": True, **r})
+        except Exception as e:
+            return self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
+
+    def _handle_domain_ppt(self, data):
+        """领域骨架 + 模型大纲 → PPTX，并提示下一步接分身讲解。"""
+        try:
+            import domain_water, make_ppt, pptx_write
+            key = data.get("key") or "water"
+            topic = (data.get("topic") or "").strip()
+            pages = int(data.get("pages") or 8)
+            if not topic:
+                return self._json({"ok": False, "error": "请填演示主题"})
+            p = domain_water.get(key)
+            if not p.get("ok"):
+                return self._json({"ok": False, "error": p.get("error", "领域档读不到")})
+            res = make_ppt.gen_outline(topic, pages=pages, use_kb=True, kb_name="myme_kb")
+            slides = res[0] if isinstance(res, tuple) else res
+            # 模型漏填的页，用领域骨架里的三端/四平台要点补上，保证每页不空
+            fill = (p.get("tri_ends") or []) + (p.get("four_platforms") or [])
+            filled = 0
+            for s in slides:
+                if not (s.get("bullets") or []) and fill:
+                    s["bullets"] = fill[:4]
+                    filled += 1
+            if len(slides) < 3:
+                for t in domain_water.outline(key, "", pages)[:max(0, 3 - len(slides))]:
+                    slides.append({"title": t["title"], "bullets": t.get("bullets") or fill[:3],
+                                   "layout": "bullets", "icons": [], "chart":
+                                   {"type": "none", "labels": [], "values": []}, "source": "domain"})
+            outdir = os.path.join(config.KP_ROOT, "exports")
+            os.makedirs(outdir, exist_ok=True)
+            out = os.path.join(outdir, "%s.pptx" % re.sub(r'[\\/:*?"<>|\s]+', "_", topic)[:50])
+            pptx_write.write_pptx(out, slides)
+            return self._json({"ok": True, "pptx": out, "slides": len(slides),
+                               "filled": filled, "domain": key})
+        except Exception as e:
+            return self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
 
     # ==================== v2.7 增强答疑（多查询扩展 + 去重 + 追问）====================
     def _handle_kb_qa(self, data):

@@ -366,6 +366,10 @@ code{background:#f1f5f9;border:1px solid var(--line-soft);border-radius:5px;padd
     <button class="tab" data-t="10">④ 生成分身语音讲解</button>
     <button class="tab" data-t="3">⑤ 制作视频</button>
     <span class="tsep"></span>
+    <span class="tgroup">加工</span>
+    <button class="tab" data-t="11">⑨ 多源搬运 · 多项产出</button>
+    <button class="tab" data-t="12">⑩ 领域包 · 水利古建与感知</button>
+    <span class="tsep"></span>
     <span class="tgroup">演示</span>
     <button class="tab" data-t="5">⑥ 正式演示</button>
     <button class="tab" data-t="2">⑦ 智能答疑</button>
@@ -815,6 +819,96 @@ code{background:#f1f5f9;border:1px solid var(--line-soft);border-radius:5px;padd
       </div>
     </div>
   </div>
+  <!-- ======== ⑨ 多源搬运 · 多项产出 ======== -->
+  <div class="panel" id="p11">
+    <div class="card"><h3><span class="dot"></span>① 多源搬运工 · 抓进来 → 洗干净 → 存本地向量库</h3>
+      <div class="muted" style="margin-bottom:8px">微信文章 / 任意网页 / B站 / 小宇宙·喜马拉雅 / PDF·Word·Excel·PPT / EPUB / 图片 / 音频 / 压缩包 / 整个目录 / 关键词，一句话丢给它，自动认来源、按来源挑提取策略再入库。
+        <b>全程本机直连：不依赖 NotebookLM，不翻墙，不出网。</b></div>
+      <input type="text" id="qmInput" placeholder="粘贴链接 / 文件路径 / 目录，或直接写个关键词，例如：渠道清淤工期"></input>
+      <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn ghost" id="qmDetect">🔍 先识别来源</button>
+        <button class="btn" id="qmRun">📥 搬进来并入库</button>
+        <label style="font-size:13px"><input type="checkbox" id="qmAsr" style="width:auto"/> 音频走本地语音转写</label>
+      </div>
+      <div class="muted" id="qmTip" style="margin-top:6px;font-size:12px"></div>
+      <div class="out" id="qmOut">填上面的输入，点「先识别来源」看它打算怎么搬，再点「搬进来并入库」。</div>
+    </div>
+    <div class="card"><h3><span class="dot"></span>② 批量搬运 · 一次清一片</h3>
+      <div class="muted" style="margin-bottom:8px">一行一条，行尾 <code>#分类</code> 可指定来源分类（不写则为「多源导入」）。单条失败不影响其它条。</div>
+      <textarea id="qmBatch" rows="4" placeholder="https://mp.weixin.qq.com/s/xxxx #公众号
+D:/资料/渠道台账.xlsx #台账
+清淤工期与预算"></textarea>
+      <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="qmBatchRun">📦 批量搬运入库</button>
+      </div>
+      <div class="out" id="qmBatchOut" style="margin-top:8px"></div>
+    </div>
+    <div class="card"><h3><span class="dot"></span>③ 多项产出 · 知识库直接变成品</h3>
+      <div class="muted" style="margin-bottom:8px">基于本地知识库检索出的真实片段生成，产物落在「导出」目录，逐项可打开。</div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+        <input type="text" id="exTopic" placeholder="主题，例如：渠道清淤工程" style="flex:1;min-width:220px"></input>
+        <select id="exKind">
+          <option value="report">📄 分析报告（Markdown + docx）</option>
+          <option value="pptx">📊 幻灯片 PPTX</option>
+          <option value="podcast">🎙️ 播客讲稿 + 音频</option>
+          <option value="mindmap">🧠 思维导图（Mermaid + 文本）</option>
+          <option value="quiz">❓ 测验题</option>
+          <option value="flashcards">🃏 记忆闪卡</option>
+          <option value="table">📋 数据表（Markdown + CSV）</option>
+        </select>
+        <button class="btn" id="exRun">⚙️ 生成产物</button>
+      </div>
+      <div class="out" id="exOut">选一种产物，填主题，点生成。</div>
+    </div>
+    <div class="card"><h3><span class="dot"></span>④ 三轮递进深度解读 · 概览 → 深度 → 反刍</h3>
+      <div class="muted" style="margin-bottom:8px">先把内容搬进来，再按 4+5+3 共 12 问逐轮作答，轮轮都带出处；跑完给出结构化问答稿。
+        <b>要十几分钟，跑的时候别同时问问题。</b></div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <input type="text" id="dpInput" placeholder="链接 / 文件 / 关键词" style="flex:1;min-width:220px"></input>
+        <button class="btn" id="dpRun">🔬 开始深度解读</button>
+      </div>
+      <div class="bar" id="dpBar" style="display:none"><i></i></div>
+      <div class="out" id="dpOut">深度解读 = 搬运入库 + 三轮递进提问。</div>
+    </div>
+  </div>
+
+  <!-- ======== ⑩ 领域包 · 水利古建与感知三端四平台 ======== -->
+  <div class="panel" id="p12">
+    <div class="card"><h3><span class="dot"></span>① 领域档位 · 选一个行业口径</h3>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <select id="dmKey">
+          <option value="water">💧 水利一张图 · 三端四平台</option>
+          <option value="heritage">🏛️ 水利古建遗产（木构 · 砖石 · 彩画 · 碑刻）</option>
+          <option value="sensor">📡 感知应用 · 三端四平台</option>
+        </select>
+        <button class="btn ghost" id="dmRefresh">🔄 读档</button>
+      </div>
+      <div class="muted" id="dmNote"></div>
+      <div class="out" id="dmOut">选档位后，三端 / 四平台 / 骨架 / 术语会显示在这里，<b>都可改</b>。</div>
+    </div>
+    <div class="card"><h3><span class="dot"></span>② 口径可改 · 改完立刻生效</h3>
+      <textarea id="dmTri" rows="3" placeholder="每行一「端」，例如：管理端（PC 后台 · 业务办理）"></textarea>
+      <textarea id="dmFour" rows="4" placeholder="每行一「平台」" style="margin-top:6px"></textarea>
+      <textarea id="dmTerms" rows="4" placeholder="每行一条「术语」" style="margin-top:6px"></textarea>
+      <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="dmSave">💾 保存口径</button>
+      </div>
+      <div class="muted" style="margin-top:6px;font-size:12px">口径存到数据根 domains/water.json，改完不用重启。</div>
+    </div>
+    <div class="card"><h3><span class="dot"></span>③ 用领域骨架直接出 PPT · 再交给分身讲</h3>
+      <div class="muted" style="margin-bottom:8px">按当前领域的章节骨架生成 PPT 大纲并写盘；随后可走「④ 生成分身语音讲解」+「制作视频」，把幻灯片变成数字人演示片。</div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <input type="text" id="dmTopic" placeholder="演示主题，例如：渠道清淤攻坚" style="flex:1;min-width:220px"></input>
+        <input type="number" id="dmPages" value="8" min="4" max="24" style="width:96px"></input>
+        <button class="btn" id="dmPpt">📊 按骨架生成 PPT</button>
+      </div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <button class="btn ghost" id="dmKb">📚 把领域口径并入知识库</button>
+      </div>
+      <div class="out" id="dmPptOut">骨架来自 domain_water（纯结构化，不调模型，秒出）。</div>
+    </div>
+  </div>
+
   <!-- ======== ⑦ 资源管理 ======== -->
   <div class="panel" id="p7">
     <div class="card"><h3><span class="dot"></span>导出交付 · 源文件 / 形象 / 方案 / 音频 / 视频 / 数字分身</h3>
@@ -1533,7 +1627,7 @@ function dlgDemoAvatar(){
   }).catch(()=>{const el=$('demoAvBody'); if(el) el.innerHTML='<p class="muted">加载失败：服务未就绪。</p>';});
 }
 function dlgSoftware(){openModal('软件配置清单列表',`
-  <p class="muted">当前版本 <b>v2.7.0</b>。本机运行数字分身所依赖的软件与模型清单（均为本地部署，无云端依赖）。</p>
+  <p class="muted">当前版本 <b>v2.8.0</b>。本机运行数字分身所依赖的软件与模型清单（均为本地部署，无云端依赖）。</p>
 
   <h4 style="margin:12px 0 4px">分发包怎么选（装给别人的第一步）</h4>
   <ul class="flist">
@@ -1726,6 +1820,22 @@ function dlgChangelog(){openModal('版本变更',`
         缺哪件就写清「怎么补、缺了会坏哪一步」，<span class="fk">--json</span> 可直接贴给运维。</li>
     <li><b>ffmpeg 改成自动探测</b>：不再写死 chocolatey 路径，登记路径 → 常见绿色版位置 → PATH 依次找，
         换台机器没先装 choco 也能直接出视频。</li>
+  </ul>
+  <h4 style="margin:14px 0 6px">v2.8.0（10-07 加工车间：多源搬运工 · 七项产出 · 水利古建与感知三端四平台）</h4>
+  <ul style="margin:0;padding-left:20px" class="muted">
+    <li><b>吸收开源项目 <span class="fk">qiaomu-anything-to-notebooklm</span> 的骨架</b>：统一入口类型识别 +
+        按来源分派提取策略 + 自然语言映射到产出。原项目依赖 NotebookLM CLI / 微信 read MCP /
+        Get 笔记 API / r.jina.ai，国内全不可达 —— <b>已整体换成本机链路</b>：直连抓取、本地 ASR 转写、
+        出口是本地向量知识库。</li>
+    <li><b>「⑨ 多源搬运 · 多项产出」</b>：一行链接或关键词 → 自动认来源（微信 / 网页 / B站 / 播客 /
+        文档 / 音频 / 压缩包 / 目录 / 关键词）→ 按来源选策略清洗 → 入库。支持「先识别来源」预览，
+        支持批量（一行一条，行尾 <span class="fk">#分类</span>），单条失败不中断整批。</li>
+    <li><b>七项产物</b>：报告（Markdown+docx）、幻灯片 PPTX、播客讲稿+音频、思维导图（Mermaid）、
+        测验题、记忆闪卡、数据表（+CSV），全部据知识库真实片段生成，落「导出」目录。</li>
+    <li><b>三轮递进深度解读</b>：概览 4 问 → 深度挖掘 5 问 → 综合反刍 3 问，轮轮带出处，后台作业轮询。</li>
+    <li><b>「⑩ 领域包 · 水利古建与感知」</b>：内置水利一张图三端四平台 / 水利古建遗产 / 感知应用三档，
+        骨架 + 术语 + 口径都可改（落 <span class="fk">domains/water.json</span>，改完不用重启）；
+        按骨架一键出 PPT，可直挂「分身语音讲解 + 制作视频」变成数字人演示片。</li>
   </ul>
   <h4 style="margin:14px 0 6px">v2.7.0（10-07 知识库三层升级：自适应分块 · 多源导入 · AI 自动 Wiki · 答疑增强）</h4>
   <ul style="margin:0;padding-left:20px" class="muted">
@@ -4241,4 +4351,134 @@ function showStartupGuide(force){
   if(url){$('box3').innerHTML='<div class="avatarwrap"><img src="'+url+'" alt="分身形象"></div>';applyAvatarTransform();}
 })();
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeMenus();}});
+
+
+/* ================= ⑨⑩ 加工车间：多源搬运 / 多项产出 / 领域包 ================= */
+const $qm = id => document.getElementById(id);
+
+$qm('qmDetect').onclick = async () => {
+  const v = ($qm('qmInput').value || '').trim();
+  if (!v) { $qm('qmTip').textContent = '先填点东西再识别'; return; }
+  const r = await postJSON('/api/qm/detect', { input: v });
+  if (!r.ok) { $qm('qmTip').textContent = '❌ ' + (r.error || ''); return; }
+  $qm('qmTip').innerHTML = '识别为 <b>' + esc(r.label) + '</b>' +
+    (r.site ? '（' + esc(r.site) + '）' : '') + '　→　' + esc(r.tip || '');
+};
+
+$qm('qmRun').onclick = async () => {
+  const v = ($qm('qmInput').value || '').trim();
+  if (!v) { $qm('qmOut').textContent = '输入是空的'; return; }
+  $qm('qmOut').textContent = '搬运中…（网页抓取 / 语音转写可能要一会儿）';
+  const r = await postJSON('/api/qm/run', { input: v, asr: $qm('qmAsr').checked });
+  if (!r.ok) { $qm('qmOut').textContent = '❌ ' + (r.error || ''); return; }
+  const g = r.ingest || {};
+  $qm('qmOut').innerHTML = '✅ <b>' + esc(r.title || '') + '</b>　' + r.chars + ' 字符 · ' +
+    (r.secs || 0) + 's<br>入库 <b>' + (g.added || 0) + '</b> 块，库内共 ' + (g.total || 0) + ' 块' +
+    (r.warn ? '<br>· ' + esc(r.warn) : '') +
+    (r.error ? '<br>❌ ' + esc(r.error) : '');
+};
+
+$qm('qmBatchRun').onclick = async () => {
+  const v = ($qm('qmBatch').value || '').trim();
+  if (!v) { $qm('qmBatchOut').textContent = '批量框是空的'; return; }
+  $qm('qmBatchOut').textContent = '批量搬运中（失败的单条会单独列出）…';
+  const r = await postJSON('/api/qm/batch', { inputs: v });
+  if (!r.ok) { $qm('qmBatchOut').textContent = '❌ ' + (r.error || ''); return; }
+  let s = '📦 共 ' + r.total + ' 条：成功 <b>' + r.ok_n + '</b>，失败 ' + r.fail_n + '\n';
+  (r.results || []).forEach(x => {
+    s += (x.ok ? '✅ ' : '❌ ') + (x.input || '').slice(0, 48) +
+      ' · ' + (x.chars || 0) + '字符 · ' + (x.ingest ? x.ingest.added + '块' : (x.error || '')) + '\n';
+  });
+  $qm('qmBatchOut').textContent = s;
+};
+
+$qm('exRun').onclick = async () => {
+  const topic = ($qm('exTopic').value || '').trim();
+  if (!topic) { $qm('exOut').textContent = '主题不能空'; return; }
+  $qm('exOut').textContent = '生成中（要先在知识库里检索原型片段，再交给本地模型写）…';
+  const r = await postJSON('/api/export/run', { kind: $qm('exKind').value, topic: topic });
+  if (!r.ok) { $qm('exOut').textContent = '❌ ' + (r.error || ''); return; }
+  let s = '✅ 产出完成（' + r.secs + 's）\n';
+  ['md', 'docx', 'pptx', 'wav', 'csv'].forEach(k => {
+    if (r[k]) s += '· ' + k.toUpperCase() + '：' + r[k] + '\n';
+  });
+  if (r.docx_error) s += '· docx 失败：' + r.docx_error + '\n';
+  if (r.audio_error) s += '· 音频失败：' + r.audio_error + '\n';
+  $qm('exOut').textContent = s;
+  if (r.out) $qm('exOut').innerHTML += '<br><span class="muted">目录：' + esc(r.out) + '</span>';
+};
+
+let _dpJob = null;
+$qm('dpRun').onclick = async () => {
+  const v = ($qm('dpInput').value || '').trim();
+  if (!v) { $qm('dpOut').textContent = '输入是空的'; return; }
+  $qm('dpBar').style.display = '';
+  $qm('dpOut').textContent = '已入库，开始三轮提问（约十几分钟）…';
+  const r = await postJSON('/api/qm/deep', { input: v });
+  if (!r.ok) { $qm('dpOut').textContent = '❌ ' + (r.error || ''); $qm('dpBar').style.display = 'none'; return; }
+  _dpJob = r.job;
+  const poll = setInterval(async () => {
+    const s = await postJSON('/api/qm/status', { job: _dpJob });
+    if (!s.ok) { clearInterval(poll); return; }
+    $qm('dpOut').textContent = (s.stage || '处理中…') + (s.error ? '　❌ ' + s.error : '');
+    if (s.done) {
+      clearInterval(poll); $qm('dpBar').style.display = 'none';
+      const res = s.result || {};
+      let t = '✅ 完成 ' + (res.answered || 0) + '/' + (res.total_questions || 0) + ' 问\n\n';
+      (res.questions || []).forEach((q, i) => {
+        t += '【' + (i + 1) + '】' + q + '\n' + ((res.answers || [])[i] || '（未答出）') + '\n\n';
+      });
+      $qm('dpOut').textContent = t;
+    }
+  }, 3000);
+};
+
+async function _dmLoad() {
+  const key = $qm('dmKey').value;
+  const r = await postJSON('/api/domain/list', {});
+  const g = await postJSON('/api/domain/get', { key: key });
+  if (!r.ok || !g.ok) { $qm('dmNote').textContent = '读档失败'; return; }
+  const p = g;
+  $qm('dmNote').textContent = '当前档：' + (p.name || '') + (p.note ? '　' + p.note : '');
+  $qm('dmTri').value = (p.tri_ends || []).join('\n');
+  $qm('dmFour').value = (p.four_platforms || []).join('\n');
+  $qm('dmTerms').value = (p.terms || []).map(t => Array.isArray(t) ? t.join('：') : t).join('\n');
+  $qm('dmOut').innerHTML = '<b>骨架</b>（' + ((p.sections || []).length) + ' 节）：<br>' +
+    (p.sections || []).map((s, i) => '· ' + esc(s)).join('<br>');
+}
+$qm('dmKey').onchange = _dmLoad;
+$qm('dmRefresh').onclick = _dmLoad;
+
+$qm('dmSave').onclick = async () => {
+  const r = await postJSON('/api/domain/update', {
+    key: $qm('dmKey').value,
+    tri_ends: $qm('dmTri').value,
+    four_platforms: $qm('dmFour').value,
+    terms: $qm('dmTerms').value,
+  });
+  $qm('dmPptOut').textContent = r.ok ? '✅ 口径已保存（' + (r.name || '') + '），立刻生效' : '❌ ' + (r.error || '');
+  await _dmLoad();
+};
+
+$qm('dmKb').onclick = async () => {
+  $qm('dmPptOut').textContent = '正在把领域口径并入知识库…';
+  const r = await postJSON('/api/domain/kb', { key: $qm('dmKey').value });
+  $qm('dmPptOut').textContent = r.ok
+    ? '✅ 已入库 ' + (r.added || 0) + ' 块，库内共 ' + (r.total || 0) + ' 块'
+    : '❌ ' + (r.error || '');
+};
+
+$qm('dmPpt').onclick = async () => {
+  const topic = ($qm('dmTopic').value || '').trim();
+  if (!topic) { $qm('dmPptOut').textContent = '填个演示主题'; return; }
+  $qm('dmPptOut').textContent = '生成中（模型写大纲 + 写盘）…';
+  const r = await postJSON('/api/domain/ppt', {
+    key: $qm('dmKey').value, topic: topic, pages: parseInt($qm('dmPages').value) || 8,
+  });
+  $qm('dmPptOut').innerHTML = r.ok
+    ? '✅ PPT 已写出：' + esc(r.pptx || '') + (r.slides ? '　共 ' + r.slides + ' 页' : '') +
+      '<br><span class="muted">接着去「④ 生成分身语音讲解」+「③ 制作视频」，就能把幻灯片变成数字人演示片。</span>'
+    : '❌ ' + esc(r.error || '');
+};
+
 </script></body></html>
