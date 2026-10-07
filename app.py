@@ -1431,6 +1431,33 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._handle_domain_ppt(data)
         elif p.path == "/api/domain/kb":
             self._handle_domain_kb(data)
+        # ---------- v2.9 深度加工 ----------
+        elif p.path == "/api/graph/stats":
+            self._handle_graph(data, "stats")
+        elif p.path == "/api/graph/rebuild":
+            self._handle_graph(data, "rebuild")
+        elif p.path == "/api/graph/nodes":
+            self._handle_graph(data, "nodes")
+        elif p.path == "/api/graph/neighbors":
+            self._handle_graph(data, "neighbors")
+        elif p.path == "/api/graph/mermaid":
+            self._handle_graph(data, "mermaid")
+        elif p.path == "/api/agent/run":
+            self._handle_agent(data, "run")
+        elif p.path == "/api/agent/confirm":
+            self._handle_agent(data, "confirm")
+        elif p.path == "/api/agent/get":
+            self._handle_agent(data, "get")
+        elif p.path == "/api/agent/list":
+            self._handle_agent(data, "list")
+        elif p.path == "/api/kb/chunks":
+            self._handle_chunk(data, "list")
+        elif p.path == "/api/kb/chunk":
+            self._handle_chunk(data, data.get("act") or "get")
+        elif p.path == "/api/trace/stats":
+            self._handle_trace(data, "stats")
+        elif p.path == "/api/trace/list":
+            self._handle_trace(data, "list")
         elif p.path == "/api/make_mindmap":
             # v2.6.4 补漏：UI v2.6.4 变更条目承诺「文字材料 doc / 思维导图 / PPT」，
             # 但应用侧此前只有 PPT 与书面稿 doc —— 思维导图能力只在技能侧 gen_local.py，
@@ -2507,6 +2534,105 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._json({"ok": False, "error": "作业不存在"})
         return self._json({"ok": True, "stage": j.get("stage"), "done": j.get("done"),
                            "error": j.get("error"), "result": j.get("result")})
+
+    # ---------- v2.9 深度加工：图谱 / ReAct Agent / 分块编辑 / 链路追踪 ----------
+    def _handle_graph(self, data, act):
+        """知识图谱：实体共现行 → 邻居扩展检索 → mermaid 可视化。"""
+        try:
+            import kb_graph
+            kb = data.get("kb") or "myme_kb"
+            if act == "rebuild":
+                self._json({"ok": True, **kb_graph.rebuild(kb)}); return
+            if act == "nodes":
+                self._json({"ok": True, "items": kb_graph.top_nodes(kb, int(data.get("n") or 20))}); return
+            if act == "neighbors":
+                term = (data.get("term") or "").strip()
+                if not term:
+                    self._json({"ok": False, "error": "没给 term"}); return
+                self._json({"ok": True, "items": kb_graph.neighbors(term, kb)}); return
+            if act == "mermaid":
+                self._json({"ok": True, "mermaid": kb_graph.mermaid(kb, int(data.get("n") or 18))}); return
+            self._json({"ok": True, **kb_graph.stats(kb)})
+        except Exception as e:
+            self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
+
+    def _handle_agent(self, data, act):
+        """ReAct Agent：规划 → 调工具（本地库/国内搜索/抓网页/领域口径）→ 收尾，可人工审批。"""
+        try:
+            import kb_agent
+            if act == "run":
+                q = (data.get("q") or "").strip()
+                if not q:
+                    self._json({"ok": False, "error": "问题不能空"}); return
+                kb = data.get("kb") or "myme_kb"
+                domain = (data.get("domain") or "").strip()
+                jid = _job_new(total=1)
+                stage = "Agent 正在规划步骤…"
+                _job_update(jid, stage=stage)
+
+                def _work():
+                    try:
+                        r = kb_agent.run(q, kb=kb, domain=domain or None,
+                                         max_steps=int(data.get("steps") or 6),
+                                         approve=bool(data.get("approve")))
+                        _job_update(jid, done=True, result=r)
+                    except Exception as e:
+                        _job_update(jid, done=True, error="%s: %s" % (type(e).__name__, e))
+
+                threading.Thread(target=_work, daemon=True).start()
+                self._json({"ok": True, "job": jid, "stage": stage}); return
+            if act == "confirm":
+                r = kb_agent.confirm((data.get("agent_id") or "").strip(),
+                                     allowed=(data.get("allowed", True) not in (0, "0", False)),
+                                     edited_input=(data.get("input") or None))
+                self._json({"ok": True, **r}); return
+            if act == "list":
+                self._json({"ok": True, "items": kb_agent.list_recent(int(data.get("n") or 8))}); return
+            r = kb_agent.get((data.get("agent_id") or "").strip())
+            if not r:
+                self._json({"ok": False, "error": "任务不存在（可能已清理）"}); return
+            self._json({"ok": True, **r})
+        except Exception as e:
+            self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
+
+    def _handle_chunk(self, data, act):
+        """分块可编辑：列出 / 查看 / 改（自动留版本）/ diff / 回滚 / 重建索引。"""
+        try:
+            import kb_editor
+            kb = data.get("kb") or "myme_kb"
+            if act == "stats":
+                self._json({"ok": True, **kb_editor.stats(kb)}); return
+            if act == "list":
+                self._json({"ok": True, **kb_editor.list_chunks(
+                    kb, query=data.get("query") or "", limit=int(data.get("limit") or 50))}); return
+            if act == "get":
+                self._json({"ok": True, **kb_editor.get(kb, int(data.get("idx") or 0))}); return
+            if act == "update":
+                self._json({"ok": True, **kb_editor.update(
+                    kb, int(data.get("idx") or 0), data.get("text") or "",
+                    note=data.get("note") or "界面编辑")}); return
+            if act == "diff":
+                r = kb_editor.diff(kb, int(data.get("idx") or 0), int(data.get("v") or 0))
+                self._json({"ok": True, **r} if "error" not in r else r); return
+            if act == "rollback":
+                self._json({"ok": True, **kb_editor.rollback(
+                    kb, int(data.get("idx") or 0), int(data.get("v") or 1))}); return
+            if act == "reindex":
+                self._json({"ok": True, **kb_editor.reindex(kb, data.get("idx"))}); return
+            self._json({"ok": False, "error": "未知的 act：%s" % act})
+        except Exception as e:
+            self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
+
+    def _handle_trace(self, data, act):
+        """链路追踪（本地版 Langfuse）：按类型聚合 + 最近记录。"""
+        try:
+            import kb_trace
+            if act == "list":
+                self._json({"ok": True, "items": kb_trace.query(
+                    limit=int(data.get("limit") or 20), kind=(data.get("kind") or None))}); return
+            self._json({"ok": True, **kb_trace.stats()})
+        except Exception as e:
+            self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
 
     def _handle_export_run(self, data):
         """知识库 → 七种产物之一。"""

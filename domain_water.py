@@ -66,6 +66,12 @@ DEFAULT_PROFILES = {
             "七、运行维护（巡检周期、备件、应急预案）",
             "八、成效与下一步计划",
         ],
+        "metrics": {"在线率": "在线测点数/应在线测点数",
+                    "告警及时率": "按时推送告警数/总告警数",
+                    "工单闭环率": "已闭环工单/下发工单",
+                    "数据入库率": "入库记录/采集记录"},
+        "sources": ["水利部 water.gov.cn / 省级水利厅公告",
+                    "SL 系列水利行业标准", "工程竣工验收与调度运行资料"],
         "import_tpl": {
             "name": "水利工程资料卡",
             "fields": ["工程名称", "所在位置", "类型（渠道/闸/泵站/涵洞）",
@@ -100,6 +106,13 @@ DEFAULT_PROFILES = {
             "六、数字化建档（测绘、三维、影像与档案归集）",
             "七、成效与下一步",
         ],
+        "metrics": {"病害处置率": "已处置病害点数/普查病害点数",
+                    "修缮验收合格率": "一次验收合格项/验收项",
+                    "监测覆盖率": "布设监测点/重点部位总数",
+                    "档案归集率": "数字化归档件/应归档件"},
+        "sources": ["中国古迹遗址保护协会 ihchina.cn",
+                    "古建筑木结构维护与加固技术规范",
+                    "文物/世界遗产年度保护报告"],
         "import_tpl": {
             "name": "古建单体资料卡",
             "fields": ["名称", "年代", "结构类型", "规模", "保存状况", "主要病害", "修缮记录"],
@@ -133,6 +146,12 @@ DEFAULT_PROFILES = {
             "六、运维保障（在线率、标定周期、备件与巡检）",
             "七、成效与下一步",
         ],
+        "metrics": {"设备在线率": "在线设备/应在线设备",
+                    "采集完整率": "有效数据条数/应采条数",
+                    "告警准确率": "复核属实告警/总告警",
+                    "平均修复时长": "从告警到恢复的平均小时数"},
+        "sources": ["感知厂商技术文档（海康/大华/华为）",
+                    "水文/气象观测国家标准 GB/T", "本项目测点台账与运维记录"],
         "import_tpl": {
             "name": "测点资料卡",
             "fields": ["测点编号", "类型", "桩号/位置", "设备型号", "安装日期",
@@ -267,11 +286,48 @@ def kb_entry(key="water"):
     if p.get("four_platforms"):
         L.append("\n## 四平台\n")
         L += ["- %s" % x for x in p["four_platforms"]]
+    if p.get("metrics"):
+        L.append("\n## 指标口径\n")
+        for k, v in p["metrics"].items():
+            L.append("- **%s**：%s" % (k, v))
     if p.get("terms"):
         L.append("\n## 术语口径\n")
         for w, d in p["terms"]:
             L.append("- **%s**：%s" % (w, d))
+    if p.get("sources"):
+        L.append("\n## 权威来源\n")
+        L += ["- %s" % x for x in p["sources"]]
     return "\n".join(L)
+
+
+def graph_terms(key="water"):
+    """该领域的术语名词表（给 kb_graph 当图谱种子节点用）。
+
+    谱系里最要紧的那批词（清淤、节制闸、斗栱、在线率…）形态正则抽不全，
+    但恰恰是顺着概念链追问时最需要的，所以从领域包显式灌进去。"""
+    p = load_all().get(key) or {}
+    out = []
+    for w, _d in (p.get("terms") or []):
+        w = w if isinstance(w, str) else (w[0] if isinstance(w, (list, tuple)) else "")
+        if isinstance(w, str) and 2 <= len(w) <= 12:
+            out.append(w)
+    return out
+
+
+def metrics_text(key="water"):
+    """指标口径（三端四平台常态要拿它写report/PPT）。"""
+    p = load_all().get(key) or {}
+    m = p.get("metrics") or {}
+    return "\n".join("- **%s**：%s" % (k, v) for k, v in m.items())
+
+
+def qa(key="water", question="", kb="myme_kb", **kw):
+    """领域口径 + 本地知识库 + ReAct Agent 的一站式答疑。
+
+    走 kb_agent 而不是 kb_qa，是为了让复杂问题（要跨文档、要联网核最新口径）
+    能自己规划步骤；简单问题也照样能答。"""
+    import kb_agent
+    return kb_agent.run(question, kb=kb, domain=key, **kw)
 
 
 def qa_hint(key="water"):
@@ -287,6 +343,8 @@ def qa_hint(key="water"):
     if p.get("terms"):
         parts.append("术语按下述口径（释义以知识库原文为准）：" +
                      "、".join(w for w, _d in p["terms"][:12]))
+    if p.get("metrics"):
+        parts.append("指标口径：" + "、".join(p["metrics"].keys()))
     return "；".join(parts)
 
 

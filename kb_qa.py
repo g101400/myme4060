@@ -105,8 +105,16 @@ def _too_similar(a, b, thresh=0.92):
         return False
 
 
-def retrieve_multi(question, names=None, top_k=6, threshold=0.15, expand=True):
-    """多查询扩展检索 → 合并 → 指纹去重 + 向量去重 → 返回候选列表。"""
+# 上一次检索的图谱扩展追溯（哪条候选是通过哪个实体「顺藤摸瓜」带进来的），
+# 走模块级变量是为了不改动 retrieve_multi 本来的返回值形状（别处已依赖它是 list）
+LAST_GRAPH_TRACE = []
+
+
+def retrieve_multi(question, names=None, top_k=6, threshold=0.15, expand=True,
+                   graph=True, graph_extra=3):
+    """多查询扩展检索 → 合并 → 指纹去重 + 向量去重 → 可选图谱邻居扩展 → 返回候选列表。"""
+    global LAST_GRAPH_TRACE
+    LAST_GRAPH_TRACE = []
     try:
         import knowledge_base
     except Exception as e:
@@ -140,7 +148,20 @@ def retrieve_multi(question, names=None, top_k=6, threshold=0.15, expand=True):
         if not dup:
             uniq.append(c)
     uniq.sort(key=lambda x: -(x.get("score") or 0))
-    return uniq[:MAX_CANDIDATES]
+    uniq = uniq[:MAX_CANDIDATES]
+
+    # 图谱增强：把命中 chunk 的概念邻居（清淤→工期、一张图→感知终端…）也拉进来，
+    # 专治向量只命中链条一半就答偏。图谱没建/没实体时这里直接空转，不影响主链路。
+    if graph:
+        try:
+            import kb_graph
+            extra, trace = kb_graph.augment(uniq, kb=names[0], max_extra=graph_extra)
+            if extra:
+                uniq = uniq + extra
+                LAST_GRAPH_TRACE = trace
+        except Exception:
+            pass
+    return uniq
 
 
 # ============================================================
@@ -214,7 +235,7 @@ def _history_block(pairs):
 
 
 def answer(question, names=None, history=None, top_k=6, threshold=0.15,
-           expand=True, max_chars=None):
+           expand=True, max_chars=None, graph=True):
     """完整答疑：扩展检索 → 去重 → 压缩 → 生成。返回 {answer, sources, ctx_chars, secs}。
 
     history 支持上面 normalize_history 的三种写法；追问时**仍然会检索当前问题**
@@ -223,7 +244,7 @@ def answer(question, names=None, history=None, top_k=6, threshold=0.15,
     t0 = time.time()
     hist = normalize_history(history)
     cands = retrieve_multi(question, names=names, top_k=top_k,
-                           threshold=threshold, expand=expand)
+                           threshold=threshold, expand=expand, graph=graph)
     if not cands:
         import knowledge_base
         cands = knowledge_base.hybrid_query(question, name=(names or ["myme_kb"])[0],
@@ -255,9 +276,23 @@ def answer(question, names=None, history=None, top_k=6, threshold=0.15,
                         "page": c.get("page"),
                         "breadcrumb": c.get("breadcrumb") or "",
                         "score": c.get("score"),
+                        "graph": bool(c.get("graph")),
                         "text": (c.get("text") or "")[:180]})
-    return {"answer": ans, "sources": sources, "candidates": len(cands),
-            "ctx_chars": len(ctx), "secs": round(time.time() - t0, 1)}
+    out = {"answer": ans, "sources": sources, "candidates": len(cands),
+           "ctx_chars": len(ctx), "secs": round(time.time() - t0, 1),
+           "graph_expand": LAST_GRAPH_TRACE if graph else []}
+    # 链路追踪（本地版，对标 Langfuse）：检索路径 + token 估算都留痕，便于定位是检索不行还是模型不行
+    try:
+        import kb_trace
+        tid = kb_trace.start("qa", question=question, candidates=len(cands),
+                             expand=expand, graph=graph)
+        kb_trace.span(tid, "retrieve", candidates=len(cands),
+                      graph_expanded=len(LAST_GRAPH_TRACE))
+        kb_trace.span(tid, "generate", chars=len(ctx), sources=len(sources))
+        kb_trace.finish(tid, status="ok", answer=ans, t0=t0)
+    except Exception:
+        pass
+    return out
 
 
 def answer_with_history(question, history=None, **kw):

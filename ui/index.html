@@ -369,6 +369,7 @@ code{background:#f1f5f9;border:1px solid var(--line-soft);border-radius:5px;padd
     <span class="tgroup">加工</span>
     <button class="tab" data-t="11">⑨ 多源搬运 · 多项产出</button>
     <button class="tab" data-t="12">⑩ 领域包 · 水利古建与感知</button>
+    <button class="tab" data-t="13">⑪ 深度加工 · 图谱/Agent/分块</button>
     <span class="tsep"></span>
     <span class="tgroup">演示</span>
     <button class="tab" data-t="5">⑥ 正式演示</button>
@@ -906,6 +907,72 @@ D:/资料/渠道台账.xlsx #台账
         <button class="btn ghost" id="dmKb">📚 把领域口径并入知识库</button>
       </div>
       <div class="out" id="dmPptOut">骨架来自 domain_water（纯结构化，不调模型，秒出）。</div>
+    </div>
+    <div class="card"><h3><span class="dot"></span>④ 领域答疑 · 让 Agent 按本行业口径回答</h3>
+      <div class="muted" style="margin-bottom:8px">带 <b>三端四平台</b> 与领域术语的口径进提示词，Agent 先翻本地库、查不到才联网（必应/百度），
+        每一步都能看到它在调什么工具。开「人工审批」后，联网类动作会停下来等你点头。</div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <input type="text" id="dmQ" placeholder="例如：清淤工期多久、预算多少？在线率怎么算？" style="flex:1;min-width:220px"></input>
+        <select id="dmQDomain">
+          <option value="water">💧 按水利一张图口径</option>
+          <option value="heritage">🏛️ 按古建遗产口径</option>
+          <option value="sensor">📡 按感知应用口径</option>
+        </select>
+        <label style="font-size:13px"><input type="checkbox" id="dmQApprove" style="width:auto"/> 联网前让我确认</label>
+        <button class="btn" id="dmQRun">🤖 领域 Agent 作答</button>
+      </div>
+      <div class="bar" id="dmQBar" style="display:none"><i></i></div>
+      <div class="out" id="dmQOut">答案会自动标注出处；步骤（检索 / 联网 / 抓取）逐条列在下面。</div>
+    </div>
+  </div>
+
+  <!-- ======== ⑪ 深度加工 · 图谱 / Agent / 分块 / 追踪 ======== -->
+  <div class="panel" id="p13">
+    <div class="card"><h3><span class="dot"></span>① 知识图谱 · 顺着概念链把碎片串起来</h3>
+      <div class="muted" style="margin-bottom:8px">从知识库抽实体、按「同处一块内容」连边（清淤 → 工期、一张图 → 感知终端），
+        问答时顺着边往外扩几条 —— 专治向量只命中链条一半就答偏。
+        实体种子直接取自领域包术语，所以水利 / 古建 / 感知的行话都在图上。</div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <button class="btn ghost" id="ggStat">📈 图谱概况</button>
+        <button class="btn ghost" id="ggRebuild">🔄 重建图谱</button>
+        <button class="btn ghost" id="ggMermaid">🕸️ 导出 Mermaid 图</button>
+      </div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <input type="text" id="ggTerm" placeholder="查某个概念的邻居，例如：三端四平台 / 清淤 / 斗栱" style="flex:1;min-width:220px"></input>
+        <button class="btn" id="ggNeighbor">🔎 看邻居</button>
+      </div>
+      <div class="out" id="ggOut">先点「图谱概况」看节点和边数，再查邻居。</div>
+    </div>
+    <div class="card"><h3><span class="dot"></span>② 分块可编辑 · 改检索用分块，有版本有 diff 能回滚</h3>
+      <div class="muted" style="margin-bottom:8px">自动切块里常有噪声（术语被切成两半、正文混进页脚），只有人一眼看得出来。
+        改完自动重算向量，旧版本自动留快照，随时 diff、随时回滚。</div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <input type="text" id="ceSearch" placeholder="按关键词筛分块，例如：清淤" style="flex:1;min-width:200px"></input>
+        <button class="btn ghost" id="ceList">📋 列出分块</button>
+        <button class="btn ghost" id="ceReindex">♻️ 重算全部向量</button>
+      </div>
+      <div class="out" id="ceListOut" style="max-height:200px;overflow:auto">先列出，再点某一条把它取出来改。</div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
+        <input type="number" id="ceIdx" placeholder="分块序号" style="width:110px"></input>
+        <button class="btn ghost" id="ceGet">👀 取出来</button>
+        <button class="btn ghost" id="ceDiff">🪄 看 diff</button>
+      </div>
+      <textarea id="ceText" rows="5" placeholder="选中序号后取出的正文会填到这里，直接改" style="margin-top:8px"></textarea>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button class="btn" id="ceSave">💾 保存新版本（旧版自动快照）</button>
+        <input type="number" id="ceVer" placeholder="回滚到版本" style="width:120px"></input>
+        <button class="btn ghost" id="ceRollback">↩️ 回滚</button>
+      </div>
+      <div class="out" id="ceOut" style="margin-top:8px">保存后向量会重算；回滚同样是「改」，所以还能再退回来。</div>
+    </div>
+    <div class="card"><h3><span class="dot"></span>③ 链路追踪 · 每次问答花了多少 token、走了哪条路</h3>
+      <div class="muted" style="margin-bottom:8px">对标 Langfuse 的可观测性：检索路径、候选条数、图谱扩展、耗时、token 估算都记在本地
+        <span class="fk">trace/trace.jsonl</span>，出问题能分清是检索不行还是模型不行。</div>
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <button class="btn ghost" id="trStats">📊 统计汇总</button>
+        <button class="btn ghost" id="trList">🧾 最近记录</button>
+      </div>
+      <div class="out" id="trOut" style="max-height:260px;overflow:auto">点一下看聚合结果。</div>
     </div>
   </div>
 
@@ -1627,7 +1694,7 @@ function dlgDemoAvatar(){
   }).catch(()=>{const el=$('demoAvBody'); if(el) el.innerHTML='<p class="muted">加载失败：服务未就绪。</p>';});
 }
 function dlgSoftware(){openModal('软件配置清单列表',`
-  <p class="muted">当前版本 <b>v2.8.0</b>。本机运行数字分身所依赖的软件与模型清单（均为本地部署，无云端依赖）。</p>
+  <p class="muted">当前版本 <b>v2.9.0</b>。本机运行数字分身所依赖的软件与模型清单（均为本地部署，无云端依赖）。</p>
 
   <h4 style="margin:12px 0 4px">分发包怎么选（装给别人的第一步）</h4>
   <ul class="flist">
@@ -1783,6 +1850,11 @@ function dlgChangelog(){openModal('版本变更',`
         <b>② 向量重建与优化</b>（统计 / 重建去重压缩 / <b>重建向量</b> / 检索自检 / 范围管理）、
         <b>③ 多项输出</b>（.mymekb 备份 / 思维导图 / 便携播放包）。
         原先重建只藏在第三层标签里，顶栏根本点不到。</li>
+    <li><b>顶栏新增「⑪ 深度加工 · 图谱/Agent/分块」</b>：把知识库往「能运营、能复盘」再推一层——
+        <b>① 知识图谱</b>（概况 / 重建 / 查概念邻居 / 导出 Mermaid）、
+        <b>② 分块可编辑</b>（按关键词筛块 → 改 → diff → 回滚 → 重算向量）、
+        <b>③ 链路追踪</b>（token、耗时、检索路径的聚合与最近记录）。
+        检索不再是个黑盒子。</li>
     <li><b>知识库新增「🔄 重建向量」与「🔍 检索自检」</b>：换过嵌入模型后旧向量与新模型不同域，
         检索会整体失准，光去重修不好——<span class="fk">reindex_vectors()</span> 只重算
         <span class="fk">embedding</span>，原文与来源一字不动；
@@ -1820,6 +1892,29 @@ function dlgChangelog(){openModal('版本变更',`
         缺哪件就写清「怎么补、缺了会坏哪一步」，<span class="fk">--json</span> 可直接贴给运维。</li>
     <li><b>ffmpeg 改成自动探测</b>：不再写死 chocolatey 路径，登记路径 → 常见绿色版位置 → PATH 依次找，
         换台机器没先装 choco 也能直接出视频。</li>
+  </ul>
+  <h4 style="margin:14px 0 6px">v2.9.0（10-07 吸收 WeKnora：图谱增强检索 · ReAct 答疑 · 分块可运营 · 链路追踪）</h4>
+  <ul style="margin:0;padding-left:20px" class="muted">
+    <li><b>第一层继续夯实 · 知识图谱增强检索</b>：新模块 <span class="fk">kb_graph</span> 从知识库抽实体
+        （形态正则 + 领域包术语种子）、按「同处一块内容」共现连边；问答时命中一块会顺着边往外扩几条邻居，
+        专治向量只命中概念链条一半就答偏。图谱概况 / 重建 / 查邻居 / 导出 Mermaid 都在「⑪ 深度加工」。</li>
+    <li><b>第二层落地 · ReAct Agent 答疑</b>：新模块 <span class="fk">kb_agent</span> 自己规划
+        思考→行动→观察：先翻本机库（kb_search）、查不到才走国内搜索（必应 → 百度，替代原项目的
+        Google / r.jina.ai）、再直连抓网页正文，最后收尾成带出处的回答。每一步都留轨迹，
+        <b>可开「人工审批」</b>，联网类动作会停下来等你点头（允许 / 拒绝后换回本地库答）。</li>
+    <li><b>第三层 · 分块可编辑（Chunk 运营）</b>：新模块 <span class="fk">kb_editor</span>。
+        自动切块里的噪声（术语被切成两半、正文混进页脚）只有人一眼看得出来：改完自动重算向量、
+        旧版本自动进快照、随时 diff、随时回滚。改这块比换模型便宜得多。</li>
+    <li><b>可观测性（本地版 Langfuse）</b>：新模块 <span class="fk">kb_trace</span>。
+        每次问答的检索路径（候选条数 / 图谱扩展了哪几条）、耗时、token 估算都记到
+        <span class="fk">trace/trace.jsonl</span>，界面可看聚合与最近记录，出问题能分清是检索不行还是模型不行。</li>
+    <li><b>国内不可达的源：该换的换、该删的删</b>。删除 YouTube / X（含 Medium 等）并给明确替代路径；
+        抖音 / 小红书 / 快手这类必须登录才看得到全文的，统一提示「复制分享文案走粘贴导入」；
+        新增可达源：微博（走移动版详情接口）、今日头条、百家号、微信读书，以及水利部 / 生态环境部 /
+        中国古迹遗址保护协会 / 海康 · 大华 · 华为等厂商文档站。政务站自动套用 <span class="fk">#content / TRS_Editor</span> 口径。</li>
+    <li><b>「⑩ 领域包」多出一条答疑动线</b>：选好领域档（水利 / 古建 / 感知）→ 直接问「Agent 按本行业口径回答」，
+        三端四平台与术语口径自动进提示词；前面「③ 按骨架生成 PPT」产出的幻灯片，可接着走
+        「④ 生成分身语音讲解 + 制作视频」变成数字人演示片 —— <b>口径 → 演示 → 答疑 → 沉淀，闭环</b>。</li>
   </ul>
   <h4 style="margin:14px 0 6px">v2.8.0（10-07 加工车间：多源搬运工 · 七项产出 · 水利古建与感知三端四平台）</h4>
   <ul style="margin:0;padding-left:20px" class="muted">
@@ -4479,6 +4574,149 @@ $qm('dmPpt').onclick = async () => {
     ? '✅ PPT 已写出：' + esc(r.pptx || '') + (r.slides ? '　共 ' + r.slides + ' 页' : '') +
       '<br><span class="muted">接着去「④ 生成分身语音讲解」+「③ 制作视频」，就能把幻灯片变成数字人演示片。</span>'
     : '❌ ' + esc(r.error || '');
+};
+
+/* ================= v2.9 深度加工：图谱 / Agent / 分块 / 追踪 ================= */
+const _esc = esc;
+const _fmtSteps = (steps) => (steps || []).map(s =>
+  '<div style="margin:6px 0;padding:6px 8px;border-left:2px solid rgba(46,125,255,.35)">' +
+  '<div class="muted" style="font-size:12px">第' + s.i + '步' +
+  (s.thought ? ' · ' + _esc(String(s.thought).slice(0, 80)) : '') + '</div>' +
+  (s.action ? '<div>🔧 <b>' + _esc(s.action) + '</b>' +
+    (s.input ? '(' + _esc(String(s.input).slice(0, 60)) + ')' : '') +
+    (s.pending ? ' <span style="color:#c62828">⏸ 待人工确认</span>' : '') + '</div>' : '') +
+  (s.output ? '<div style="font-size:12px;color:#555">' + _esc(String(s.output).slice(0, 220)) + '</div>' : '')
+  + '</div>').join('');
+
+// —— 领域 Agent 答疑（进真正跑 Agent 的面板）
+// 通用轮询（页面里自带的 pollJob 是给 PPT 语音用的，这里单独一个，逐条回显 Agent 步骤）
+const pollAgent = (jobId, outId, onDone) => {
+  const out = document.getElementById(outId);
+  const t = setInterval(async () => {
+    try {
+      const s = await postJSON('/api/qm/status', { job: jobId });
+      if (!s.ok) { clearInterval(t); if (out) out.textContent = '❌ ' + (s.error || ''); return; }
+      if (s.stage) { const bar = document.getElementById('dmQBar'); if (bar && s.stage.indexOf('规划') >= 0) bar.style.display = ''; }
+      if (s.done) {
+        clearInterval(t);
+        const bar = document.getElementById('dmQBar'); if (bar) bar.style.display = 'none';
+        if (!onDone) return;
+        if (s.error) { out.innerHTML = '❌ ' + _esc(s.error); return; }
+        onDone(s.result || {});
+      }
+    } catch (e) { /* 轮询被打断就等下一拍 */ }
+  }, 2000);
+};
+
+$qm('dmQRun').onclick = async () => {
+  const q = ($qm('dmQ').value || '').trim();
+  if (!q) { $qm('dmQOut').textContent = '先问点什么'; return; }
+  $qm('dmQOut').textContent = 'Agent 正在规划步骤…';
+  const r = await postJSON('/api/agent/run', {
+    q: q, domain: $qm('dmQDomain').value, approve: $qm('dmQApprove').checked,
+  });
+  if (!r.ok) { $qm('dmQOut').textContent = '❌ ' + (r.error || ''); return; }
+  pollAgent(r.job, 'dmQOut', (res) => {
+    $qm('dmQOut').innerHTML = '<b>' + _esc(res.status || '') + '</b>　' + (res.tool_calls || 0) +
+      ' 次工具调用 · ' + (res.secs || 0) + 's' +
+      _fmtSteps(res.steps) +
+      '<div style="white-space:pre-wrap">' + _esc(res.answer || '') + '</div>';
+  });
+};
+
+// —— 图谱
+$qm('ggStat').onclick = async () => {
+  const r = await postJSON('/api/graph/stats', {});
+  const n = await postJSON('/api/graph/nodes', { n: 15 });
+  $qm('ggOut').innerHTML = r.ok
+    ? '<b>' + esc(r.nodes || 0) + '</b> 个实体 · <b>' + esc(r.edges || 0) + '</b> 条关系 · 覆盖 ' +
+      esc(r.chunks || 0) + ' 块（建于 ' + esc(r.built || '') + '）' +
+      '<br>高频：' + (n.items || []).map(x => esc(x.term) + '(' + x.weight + ')').join('、')
+    : '❌ ' + esc(r.error || '');
+};
+$qm('ggRebuild').onclick = async () => {
+  $qm('ggOut').textContent = '重建中（扫知识库 + 灌领域术语种子）…';
+  const r = await postJSON('/api/graph/rebuild', {});
+  $qm('ggOut').innerHTML = r.ok ? '✅ 已重建：' + esc(r.nodes) + ' 实体 / ' + esc(r.edges) + ' 关系 / ' +
+    esc(r.secs) + 's' : '❌ ' + esc(r.error || '');
+};
+$qm('ggMermaid').onclick = async () => {
+  const r = await postJSON('/api/graph/mermaid', { n: 16 });
+  $qm('ggOut').textContent = r.ok ? (r.mermaid || '（图是空的，先重建图谱）') : '❌ ' + (r.error || '');
+};
+$qm('ggNeighbor').onclick = async () => {
+  const t = ($qm('ggTerm').value || '').trim();
+  if (!t) { $qm('ggOut').textContent = '填个概念'; return; }
+  const r = await postJSON('/api/graph/neighbors', { term: t });
+  $qm('ggOut').innerHTML = r.ok
+    ? '<b>' + esc(t) + '</b> 的邻居：' + (r.items || []).map(x => esc(x.term) + '(×' + x.weight + ')').join('、') ||
+      '（没有邻居，先重建图谱）'
+    : '❌ ' + esc(r.error || '');
+};
+
+// —— 分块编辑
+$qm('ceList').onclick = async () => {
+  const r = await postJSON('/api/kb/chunks', { query: ($qm('ceSearch').value || '').trim(), limit: 60 });
+  if (!r.ok) { $qm('ceListOut').textContent = '❌ ' + (r.error || ''); return; }
+  $qm('ceListOut').innerHTML = (r.items || []).map(x =>
+    '<div style="cursor:pointer;padding:3px 0" onclick="$qm(\'ceIdx\').value=' + x.idx + ';$qm(\'ceGet\').click()">' +
+    '<span class="muted">#' + x.idx + '</span> ' + _esc(x.label) +
+    (x.breadcrumb ? ' · ' + _esc(x.breadcrumb) : '') +
+    ' · ' + x.chars + '字' + (x.revs ? ' · 已改' + x.revs + '版' : '') +
+    '<br><span style="font-size:12px;color:#666">' + _esc(x.preview) + '</span></div>').join('') ||
+    '（没匹配到）';
+};
+$qm('ceGet').onclick = async () => {
+  const idx = parseInt($qm('ceIdx').value);
+  if (isNaN(idx)) { $qm('ceOut').textContent = '先填分块序号'; return; }
+  const r = await postJSON('/api/kb/chunk', { act: 'get', idx: idx });
+  if (!r.ok) { $qm('ceOut').textContent = '❌ ' + (r.error || ''); return; }
+  $qm('ceText').value = r.text || '';
+  $qm('ceOut').innerHTML = '<b>' + _esc(r.label || '') + '</b>　' + r.chars + ' 字　版本 ' +
+    (r.revs || []).length + ' 个' +
+    (r.revs && r.revs.length ? '<br>版本列表：' + r.revs.map(v => 'v' + v.v).join('、') : '');
+};
+$qm('ceSave').onclick = async () => {
+  const idx = parseInt($qm('ceIdx').value);
+  const txt = $qm('ceText').value;
+  if (isNaN(idx) || !txt.trim()) { $qm('ceOut').textContent = '先取一条再改'; return; }
+  const r = await postJSON('/api/kb/chunk', { act: 'update', idx: idx, text: txt, note: '界面编辑' });
+  $qm('ceOut').innerHTML = r.ok
+    ? '✅ 已保存（旧版自动进快照，现在共 ' + r.revs + ' 个版本；向量已重算：' + esc(r.reindex || '') + '）'
+    : '❌ ' + esc(r.error || '');
+};
+$qm('ceDiff').onclick = async () => {
+  const idx = parseInt($qm('ceIdx').value);
+  if (isNaN(idx)) { $qm('ceOut').textContent = '先填序号'; return; }
+  const r = await postJSON('/api/kb/chunk', { act: 'diff', idx: idx, v: 1 });
+  $qm('ceOut').textContent = r.ok ? (r.diff || '（无差异）') : '❌ ' + (r.error || '');
+};
+$qm('ceRollback').onclick = async () => {
+  const idx = parseInt($qm('ceIdx').value), v = parseInt($qm('ceVer').value);
+  if (isNaN(idx) || isNaN(v)) { $qm('ceOut').textContent = '序号和版本号都要填'; return; }
+  const r = await postJSON('/api/kb/chunk', { act: 'rollback', idx: idx, v: v });
+  $qm('ceOut').innerHTML = r.ok ? '✅ 已回滚到版本 ' + r.rolled_back_to + '（向量已重算）' : '❌ ' + esc(r.error || '');
+};
+$qm('ceReindex').onclick = async () => {
+  $qm('ceOut').textContent = '重算中（几十块的话要一两分钟）…';
+  const r = await postJSON('/api/kb/chunk', { act: 'reindex' });
+  $qm('ceOut').innerHTML = r.ok ? '✅ 已重算 ' + r.reindexed + ' 块' : '❌ ' + esc(r.error || '');
+};
+
+// —— 链路追踪
+$qm('trStats').onclick = async () => {
+  const r = await postJSON('/api/trace/stats', {});
+  $qm('trOut').textContent = r.ok
+    ? JSON.stringify(r.groups || {}, null, 1) + '\n文件：' + (r.trace_file || '')
+    : '❌ ' + (r.error || '');
+};
+$qm('trList').onclick = async () => {
+  const r = await postJSON('/api/trace/list', { limit: 15 });
+  $qm('trOut').innerHTML = (r.items || []).map(x =>
+    '<div style="padding:2px 0"><span class="muted">' + _esc(x.ts) + '</span> ' + _esc(x.kind) +
+    ' · ' + _esc(String(x.question || x.action || '').slice(0, 40)) + ' · ' +
+    (x.secs || 0) + 's · ' + (x.tokens || 0) + ' tok · ' + _esc(x.status || '')
+    + '</div>').join('') || '（还没有记录）';
 };
 
 </script></body></html>

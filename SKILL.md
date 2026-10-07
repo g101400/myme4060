@@ -1,6 +1,6 @@
 ---
 name: qiaomu-local
-description: 多源内容搬运工（国内离线版）——把微信公众号、任意网页、B站、播客、PDF/Word/Excel/PPT/EPUB/图片/音频/压缩包/整个目录/关键词，自动识别来源、按来源挑提取策略、清洗后存进本地向量知识库，再据知识库产出报告、PPT、播客音频、思维导图、测验题、闪卡、数据表。深度分析走三轮递进提问。全程本机直连，不依赖 NotebookLM、不翻墙、不出网。
+description: 多源内容搬运工（国内离线版）——把微信公众号、微博、今日头条、百家号、微信读书、任意网页、B站、播客、水利/古建/感知类政务与厂商站点、PDF/Word/Excel/PPT/EPUB/图片/音频/压缩包/整个目录/关键词，自动识别来源、按来源挑提取策略、清洗后存进本地向量知识库；检索侧再叠知识图谱增强与 ReAct Agent 答疑、分块可编辑与版本回滚、全链路追踪（本地版 Langfuse），并据知识库产出报告、PPT、播客音频、思维导图、测验题、闪卡、数据表。全程本机直连，不依赖 NotebookLM、不翻墙、不出网。
 user-invocable: true
 homepage: https://github.com/joeseesun/qiaomu-anything-to-notebooklm
 ---
@@ -25,13 +25,36 @@ NotebookLM CLI、微信 read MCP、Get 笔记 API、r.jina.ai 代理全不通，
 | 任意 `http(s)://` 网页 | 网页 | 先直连；抓不到自动升级「Googlebot UA → Bingbot UA → AMP 副本」 |
 | `bilibili.com/video/...` | B站视频 | 先取官方字幕接口，取不到才下音频走本地 ASR |
 | `xiaoyuzhoufm.com` / `ximalaya.com` | 播客 | 挖音频直链 + 本地 ASR 转写 |
-| `youtube.com` / `x.com` | 不可达 | 直接提示改用本地文件/粘贴正文，不假装成功 |
+| `weibo.com` | 微博 | 走 `m.weibo.cn/statuses/show` 详情接口（整页是登录墙） |
+| `toutiao.com` / `baijiahao.baidu.com` | 资讯 | 直连 + 正文选择器，去侧栏推荐 |
+| `weread.qq.com` | 微信读书 | 直连 + 章节正文选择器 |
+| `*.gov.cn`（水利部 / 生态环境部 / 各级水利厅） | 政务站 | 自动套用 `#content / .view / TRS_Editor` 口径 |
+| `ihchina.cn` / `hikvision.com` / `dahuatech.com` / `huaweicloud.com` | 古建与感知源 | 直连，取文档正文 |
+| ~~`youtube.com` / `x.com`~~ | **已删除** | 国内不可达：提示改投 B站（视频）/ 微博（短内容）/ 复制粘贴（客户端内内容） |
 | `.pdf/.doc/.docx/.xls/.xlsx/.csv/.ppt/.pptx/.md/.txt/.json/.html/.epub` | 文档 | 复用既有 18 种格式抽取器 |
 | `.jpg/.png/.webp` | 图片 | OCR（装了 tesseract 才跑） |
 | `.mp3/.wav/.m4a/.mp4` | 音频 | 本地 ASR 转写 |
 | `.zip` | 压缩包 | 解压后批量抽取 |
 | 目录 | 目录 | 递归扫描全部可解析文件 |
 | 中文短词 | 关键词 | 不联网，直接查本机知识库 |
+
+## v2.9 补上的三件事（都是知识库侧的，搬运工本身没变）
+
+参考 Tencent/WeKnora 的三层能力做本地化落地：
+
+1. **知识图谱增强检索**（`kb_graph`）
+   从知识库抽实体（形态正则 + 领域包术语种子），按「同处一块内容」共现连边；
+   问答命中一块时顺着边外扩几条邻居，解决向量只命中概念链条一半就答偏的问题。
+   `kb_graph.rebuild()` 秒级重建，`neighbors(term)` 查某个概念的邻居，可导出 Mermaid。
+2. **ReAct Agent 答疑**（`kb_agent`）
+   思考 → 行动 → 观察循环：先 `kb_search` 本机库，查不到才 `web_search`（必应 → 百度）、
+   `fetch` 直连抓页，最后 `finish` 收尾。每步留轨迹；开 `approve=True` 时联网类动作会
+   **停下来等人确认**（`confirm(aid)` 放行 / 拒绝后改回本地库答）。
+   领域问答走 `domain_water.qa("water", "清淤工期多久")` —— 三端四平台口径自动进提示词。
+3. **分块可运营 + 链路追踪**（`kb_editor` / `kb_trace`）
+   自动切块的噪声（术语被切成两半、正文混进页脚）人一眼能看出来：改完自动重算向量、
+   旧版本自动进快照、随时 `diff` / `rollback`；每次问答的检索路径、耗时、token 估算记在
+   `trace/trace.jsonl`，出问题能分清是检索不行还是模型不行。
 
 ## 触发方式
 

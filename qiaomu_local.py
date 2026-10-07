@@ -6,12 +6,23 @@
   2) 不同来源走不同的提取策略（微信文章、播客转写、推文、网页付费墙绕过…）
   3) 产出意图映射表（播客 / PPT / 思维导图 / Quiz / 报告 …）
 
-全部砍掉国内不可达的依赖，换成本机自己的链路：
-  notebooklm CLI      → 本地 Ollama 向量知识库 knowledge_base
-  微信 read MCP       → 直连 mp.weixin.qq.com + Referer 防盗链处理
-  Get 笔记 API        → 本地 ASR（asr_listen）+ 平台字幕接口兜底
-  r.jina.ai 代理级联   → 国内直连 + UA/Referer 伪装 + AMP 页面
-  飞书 lark-cli       → 本地 Markdown / PPTX 落盘
+全部砍掉国内不可达的依赖，换成本机自己的链路（v2.9 又做了一次「该换的换、该删的删」）：
+
+  删除（原项目依赖、国内不可达，给明确替代路径而不是静默失败）
+    YouTube / X(Twitter) / Medium   → 删源；视频改投 B站，短内容改投微博/公众号，
+                                      客户端内的内容改「复制分享文案 → 粘贴导入」
+                                      （抖音 / 小红书 / 快手同属登录墙，统一归 paste 类）
+  替换成国内可达平台
+    NotebookLM CLI     → 本地 Ollama 向量知识库 knowledge_base
+    微信 read MCP      → 直连 mp.weixin.qq.com（正文 #js_content + Referer 防盗链）
+    Get 笔记 API       → 本地 ASR（asr_listen）+ 平台字幕接口兜底
+    Google / r.jina.ai → 必应 → 百度（_web_search），国内直连 + UA/Referer 伪装
+    r.jina.ai 代理级联 → 国内直连；AMP 兜底保留但降级为最后手段
+    飞书 lark-cli      → 本地 Markdown / PPTX 落盘
+  新增国内源
+    微博（m.weibo.cn 详情接口）、今日头条、百家号、微信读书，
+    以及水利部 / 生态环境部 / 中国古迹遗址保护协会 / 海康 · 大华 · 华为等厂商文档站；
+    政务站（*.gov.cn）自动套用 #content / TRS_Editor 口径。
 
 用法：
     import qiaomu_local
@@ -54,10 +65,17 @@ TIMEOUT = 30
 # 这是 qiaomu「针对大量网站做内容提取适配」在国内站点的落地版
 # ==================================================================
 SITE_RULES = {
+    # —— 内容社区（国内可达）
     "mp.weixin.qq.com":  ("微信公众号", None, None),          # 走专项解析
     "xiaoyuzhoufm.com":  ("小宇宙播客", None, None),          # 走音频转写
     "ximalaya.com":      ("喜马拉雅", None, None),            # 走音频转写
     "bilibili.com":      ("B站视频", None, None),             # 走字幕/ASR
+    "weibo.com":         ("微博", [".WB_cardwrap", ".WB_app_cards"], [".wb-text", ".txt", ".woo-box-flex"]),
+    "toutiao.com":       ("今日头条", ["aside", "footer", ".document-side"],
+                          ["article", ".article-content", ".tt-article"]),
+    "baijiahao.baidu.com": ("百家号", [".doc-footer", ".recommend-list"],
+                            ["#article_content", ".article-content"]),
+    "weread.qq.com":     ("微信读书", None, [".chapter-content", "#chapterContent"]),
     "zhihu.com":         ("知乎", [".QuestionHeader", ".AnswerItem", ".TopstoryItem", ".RichText"],
                           [".RichText", ".Highlight", ".AnswerBody"]),
     "juejin.cn":         ("掘金", ["#js_profile_card", ".article-pretty", ".journal-entry"],
@@ -66,19 +84,22 @@ SITE_RULES = {
                           [".blog-content", ".article-content", ".markdown-body"]),
     "jianshu.com":       ("简书", [".open-app", "#app"], [".article", ".content"]),
     "sspai.com":         ("少数派", [".app-content"], [".markdown-body"]),
-    "section.io":        ("少数派", [".app-content"], [".markdown-body"]),
     "36kr.com":          ("36氪", [".common-width", ".article"], [".article-content"]),
     "infoq.cn":          ("InfoQ", [".post-body"], [".post-body"]),
-    "youtube.com":       ("YouTube", None, None),             # 国内不可达，明确提示
-    "youtu.be":          ("YouTube", None, None),
-    "x.com":             ("X/Twitter", None, None),           # 国内不可达，走本地粘贴
-    "twitter.com":       ("X/Twitter", None, None),
-    "douyin.com":        ("抖音", None, None),
-    "xiaohongshu.com":   ("小红书", None, None),
-    "gov.cn":            ("政务网站", None, None),
+    # —— 水利 / 古建 / 感知（主战场：能定位到的官方与厂商源）
     "water.gov.cn":      ("水利部", None, None),
     "mwr.gov.cn":        ("水利部", None, None),
+    "mee.gov.cn":        ("生态环境部", None, None),
+    "ihchina.cn":        ("中国古迹遗址保护协会", None, None),
+    "hikvision.com":     ("海康威视", None, None),
+    "dahuatech.com":     ("大华技术", None, None),
+    "huaweicloud.com":   ("华为云", None, None),
+    ".gov.cn":           ("政务网站", [".nav", ".footer", ".sidebar"], ["#content", ".view", "TRS_Editor"]),
 }
+# 这些站点国内可达但必须登录/App 内打开，抓不到正文 —— 统一引导「复制分享文案再粘贴」
+PASTE_ONLY_HOSTS = {"douyin.com", "xiaohongshu.com", "kuaishou.com", "instagram.com"}
+# 已经从本版移除的源（原 qiaomu 依赖的 Google / YouTube / X / r.jina.ai 等，国内不可达）
+REMOVED_HOSTS = {"youtube.com", "youtu.be", "x.com", "twitter.com", "medium.com"}
 DEFAULT_RULE = ("网页", [".site-header", ".header", ".nav", ".footer", ".sidebar",
                      "#js_top_ad", ".ad-wrap", ".recommend", ".comment"],
                 ["#content", ".content", ".article", ".post", "main", ".main"])
@@ -99,11 +120,17 @@ def detect_input(arg):
         return "unknown", None
     if s.startswith("http://") or s.startswith("https://"):
         host = urllib.parse.urlparse(s).netloc.lower()
+        # 必须先判「粘贴类」和「已移除类」：这两个集合里的域名同样出现在 SITE_RULES 的
+        # 前缀匹配逻辑里（如 douyin.com 命中 .gov.cn 之外的默认分支），先判才不会误判成 url
+        if any(h in host for h in PASTE_ONLY_HOSTS):
+            return "paste", next((h for h in PASTE_ONLY_HOSTS if h in host), None)
+        if any(h in host for h in REMOVED_HOSTS):
+            return "removed", next((h for h in REMOVED_HOSTS if h in host), None)
         for k in SITE_RULES:
             if k in host:
                 return {"weixin": "weixin", "podcast": "podcast", "video": "video",
-                        "youtube": "youtube", "x_twitter": "x_twitter",
-                        "search": "search"}.get(_type_of_host(k), "url"), k
+                        "weibo": "weibo", "news": "news",
+                        "paste": "paste"}.get(_type_of_host(k), "url"), k
         return "url", None
     if os.path.isdir(s):
         return "dir", None
@@ -137,18 +164,19 @@ def _type_of_host(host):
         return "podcast"
     if host == "bilibili.com":
         return "video"
-    if host in ("youtube.com", "youtu.be"):
-        return "youtube"
-    if host in ("x.com", "twitter.com"):
-        return "x_twitter"
-    if host in ("douyin.com", "xiaohongshu.com"):
-        return "search"
+    if host == "weibo.com":
+        return "weibo"
+    if host in ("toutiao.com", "baijiahao.baidu.com"):
+        return "news"
+    if host in PASTE_ONLY_HOSTS:
+        return "paste"
     return "url"
 
 
 TYPE_LABEL = {
     "weixin": "这篇微信文章", "url": "这篇文章", "video": "这个视频",
-    "podcast": "这期播客", "youtube": "这个视频", "x_twitter": "这条推文",
+    "podcast": "这期播客", "weibo": "这条微博", "news": "这篇资讯",
+    "paste": "这条分享（需粘贴）",
     "document": "这份文档", "epub": "这本书", "audio": "这段音频",
     "zip": "这个压缩包", "dir": "这个目录", "search": "这个主题",
 }
@@ -425,6 +453,25 @@ def fetch_bilibili(url):
     return _fetch_by_local_asr(url, title, hint="B站")
 
 
+def fetch_weibo(url):
+    """微博：整页是登录墙，改用移动版详情接口 m.weibo.cn/statuses/show 拿正文。"""
+    m = re.search(r"(?:/statuses/|statuses/show\?id=|id=)(\d{8,20})", url)
+    if not m:
+        raise RuntimeError("识别不出微博 ID；把微博链接整条贴进来（m.weibo.cn 或 www.weibo.com/.../status/...）")
+    raw = _http_get_optional("https://m.weibo.cn/statuses/show?id=%s" % m.group(1), timeout=20)
+    if not raw:
+        raise RuntimeError("微博详情接口不可达（可能需要登录态）")
+    try:
+        d = json.loads(raw).get("data") or {}
+        body = _html.unescape(re.sub(r"<br\s*/?>", "\n", d.get("text") or ""))
+        title = d.get("user", {}).get("name") or ""
+        if body:
+            return _tighten(re.sub(r"<[^>]+>", "", body)), {"title": title or _guess_title(url)}
+    except Exception:
+        pass
+    return fetch_url(url)
+
+
 def fetch_podcast(url):
     """小宇宙 / 喜马拉雅：优先平台字幕，否则下音频走本地 ASR。"""
     info = _http_get_optional(url + "?from=sp", timeout=20) or _http_get_optional(url, timeout=20)
@@ -534,13 +581,49 @@ def fetch_zip(path):
                        for f in files), {"title": os.path.basename(path), "files": len(files)}
 
 
+def _web_search(keyword, limit=5):
+    """国内搜索兜底：必应 → 百度。原项目的 Google / r.jina.ai 在国内都不可达，
+    这里换成国内搜索引擎，只取标题+摘要作为「检索线索」，正文仍由本地库与直连抓取负责。"""
+    out = []
+    for base in ("https://cn.bing.com/search?q=", "https://www.baidu.com/s?wd="):
+        raw = _http_get_optional(base + urllib.parse.quote(keyword), timeout=20)
+        if not raw:
+            continue
+        s = _soup(raw)
+        for node in s.find_all("li") if hasattr(s, "find_all") else []:
+            t = node.get_text(" ", strip=True) if hasattr(node, "get_text") else ""
+            if not t or len(t) < 12:
+                continue
+            link = ""
+            try:
+                a = node.find("a", href=True) if hasattr(node, "find") else None
+                link = a.get("href") if a else ""
+            except Exception:
+                link = ""
+            if "bing.com" in link or "baidu.com" in link or not link:
+                link = ""
+            out.append({"title": t[:120], "url": link})
+            if len(out) >= limit:
+                return out
+    return out
+
+
 def fetch_search(keyword):
-    """关键词 → 本地知识库检索（国内无 Google，不去外网翻，直接查本机库）。"""
+    """关键词 → 本地知识库优先；本地没命中再走国内搜索引擎（必应/百度）。"""
     try:
         import knowledge_base
         res = knowledge_base.hybrid_query(keyword, name="myme_kb", top_k=8)
     except Exception as e:
-        return "", {"error": "本地知识库检索失败：%s" % e}
+        res = []
+        parts = ["【本地知识库检索失败】%s" % e]
+    if not res:
+        hits = _web_search(keyword)
+        if hits:
+            parts = ["【本机知识库没命中，以下为国内搜索线索（可直接按链接回填导入）】"]
+            for i, h in enumerate(hits, 1):
+                parts.append("%d. %s\n%s" % (i, h["title"], h["url"] or "（无直达链接）"))
+            return _tighten("\n\n".join(parts)), {"title": keyword, "hits": len(hits),
+                                                  "mode": "国内搜索"}
     parts = []
     for i, r in enumerate(res, 1):
         label = r.get("label") or r.get("source") or "来源%d" % i
@@ -548,7 +631,8 @@ def fetch_search(keyword):
         parts.append("【片段%d · %s%s】\n%s" % (
             i, (bc + " · " if bc else "") + label, "",
             (r.get("text") or "")[:1800]))
-    return _tighten("\n\n".join(parts)), {"title": keyword, "hits": len(res)}
+    return _tighten("\n\n".join(parts)), {"title": keyword, "hits": len(res),
+                                          "mode": "本地知识库" if res else "国内搜索未命中"}
 
 
 # ==================================================================
@@ -617,11 +701,16 @@ def run(arg, kb="myme_kb", category="", asr=False, deep=False):
             text, meta = fetch_bilibili(arg)
         elif typ == "podcast":
             text, meta = fetch_podcast(arg)
-        elif typ == "youtube":
-            raise RuntimeError("YouTube 在国内网络不可达；可先用本地录制，再把视频放进来走「待转写」导入")
-        elif typ == "x_twitter":
-            raise RuntimeError("X/Twitter 国内不可达；可把正文粘贴到「待转写/粘贴」再导入")
-        elif typ == "url":
+        elif typ == "weibo":
+            text, meta = fetch_weibo(arg)
+        elif typ == "removed":
+            raise RuntimeError("该源已移除：原项目依赖的境外平台在国内网络不可达。"
+                               "请改投国内同源（视频走 B站、短内容走微博/公众号，"
+                               "或把本地已下载的文件放进目录批量导入）")
+        elif typ == "paste":
+            raise RuntimeError("该内容必须登录后才能在客户端里看全文，抓不到。"
+                               "复制分享文案/正文后，用「粘贴正文」入口粘贴导入")
+        elif typ in ("url", "news"):
             text, meta = fetch_url(arg, paywall=True)
         elif typ == "epub":
             text, meta = fetch_epub(arg)

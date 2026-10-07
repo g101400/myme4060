@@ -20,7 +20,9 @@ a = Analysis(
     datas=[('ui/index.html', 'ui'), ('ui/player.html', 'ui'),
            ('icon-192.png', '.'), ('icon-512.png', '.'),
            ('playback.mode', '.')] + _aug_files + _voice_files,
-    hiddenimports=['pypdf', 'doc_ingest', 'prompts.system_prompt', 'kb_chunking', 'kb_qa', 'kb_wiki', 'qiaomu_local', 'kb_export', 'domain_water'],
+    hiddenimports=['pypdf', 'doc_ingest', 'prompts.system_prompt', 'kb_chunking', 'kb_qa', 'kb_wiki', 'qiaomu_local', 'kb_export', 'domain_water',
+        # v2.9 新增（全部是延迟导入，PyInstaller 静态分析扫不到，不列就根本不会进 exe）
+        'kb_graph', 'kb_agent', 'kb_editor', 'kb_trace'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
