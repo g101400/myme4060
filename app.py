@@ -17,6 +17,7 @@ PWA：manifest.json(display=standalone) + service worker 离线壳 + 图标，�
 import os
 import sys
 import json
+import difflib
 import time
 import re
 import base64
@@ -2710,8 +2711,49 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 if not (s.get("bullets") or []) and fill:
                     s["bullets"] = fill[:4]
                     filled += 1
+            # 模型漏页（填 N 页只出 N-1）时用领域骨架补到目标页数，避免用户点 6 页拿到 5 页
+            skeleton = domain_water.outline(key, topic, pages)
+            used, ordered = set(), []
+            for t in skeleton:
+                if len(ordered) >= pages:
+                    break
+                title = (t.get("title") or "").strip()
+                pick = None
+                for k, s in enumerate(slides):
+                    if k not in used and (s.get("title") or "").strip() == title:
+                        pick = k
+                        break
+                if pick is None:
+                    # 标题不完全一致（模型自己起了名字）也认：同骨架位就近复用，保证顺序不乱
+                    best, bi = 0.0, None
+                    for k, s in enumerate(slides):
+                        if k in used:
+                            continue
+                        r = difflib.SequenceMatcher(
+                            None, (s.get("title") or ""), title).ratio()
+                        if r > best:
+                            best, bi = r, k
+                    if bi is not None and best >= 0.45:
+                        pick = bi
+                if pick is not None:
+                    used.add(pick)
+                    item = slides.pop(pick)
+                else:
+                    item = {"title": title, "bullets": t.get("bullets") or fill[:4],
+                            "layout": t.get("layout") or "bullets", "icons": [], "chart":
+                            {"type": "none", "labels": [], "values": []}, "source": "domain"}
+                if item.get("title") != title:
+                    item["title"] = title
+                ordered.append(item)
+            for k, s in enumerate(slides):          # 骨架里没有的页（模型加戏的）收在最后
+                if k not in used:
+                    ordered.append(s)
+            slides = ordered[:pages]
             if len(slides) < 3:
                 for t in domain_water.outline(key, "", pages)[:max(0, 3 - len(slides))]:
+                    if (t.get("title") or "").strip() in have:
+                        continue
+                    have.add((t.get("title") or "").strip())
                     slides.append({"title": t["title"], "bullets": t.get("bullets") or fill[:3],
                                    "layout": "bullets", "icons": [], "chart":
                                    {"type": "none", "labels": [], "values": []}, "source": "domain"})

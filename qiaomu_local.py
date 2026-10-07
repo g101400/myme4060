@@ -763,6 +763,21 @@ def run(arg, kb="myme_kb", category="", asr=False, deep=False):
         out["title"], arg, time.strftime("%Y-%m-%d %H:%M"), text)
     if (meta or {}).get("mode"):
         out["warn"] = "提取方式：%s" % meta["mode"]
+    # ⚠ 关键词检索是「只读查库」：内容是库里已有的，再回灌一遍等于每问一次就给库
+    # 塞几段重复块，问多了库会无声膨胀、检索还会互相污染。所以这一类只回显不入库。
+    if typ == "search" and not deep:
+        try:
+            import knowledge_base
+            st = knowledge_base.load_kb(kb) or {}
+            out["ingest"] = {"added": 0, "removed": 0,
+                             "total": len(st.get("chunks") or []), "name": kb,
+                             "skip": "检索只读，结果不回灌"}
+        except Exception as e:
+            out["ingest"] = {"added": 0, "removed": 0, "total": 0, "name": kb,
+                             "skip": "只读模式（%s）" % e}
+        out["ok"] = True
+        out["secs"] = round(time.time() - t0, 1)
+        return out
     try:
         out["ingest"] = ingest_text(out["title"], doc, kb=kb, category=category)
     except Exception as e:

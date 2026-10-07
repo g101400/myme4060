@@ -116,15 +116,16 @@ def update(kb="myme_kb", idx=0, text=None, note="", reindex=True):
     new = text.rstrip()
     if (c.get("text") or "") == new:
         return {"kb": kb, "idx": idx, "changed": 0, "revs": len(c.get("revs") or [])}
+    old = c.get("text") or ""
     revs = c.get("revs") or []
-    revs.append({"v": len(revs) + 1, "text": c.get("text") or "", "at": time.strftime("%Y-%m-%d %H:%M:%S"),
+    revs.append({"v": len(revs) + 1, "text": old, "at": time.strftime("%Y-%m-%d %H:%M:%S"),
                  "note": note or "人工编辑"})
     c["revs"] = revs
     c["edited_at"] = revs[-1]["at"]
     c["text"] = new
     msg = _reembed(c, store)
     _save(store, kb)
-    return {"kb": kb, "idx": idx, "changed": len(new) - len(c.get("text") or ""),
+    return {"kb": kb, "idx": idx, "changed": len(new) - len(old),
             "revs": len(revs), "latest": revs[-1], "reindex": msg if isinstance(msg, str) else "ok"}
 
 
