@@ -132,7 +132,10 @@ def main():
 
     assets = []
     dl = os.path.join(HERE, "dist")
-    pats = ["myme.exe", "myme-%s-win-x64-full.msi" % version,
+    # ⚠ myme-setup.exe（自解压精简包）必须在内：手册第 0 节把它列为"已有运行时"用户的首选，
+    #   2026-10-16 发 v2.9.2 时发现清单漏了它（v2.9.1 同漏），用户按手册找包会找不到。
+    pats = ["myme.exe", "myme-setup.exe",
+            "myme-%s-win-x64-full.msi" % version,
             "myme-%s-runtime.7z" % version,
             "myme-%s-win-x64-play.zip" % version,
             "myme-%s-android-play.apk" % version,
