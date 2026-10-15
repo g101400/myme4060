@@ -89,6 +89,28 @@ def rmtree(path):
         pass
 
 
+def write_text(path, text, mode=None):
+    """按 **LF** 写文本文件。
+
+    ⚠ 铁律（统信 UOS「装上了但没有反应」的历代根因之一）：
+      Windows 上 `open(p, "w")` 会把 `\n` 翻译成 `\r\n`。shell 脚本一旦带 CRLF，
+      首行 `#!/bin/sh\r` 会被内核当成解释器 "/bin/sh\r" → execve 直接 ENOENT，
+      桌面点图标**毫无提示地什么都不发生**。必须显式 newline="\n"。
+    另外 POSIX 侧还要可执行位：Windows 的 os.chmod 只切只读位，真正的 mode
+    由 _tar_xz() 按文件名强制写进 tar（见 _is_exec_member）。
+    """
+    d = os.path.dirname(path)
+    if d:
+        os.makedirs(d, exist_ok=True)
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write(text)
+    if mode is not None:
+        try:
+            os.chmod(path, mode)
+        except OSError:
+            pass
+
+
 # ==================== 0. 准备便携播放包（数据） ====================
 def build_bundle(ver_id=None):
     """从当前项目导出一份示例便携播放包并解到 BUNDLE 目录。"""
@@ -455,28 +477,73 @@ Version: %s
 Section: utils
 Priority: optional
 Architecture: all
-Depends: python3, xdg-utils
+Depends: python3
+Recommends: xdg-utils
 Maintainer: myme <myme@local>
 Description: myme 数字分身便携播放版（统信 UOS）
  离线播放 myme 完整版导出的便携播放包（讲解音频 + 数字分身视频 + 页图）。
- 安装后在开始菜单点「myme 播放版」，或执行 /opt/%s/myme-player。
- 纯数据与脚本，不含任何二进制依赖；卸载会带走 /opt/%s 全部内容。
+ 安装后在开始菜单点「myme 播放版」，或执行 /usr/bin/%s。
+ 纯脚本与数据（Architecture: all：龙芯 / 兆芯 / 飞腾 / 鲲鹏 / AMD64 通用），
+ 不含任何二进制依赖；卸载会带走 /opt/%s 全部内容。
 """ % (PKG, VER, PKG, PKG)
 
+# /usr/bin 命令行入口（.desktop 的 Exec 指向它；水利一张图 模式C 铁律：禁裸命令名）
+USRBIN = """#!/bin/sh
+# myme 播放版命令行入口（/usr/bin/myme-player）。
+# 真正的启动逻辑在 /opt/myme-player/myme-player；这里只做转发，
+# 让「开始菜单 / 终端 / 桌面快捷方式」三条路走同一个入口。
+exec /opt/myme-player/myme-player "$@"
+"""
+
 POSTINST = """#!/bin/sh
-set -e
-chmod 0755 /opt/%s/myme-player
-chmod 0644 /opt/%s/serve.py
-chmod -R a+rX /opt/%s
+# ⚠ 铁律：maintainer script 绝不能让安装失败。
+#
+# 统信 UOS 上收到过的真实报错：
+#   An error occurred while applying changes:
+#     chmod: 无法访问'/opt/myme-player/myme-player': 没有那个文件或目录
+#   dpkg: 处理软件包 myme-player (--install)时出错：
+#    已安装 myme-player 软件包 post-installation 脚本 子进程返回错误状态 1
+# 根因：旧版 postinst 是 `set -e` + 不带守卫的 chmod。只要该文件因为**任何**原因
+# 不在（解包不全 / 安装包在 U 盘上拷坏了 / 旧实例被手工清理过），chmod 返回 1，
+# set -e 立即中止脚本，dpkg 就把整个安装判成失败——而其实包本身是好的。
+#
+# 现在的写法：全程 `|| true`、用 [ -f ] 守卫、完全不用 set -e，
+# 并把「不完整」如实打印出来，让用户看到真正原因而不是一句"安装失败"。
+PKG_DIR=/opt/{pkg}
+LOG=/tmp/myme-player-install.log
+: > "$LOG" 2>/dev/null || true
+
+# $1=路径 $2=权限；不存在就跳过，永不返回非 0
+fix_mode() {
+    if [ -f "$1" ]; then chmod "$2" "$1" 2>>"$LOG" || true; fi
+}
+fix_mode "$PKG_DIR/myme-player" 0755
+fix_mode "$PKG_DIR/serve.py" 0644
+fix_mode /usr/bin/{pkg} 0755
+if [ -d "$PKG_DIR" ]; then chmod -R a+rX "$PKG_DIR" 2>>"$LOG" || true; fi
+
+# 完整性自检：只提示，绝不改变安装结果
+miss=""
+for f in player.html manifest.json serve.py myme-player; do
+    [ -e "$PKG_DIR/$f" ] || miss="$miss $f"
+done
+if [ -n "$miss" ]; then
+    echo "⚠ myme 播放版安装不完整，缺少：$miss"
+    echo "  通常是安装包在拷贝/传输过程中损坏（例如 U 盘写入未落盘）。"
+    echo "  请重新完整拷贝安装包后重装；详情见 $LOG"
+else
+    echo "myme 播放版 v{ver} 已安装：开始菜单 → 影音 → myme 播放版"
+    echo "也可执行： myme-player   或   /opt/{pkg}/myme-player"
+fi
+
 if command -v update-desktop-database >/dev/null 2>&1; then
-    update-desktop-database /usr/share/applications || true
+    update-desktop-database /usr/share/applications 2>>"$LOG" || true
 fi
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then
     gtk-update-icon-cache -f /usr/share/icons/hicolor 2>/dev/null || true
 fi
-echo "myme 播放版 v%s 已安装：开始菜单 → 影音 → myme 播放版"
-echo "也可执行： /opt/%s/myme-player"
-""" % (PKG, PKG, PKG, VER, PKG)
+exit 0
+""".replace("{pkg}", PKG).replace("{ver}", VER)
 
 PRERM = """#!/bin/sh
 set -e
@@ -496,18 +563,36 @@ if command -v update-desktop-database >/dev/null 2>&1; then
 fi
 """
 
+# ⚠ 水利一张图 模式C 铁律：.desktop 禁 `Exec=裸命令名`、禁 `Icon=通用图标名`，
+#    必须绝对路径（Exec=/usr/bin/<pkg>、Icon=/opt/<pkg>/icon.png），否则 UOS 桌面上
+#    图标空白 / 点击无反应。myme 旧版正是 `Icon=myme-player`（通用图标名）。
 DESKTOP = """[Desktop Entry]
 Type=Application
 Name=myme 播放版
 Name[zh_CN]=myme 播放版
 GenericName=数字分身演示播放
 Comment=离线播放 myme 便携播放包（讲解音频 + 数字分身视频）
-Exec=/opt/%s/myme-player
-Icon=myme-player
+Exec=/usr/bin/{pkg}
+Icon=/opt/{pkg}/icon.png
 Terminal=false
+StartupNotify=true
 Categories=AudioVideo;Video;Player;
 Keywords=myme;数字分身;演示;播放;
-""" % PKG
+""".replace("{pkg}", PKG)
+
+
+def _is_exec_member(arc):
+    """tar 里必须带可执行位的成员。
+
+    ⚠ 铁律 3（统信 UOS）：**启动器必须 0o755 直接落在包内**，
+      不能指望 postinst 的 chmod 补——postinst 一旦失败（见 POSTINST 注释里的
+      UOS 真实报错），整个安装就被判失败；而且即便装上了，0644 的启动器
+      点桌面图标也起不来。
+      Windows 上 os.chmod 只切只读位，所以权限只能在这里按名字强制写进 tar。
+    """
+    base = arc.rsplit("/", 1)[-1]
+    return base in ("myme-player", "myme-launch") or arc.startswith("usr/bin/") \
+        or base.endswith(".sh")
 
 
 def _ar_member(name, data):
@@ -522,13 +607,15 @@ def _ar_member(name, data):
 def _tar_xz(src_dir, arc_prefix="."):
     """把目录打成 tar.xz（data.tar.xz）。
 
-    ⚠ 两条铁律（统信 UOS 上装不上就是栽在这）：
+    ⚠ 三条铁律（统信 UOS 上装不上就是栽在这）：
       1. **必须 GNU_FORMAT**。Python tarfile 默认 PAX_FORMAT，会为每个成员写一条
          PAX 扩展头（typeflag='x'）——因为 `tf.add()` 取到的 mtime 是带小数的 float，
          PAX 就得把 mtime 写进扩展头。UOS 自带 dpkg 的 tar 解析器不认，直接报
          「不支持的 PAX tar 头部类型 'x'」→ 安装失败。（水利一张图踩过的原坑）
       2. **mtime 一律取整** + 显式写目录项。dpkg 对 tar 成员的时间戳敏感，
          目录项缺失还会导致卸载时残留。
+      3. **启动器/包装脚本强制 0o755**（见 _is_exec_member）。Windows 上写出来的
+         文本文件默认 0644，若靠 postinst 补权限，chmod 一失败安装就整体失败。
       另：只 add 文件、不 add 目录递归，否则整包会被复制两遍（319MB vs 150MB）。
     """
     buf = io.BytesIO()
@@ -565,7 +652,10 @@ def _tar_xz(src_dir, arc_prefix="."):
                 ti.uid = ti.gid = 0
                 ti.uname = ti.gname = "root"
                 mode = os.stat(fp).st_mode
-                ti.mode = 0o755 if (mode & 0o111) else 0o644
+                if _is_exec_member(arc):
+                    ti.mode = 0o755       # 铁律 3：启动器在包内就是可执行的
+                else:
+                    ti.mode = 0o755 if (mode & 0o111) else 0o644
                 with open(fp, "rb") as f:
                     tf.addfile(ti, f)
     return buf.getvalue()
@@ -591,25 +681,36 @@ def build_deb():
         else:
             shutil.copy2(s, d)
     _inline_manifest(opt)
-    with open(os.path.join(opt, "serve.py"), "w", encoding="utf-8") as f:
-        f.write(SERVE_PY)
-    with open(os.path.join(opt, "myme-player"), "w", encoding="utf-8") as f:
-        f.write(LAUNCHER)
-    # desktop + icon
-    apps = os.path.join(DEB_DIR, "usr", "share", "applications")
+    # 与 APK 用同一套 ASCII 化规则：deb 里也不留中文文件名（tar 名是裸字节，
+    # 在 LANG=C 的机器上会显示成乱码，统一改名最省事，内容不变）
+    _ascii_asset_names(opt)
+    # ⚠ 必须 write_text（LF）——Windows 的 open(...,"w") 会写出 CRLF，
+    #    首行变成 `#!/bin/sh\r` → 内核 execve ENOENT → 桌面点图标毫无反应。
+    write_text(os.path.join(opt, "serve.py"), SERVE_PY)
+    write_text(os.path.join(opt, "myme-player"), LAUNCHER, mode=0o755)
+    # 图标：一份放 /opt/<pkg>/icon.png（.desktop 用绝对路径引用，模式C 铁律），
+    #       一份仍随 hicolor 主题装，兼顾老桌面环境
     icons = os.path.join(DEB_DIR, "usr", "share", "icons", "hicolor", "256x256", "apps")
-    os.makedirs(apps, exist_ok=True)
     os.makedirs(icons, exist_ok=True)
-    with open(os.path.join(apps, PKG + ".desktop"), "w", encoding="utf-8") as f:
-        f.write(DESKTOP)
     src_icon = os.path.join(HERE, "icon-512.png")
     if os.path.isfile(src_icon):
         try:
             from PIL import Image
-            Image.open(src_icon).convert("RGBA").resize((256, 256)).save(
-                os.path.join(icons, PKG + ".png"))
-        except Exception:
-            shutil.copy2(src_icon, os.path.join(icons, PKG + ".png"))
+            im = Image.open(src_icon).convert("RGBA").resize((256, 256))
+            im.save(os.path.join(opt, "icon.png"))
+            im.save(os.path.join(icons, PKG + ".png"))
+        except Exception as e:
+            log("⚠ deb 图标处理失败（退回原图）：", e)
+            try:
+                shutil.copy2(src_icon, os.path.join(opt, "icon.png"))
+                shutil.copy2(src_icon, os.path.join(icons, PKG + ".png"))
+            except OSError:
+                pass
+    # /usr/bin/<pkg> 命令行入口（.desktop 的 Exec 指向它）
+    write_text(os.path.join(DEB_DIR, "usr", "bin", PKG), USRBIN, mode=0o755)
+    # desktop
+    apps = os.path.join(DEB_DIR, "usr", "share", "applications")
+    write_text(os.path.join(apps, PKG + ".desktop"), DESKTOP)
     # ⚠ 注意：debian-binary 与 control 是 ar / control.tar 层级的成员，绝不可写进 DEB_DIR
     #    根目录——否则 _tar_xz(DEB_DIR) 会把它们打进 data.tar.xz，dpkg 解包时要在系统根写
     #    /debian-binary、/control，撞上其它包（如 libfprint0）直接报「正试图覆盖 /debian-binary」。
@@ -672,11 +773,81 @@ def verify_deb(path):
                             if (not m.isdir()) and m.name.replace("./", "", 1).count("/") == 0]
                 if bad_root:
                     return "data.tar.xz 含顶层散落文件（会解包到系统根，撞包）：" + ", ".join(bad_root[:3])
+                nm2m = {}
+                for m in tf.getmembers():
+                    k = m.name[2:] if m.name.startswith("./") else m.name.lstrip("/")
+                    nm2m[k] = m
+
+                def _blob(rel):
+                    m = nm2m.get(rel)
+                    if m is None or not m.isfile():
+                        return None
+                    return tf.extractfile(m).read()
+
+                # ★ 统信「装不上 / 装上了打不开」专项门禁（2026-10-08 v2.8.1）
+                # a) 启动器在包内就必须 0o755 —— 绝不能靠 postinst 的 chmod 补：
+                #    它一旦失败，dpkg 就报「post-installation 脚本 子进程返回错误状态 1」，
+                #    整个安装判失败（用户看到的就是 "安装失败"）。
+                lp = "opt/%s/myme-player" % PKG
+                m = nm2m.get(lp)
+                if m is None:
+                    return "data 缺 " + lp
+                if not (m.mode & 0o111):
+                    return ("启动器 %s 在包内不是可执行（mode=%s）——装到统信只能指望 postinst "
+                            "chmod，而那一失败整个安装就报错" % (lp, oct(m.mode & 0o777)))
+                # b) shell 脚本/桌面项必须 LF 行尾：`#!/bin/sh\r` → 内核 execve ENOENT
+                #    → 桌面点图标毫无反应（"装上了但打不开"）
+                for rel in (lp, "opt/%s/serve.py" % PKG,
+                            "usr/share/applications/%s.desktop" % PKG,
+                            "usr/bin/%s" % PKG):
+                    d = _blob(rel)
+                    if d is None:
+                        return "data 缺 " + rel
+                    if b"\r\n" in d:
+                        return "%s 含 CRLF 行尾（shell 脚本会 execve ENOENT，桌面点图标没反应）" % rel
+                # c) .desktop 必须绝对路径（禁裸命令名 / 禁通用图标名）
+                de = _blob("usr/share/applications/%s.desktop" % PKG).decode("utf-8", "ignore")
+                if ("Exec=/usr/bin/%s" % PKG) not in de:
+                    return ".desktop 的 Exec 不是绝对路径 /usr/bin/%s（禁裸命令名）" % PKG
+                if ("Icon=/opt/%s/icon.png" % PKG) not in de:
+                    return ".desktop 的 Icon 不是绝对路径 /opt/%s/icon.png（禁通用图标名）" % PKG
+                # d) /usr/bin 入口 + opt 内图标必须存在，且入口可执行
+                ub = nm2m.get("usr/bin/%s" % PKG)
+                if ub is None or not ub.isfile():
+                    return "data 缺 usr/bin/%s" % PKG
+                if not (ub.mode & 0o111):
+                    return "usr/bin/%s 在包内不是可执行" % PKG
+                if nm2m.get("opt/%s/icon.png" % PKG) is None:
+                    return "data 缺 opt/%s/icon.png" % PKG
             for need in ("opt/%s/player.html" % PKG, "opt/%s/manifest.json" % PKG,
                          "opt/%s/serve.py" % PKG, "opt/%s/myme-player" % PKG,
                          "usr/share/applications/%s.desktop" % PKG):
                 if not any(m.endswith(need) or m == "./" + need for m in mem):
                     return "data 缺 " + need
+        if nm.startswith("control.tar"):
+            with tarfile.open(fileobj=io.BytesIO(body)) as ct:
+                cset = {}
+                for m in ct.getmembers():
+                    key = m.name[2:] if m.name.startswith("./") else m.name.lstrip("/")
+                    cset[key] = m
+                for need in ("control", "postinst", "prerm", "postrm"):
+                    if need not in cset:
+                        return "control.tar 缺 " + need
+                for need in ("postinst", "prerm", "postrm"):
+                    if not (cset[need].mode & 0o111):
+                        return "control.tar 的 %s 在包内不是可执行（dpkg 会报无法执行）" % need
+                pi = ct.extractfile(cset["postinst"]).read().decode("utf-8", "ignore")
+                # e) maintainer script 不许用 set -e（任一行非 0 都会把安装判成失败）
+                bad_sh = [ln for ln in pi.splitlines()
+                          if ln.strip() in ("set -e", "set -eu", "set -ex", "set -euo pipefail")]
+                if bad_sh:
+                    return "postinst 使用了 set -e（任何一行失败都会让整个安装报错）"
+                if "chmod" in pi and "|| true" not in pi:
+                    return "postinst 的 chmod 没有容错（缺 || true）"
+                if "安装不完整" not in pi:
+                    return "postinst 缺完整性自检（安装不完整时用户看不到真正原因）"
+                if "\r\n" in pi:
+                    return "postinst 含 CRLF 行尾（内核 execve ENOENT → 安装直接失败）"
         pos += 60 + size + (size % 2)
     for need in ("debian-binary", "control.tar.gz", "data.tar.xz"):
         if need not in names:

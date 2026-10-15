@@ -4,7 +4,7 @@
     不需要管理员提权。双击安装时不再因写入 ProgramFiles 需要 UAC 而报
     2503 / 2502 错误。
   -->
-  <Package Name="PPT制作及分身演示 (myme)" Manufacturer="myme" Version="2.4.0"
+  <Package Name="PPT制作及分身演示 (myme)" Manufacturer="myme" Version="2.9.2"
            Scope="perUser" UpgradeCode="a1b2c3d4-0000-1111-2222-333344445555">
     <SummaryInformation Description="本地 PPT 制作与分身演示：用你的声音讲 PPT 并自动答疑（本地部署 PWA）" />
     <!-- 单文件 MSI（cab 内嵌）。注意：本机(win32)生成含 ~59MB exe 的 msi 时，wix 进程在

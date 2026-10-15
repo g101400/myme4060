@@ -275,7 +275,7 @@ class LivePortraitDriver:
             i += dur + int(rng.integers(int(fps * 1.6), int(fps * 4.2)))
 
         # —— 微表情：说话时略带笑意与眉动，静音时更平静 ——
-        # v2.6.1：smile 与语音能量耦合是「呲牙假笑/嘴角涂抹」的主要推手（实测中老年
+        # 微表情：smile 与语音能量耦合是「呲牙假笑/嘴角涂抹」的主要推手（实测中老年
         # 薄唇肖像尤其严重），整体乘 AVATAR_SMILE_MULT（默认 0.25，0=关闭）压回去。
         e = np.zeros(n_frames, dtype=np.float32) if energy is None else np.asarray(energy, dtype=np.float32)
         wn = max(3, int(fps * 0.2))

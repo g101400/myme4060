@@ -133,6 +133,7 @@ def main():
     assets = []
     dl = os.path.join(HERE, "dist")
     pats = ["myme.exe", "myme-%s-win-x64-full.msi" % version,
+            "myme-%s-runtime.7z" % version,
             "myme-%s-win-x64-play.zip" % version,
             "myme-%s-android-play.apk" % version,
             "myme-player_%s_all.deb" % version,
@@ -143,7 +144,7 @@ def main():
             assets.append(fp)
         else:
             for fn in sorted(os.listdir(dl)) if os.path.isdir(dl) else []:
-                if p.replace(version, "*") in fn and fn.endswith((".zip", ".apk", ".deb", ".msi", ".exe")):
+                if p.replace(version, "*") in fn and fn.endswith((".zip", ".apk", ".deb", ".msi", ".exe", ".7z")):
                     fp2 = os.path.join(dl, fn)
                     if os.path.isfile(fp2):
                         assets.append(fp2)

@@ -200,7 +200,7 @@ input[type=range]{width:170px}
 input[type=color]{width:52px;height:30px;padding:1px;border:1px solid var(--line);border-radius:6px}
 .kbd{display:inline-block;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;
   padding:1px 6px;font-size:12px;background:#f8fafc;color:var(--muted)}
-/* ============ ⑤ 正式演示：全屏 + 底部状态栏字幕 ============ */
+/* ============ ⑨ 正式演示：全屏 + 底部状态栏字幕 ============ */
 .demo-wrap{position:relative;background:#0f1420;border-radius:var(--radius);overflow:hidden;padding:14px 14px 8px}
 .demo-wrap .stage{background:linear-gradient(180deg,#0f172a,#0f1420);border-color:#1e293b}
 .demo-wrap .stage .slide-orig{margin:0 auto}
@@ -367,18 +367,18 @@ code{background:#f1f5f9;border:1px solid var(--line-soft);border-radius:5px;padd
     <button class="tab" data-t="3">⑤ 制作视频</button>
     <span class="tsep"></span>
     <span class="tgroup">加工</span>
-    <button class="tab" data-t="11">⑨ 多源搬运 · 多项产出</button>
-    <button class="tab" data-t="12">⑩ 领域包 · 水利古建与感知</button>
-    <button class="tab" data-t="13">⑪ 深度加工 · 图谱/Agent/分块</button>
+    <button class="tab" data-t="11">⑥ 多源搬运 · 多项产出</button>
+    <button class="tab" data-t="12">⑦ 领域包 · 水利古建与感知</button>
+    <button class="tab" data-t="13">⑧ 深度加工 · 图谱/Agent/分块</button>
     <span class="tsep"></span>
     <span class="tgroup">演示</span>
-    <button class="tab" data-t="5">⑥ 正式演示</button>
-    <button class="tab" data-t="2">⑦ 智能答疑</button>
-    <button class="tab" data-t="6">⑧ 答疑总结</button>
+    <button class="tab" data-t="5">⑨ 正式演示</button>
+    <button class="tab" data-t="2">⑩ 智能答疑</button>
+    <button class="tab" data-t="6">⑪ 答疑总结</button>
     <span class="tsep"></span>
     <span class="tgroup">交付</span>
-    <button class="tab" data-t="7">⑨ 导出交付</button>
-    <button class="tab" data-t="8" id="tab8" style="display:none">⑩ 播放文件</button>
+    <button class="tab" data-t="7">⑫ 导出交付</button>
+    <button class="tab" data-t="8" id="tab8" style="display:none">⑬ 播放文件</button>
   </div>
 
   <!-- ======== ① PPT 讲解 ======== -->
@@ -597,7 +597,7 @@ code{background:#f1f5f9;border:1px solid var(--line-soft);border-radius:5px;padd
     </div>
   </div>
 
-  <!-- ======== ⑤ 正式演示 ======== -->
+  <!-- ======== ⑨ 正式演示 ======== -->
   <div class="panel" id="p5">
     <div class="grid">
       <div>
@@ -1000,7 +1000,7 @@ D:/资料/渠道台账.xlsx #台账
   <!-- ======== ⑧ 便携播放版：导入播放文件 ======== -->
   <div class="panel" id="p8">
     <div class="card"><h3><span class="dot"></span>便携播放版 · 导入完整版导出的播放文件</h3>
-      <p class="muted">在「完整版」的 <b>⑤ 正式演示</b> 中点 <b>📀 导出播放文件</b> 生成压缩包，下载后在此导入即可离线演示。导入的「方案 / 音频 / 视频 / 分身形象」会保存到本机用户目录，可反复播放。</p>
+      <p class="muted">在「完整版」的 <b>⑨ 正式演示</b> 中点 <b>📀 导出播放文件</b> 生成压缩包，下载后在此导入即可离线演示。导入的「方案 / 音频 / 视频 / 分身形象」会保存到本机用户目录，可反复播放。</p>
       <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
         <button class="btn" id="playImportBtn" onclick="importPlayback()">📥 选择播放文件（.zip）并导入</button>
         <button class="btn ghost" id="playGotoDemo" onclick="switchTab('5')">▶ 前往演示</button>
@@ -1133,7 +1133,7 @@ async function loadPersons(){
   try{ S.persons=await getJSON('/api/persons'); }catch(e){ S.persons={persons:[]}; }
   const ps=S.persons.persons||[];
   if(!S.curPerson) S.curPerson=S.persons.default||(ps[0]&&ps[0].id);
-  // ⚠ 原实现无条件把当前形象重置为该分身的第一张图，导致用户在 ④ 数字分身 里
+  // ⚠ 原实现无条件把当前形象重置为该分身的第一张图，导致用户在「⑤ 制作视频」的分身管理里
   //   选定的形象一刷新就被打回默认，看起来像"设置没保存"。这里改为"仅当未选/已失效时才回落到第一张"。
   const p=ps.find(x=>x.id===S.curPerson)||ps[0];
   if(p){
@@ -1146,7 +1146,7 @@ async function loadPersons(){
   if(sel){ sel.innerHTML = ps.length? ps.map(x=>
       '<optgroup label="'+esc(x.name)+'">'+x.avatars.map(a=>
       '<option value="'+x.id+'/'+a.id+'"'+((x.id===S.curPerson&&a.id===S.curAvatar)?' selected':'')+'>'+esc(a.name)+'</option>').join('')+'</optgroup>').join('')
-      : '<option value="">（无分身，请在「④ 制作视频」页的「分身管理」卡片添加）</option>'; }
+      : '<option value="">（无分身，请在「⑤ 制作视频」页的「分身管理」卡片添加）</option>'; }
 }
 
 /* ---- 第二层作用域栏里的「分身 / 形象」下拉（唯一选择入口，菜单里不再重复） ---- */
@@ -1315,8 +1315,9 @@ function mi(label,fn,extra,cls){ return {label,fn,extra,cls}; }
 
 /* 第三层标签的单一跳转动线：演示向导与全局命令都经这里进入，
    避免"同一入口在菜单和标签里各写一遍"造成的维护漂移。 */
-const TAB_LABEL = {1:'① 素材准备',9:'② 制作 PPT',4:'③ 知识库',3:'④ 数字分身',
-                   5:'⑤ 正式演示',2:'⑥ 智能答疑',6:'⑦ 答疑总结',7:'⑧ 资源管理',8:'⑨ 播放文件'};
+const TAB_LABEL = {4:'① 知识库 · 沉淀',1:'② 素材与文稿智能',9:'③ 制作 PPT · PDF',10:'④ 生成分身语音讲解',
+                   3:'⑤ 制作视频',11:'⑥ 多源搬运 · 多项产出',12:'⑦ 领域包 · 水利古建与感知',13:'⑧ 深度加工 · 图谱/Agent/分块',
+                   5:'⑨ 正式演示',2:'⑩ 智能答疑',6:'⑪ 答疑总结',7:'⑫ 导出交付',8:'⑬ 播放文件'};
 function goTab(t){ return ()=>switchTab(t); }
 
 function buildMenus(){
@@ -1399,12 +1400,15 @@ function buildMenus(){
       ]},
       {n:'🎬 演示向导',items:[
         {title:'按演示的真实顺序走一遍（点任一阶段即跳到对应环节）'},
-        mi('① 备料 · 上传 PPT / 讲稿',()=>dlgStage(1)),
-        mi('② 出稿 · 生成并打磨 PPT',()=>dlgStage(2)),
-        mi('③ 蓄力 · 沉淀知识库',()=>dlgStage(3)),
-        mi('④ 造像 · 生成数字分身',()=>dlgStage(4)),
-        mi('⑤ 上台 · 正式演示 + 答疑',()=>dlgStage(5)),
-        mi('⑥ 收尾 · 总结 / 归档 / 交付',()=>dlgStage(6)),
+        mi('① 备料 · 知识库（公有 / 私有）与沉淀',()=>dlgStage(1)),
+        mi('② 出稿 · 素材与文稿智能（生成 / 打磨书面材料）',()=>dlgStage(2)),
+        mi('③ 出稿 · 制作 PPT 与 PDF',()=>dlgStage(3)),
+        mi('④ 配音 · 生成分身语音讲解（必须在 PPT 之后）',()=>dlgStage(4)),
+        mi('⑤ 造像 · 制作数字分身视频',()=>dlgStage(5)),
+        mi('⑨ 上台 · 正式演示',()=>dlgStage(6)),
+        mi('⑩ 答疑 · 现场问答',()=>dlgStage(7)),
+        mi('⑪ 总结 · 沉淀问答',()=>dlgStage(8)),
+        mi('⑫ 交付 · 导出相关文档',()=>dlgStage(9)),
         {sep:1},
         mi('📋 完整流程说明（九步主链路）',dlgWorkflow),
         mi('🔍 主链路自检（哪一步空着一眼看清）',dlgPipelineCheck),
@@ -1593,8 +1597,13 @@ function closeModal(){$('mask').classList.remove('on');}
 $('mClose').onclick=closeModal;
 $('mask').onclick=e=>{if(e.target===$('mask'))closeModal();};
 
+/* 当前应用版本（与 config.VERSION / 打包版本号一致；帮助「关于 / 软件配置清单」由此取） */
+const MYME_VERSION="2.9.2";
+$('mask').onclick=e=>{if(e.target===$('mask'))closeModal();};
+
 function dlgAbout(){openModal('关于',`
   <p><b>__APP__</b> —— 本地运行的 PPT 制作与分身演示助手。</p>
+  <div class="sw"><span>版本</span><span>v${MYME_VERSION}</span></div>
   <div class="sw"><span>声音</span><span>Qwen3-TTS 声纹复刻（本地）</span></div>
   <div class="sw"><span>形象驱动</span><span>双引擎：Sonic 扩散式（默认开启）/ LivePortrait（回退），均本地</span></div>
   <div class="sw"><span>大脑</span><span>大模型（本地 Ollama / 线上 OpenAI 兼容，可在「设置 → 大模型接入」切换）</span></div>
@@ -1602,51 +1611,59 @@ function dlgAbout(){openModal('关于',`
   <p class="muted" style="margin-top:12px">全部数据留在本机，不上传任何云端。</p>`);}
 function dlgFeatures(){openModal('功能介绍',`
   <p class="muted">整套流程一句话：<b>选分身 → 沉淀知识库 → 素材与文稿智能(出稿) → 制作 PPT/PDF → 生成分身语音讲解 → 制作视频 → 正式演示 → 答疑 → 总结 → 导出交付</b>，
-     最后把新资料沉淀回知识库，形成闭环。第三层标签就按这个顺序排，从左到右走完即是一整场。</p>
+     最后把新资料沉淀回知识库，形成闭环。第三层<b>十三个</b>标签就按这个顺序排，从左到右走完即是一整场。</p>
   <p class="muted"><b>分身在哪选？</b>顶栏第二层作用域栏：<b>项目 + 分身 + 形象</b> 三个下拉。
      分身＝声音与人设，形象＝画面上的样子；切换后全系统生效（讲解、答疑、视频用的是同一个声纹）。</p>
 
   <h4 style="margin:12px 0 4px">准备</h4>
-  <p class="muted"><b>① 知识库 · 沉淀</b>：PDF / Word / Excel / PPT / TXT / Markdown 增量入库。
-     分<b>公有 / 项目 / 分身私有</b>三层，检索时一起查、私有加权；私有内容可一键"提升"到公有沉淀复用。
-     支持导出备份 .mymekb、导入还原、重建去重。</p>
-  <p class="muted"><b>① 智能化内核 · 多源导入</b>：不落地本地文件也能进知识库——
-     <b>网页文章 / 微信公众号文章 / 微博（含长微博全文） / 本地文件</b>四种来源在线采集入库，
-     全部<b>本地离线版、不依赖任何境外服务</b>（已彻底移除 NotebookLM 依赖）；
-     入库后与本地 PDF 混合检索，问答时一并引用。</p>
-  <p class="muted"><b>① 智能化内核 · 多项导出</b>：把知识库内容 / 生成的文稿按需要导出
-     <b>markdown / txt / html</b> 三种格式，本地模型生成、不联网，可自由接进自己的第二系统。</p>
-  <p class="muted"><b>① 智能化内核 · 思维导图</b>：与「③ 制作 PPT」共用同一份大纲和知识库依据，
-     一键出 <b>Markdown 树形导图</b>（中心主题 → 章节 → 要点，共 N 个节点），存为 <b>.md</b> 可直接导入
-     <b>Xmind / 幕布 / 语雀</b> 继续手绘；完成 PPT 后可一并下载 <b>书面稿 docx · 思维导图 md · PPT pptx</b> 三项。</p>
-  <p class="muted"><b>② 素材与文稿智能</b>：根据知识库生成书面汇报材料（总结 / 半年 / 工作 / 项目 / 季度），可下载 .docx；PDF 在「③ 制作 PPT」同步导出，打磨与出稿都在此阶段完成
-     → 用当前分身的声音朗读，可分段试听、重生成。</p>
+  <p class="muted"><b>① 知识库 · 沉淀</b>：PDF / Word / Excel / PPT / TXT / Markdown 等 18 种格式增量入库，
+     也可整目录批量。分<b>公有 / 项目 / 分身私有</b>三层，检索时一起查、私有加权；私有内容可一键"提升"到公有沉淀复用。
+     支持导出备份 .mymekb、导入还原、重建去重、重建向量与检索自检。</p>
+  <p class="muted"><b>② 素材与文稿智能</b>：根据知识库生成书面汇报材料（总结 / 半年 / 工作 / 项目 / 季度），可下载 .docx；
+     PDF 在「③ 制作 PPT」同步导出，打磨与出稿都在此阶段完成。</p>
 
   <h4 style="margin:12px 0 4px">出稿</h4>
   <p class="muted"><b>③ 制作 PPT · PDF</b>：给个主题就出一套 PPT；可<b>选模板</b>（导入自家 .pptx 继承字体/主色/版式），
      可<b>同步导出 PDF</b>，还能再出一份<b>书面文档（doc / pdf）</b>——PPT 是要点式给"讲"用的，
-     书面文档是段落式给"看"用的，内容会自动扩写详实。</p>
-  <p class="muted"><b>④ 制作视频</b>：输入台词 → 当前分身音色 + 口型驱动的形象 → 输出 MP4。
+     书面文档是段落式给"看"用的，内容会自动扩写详实。
+     同一份大纲还可一键出 <b>Markdown 思维导图</b>，可导入 Xmind / 幕布 / 语雀 继续手绘。</p>
+  <p class="muted"><b>④ 生成分身语音讲解</b>：把 PPT 解析成讲解页，用当前分身的声音逐页合成<b>中英双语</b>讲解音频，
+     可分段试听、重生成；缺英文配音时会明确提示缺几页，可一键补录，不会静默播中文。</p>
+  <p class="muted"><b>⑤ 制作视频</b>：输入台词 → 当前分身音色 + 口型驱动的形象 → 输出 MP4。
      口型驱动为<b>双引擎</b>：优先 <b>Sonic 扩散式</b>（整帧生成，几乎不变形，需本机 ComfyUI + NVIDIA 显卡），
      不可用或推理失败时自动回退 <b>LivePortrait</b>（轻量 2D 驱动；播放包固定用它）。
      「分身管理（人 × 形象）」是本页唯一入口：一个人可以有多张形象，换图即换分身，零训练。
      炎冰 / 金子的 Sonic 真机演示片段已<b>内置</b>在帮助菜单「🎭 内置分身演示（验证环境）」中，可随时播放对照。</p>
 
+  <h4 style="margin:12px 0 4px">加工</h4>
+  <p class="muted"><b>⑥ 多源搬运 · 多项产出</b>：一行链接或关键词 → 自动认来源（微信 / 网页 / B站 / 播客 / 微博 /
+     今日头条 / 百家号 / 文档 / 音频 / 压缩包 / 目录）→ 按来源选策略清洗 → 入库；
+     <b>七项产物</b>（报告 / 幻灯片 / 播客讲稿+音频 / 思维导图 / 测验题 / 记忆闪卡 / 数据表）据知识库真实片段生成，
+     全部<b>本地离线版、不依赖任何境外服务</b>，单条失败不中断整批。</p>
+  <p class="muted"><b>⑦ 领域包 · 水利古建与感知</b>：内置水利一张图三端四平台 / 水利古建遗产 / 感知应用三档，
+     骨架 + 术语 + 口径都可改（落 <span class="fk">domains/*.json</span>，改完不用重启）；
+     按骨架一键出 PPT，或直接让 Agent 按本行业口径答疑——口径 → 演示 → 答疑 → 沉淀，闭环。</p>
+  <p class="muted"><b>⑧ 深度加工 · 图谱/Agent/分块</b>：知识图谱增强检索（问答候选 6→24 条并标注出处）、
+     ReAct Agent 答疑（自规划 + 工具调用 + 可开人工审批，联网动作等你确认）、
+     分块可编辑（改 → 重算向量 → diff → 回滚，旧版自动进快照）、
+     链路追踪（本地版 Langfuse，记录检索路径 / 耗时 / token）——检索不再是个黑盒子。</p>
+
   <h4 style="margin:12px 0 4px">演示</h4>
-  <p class="muted"><b>⑤ 正式演示</b>：分身 + PPT 原稿逐页同步，自动翻页播讲解；被提问点「⏸ 领导提问」暂停答疑，
+  <p class="muted"><b>⑨ 正式演示</b>：分身 + PPT 原稿逐页同步，自动翻页播讲解；被提问点「⏸ 领导提问」暂停答疑，
      答完「▶ 继续演示（从此页）」精确续播。</p>
-  <p class="muted"><b>⑥ 智能答疑</b>：跨三层知识库检索作答，中英文提问都能识别；命中某页自动展示该页；可勾「记入答疑记录」。</p>
-  <p class="muted"><b>⑦ 答疑总结</b>：自动生成《答疑汇总》，导出 Markdown，也可把高频问答沉淀回知识库。</p>
+  <p class="muted"><b>⑩ 智能答疑</b>：跨三层知识库检索作答，中英文提问都能识别；命中某页自动展示该页；可勾「记入答疑记录」。</p>
+  <p class="muted"><b>⑪ 答疑总结</b>：自动生成《答疑汇总》，导出 Markdown，也可把高频问答沉淀回知识库。</p>
 
   <h4 style="margin:12px 0 4px">交付</h4>
-  <p class="muted"><b>⑧ 导出交付</b>：集中导出本项目全部产出（源文件 / 形象 / 方案 / 音频 / 视频 / 分身）。</p>
-  <p class="muted"><b>⑨ 播放文件</b>：导出离线演示包。勾上「📱 打包为离线便携播放包」后，
-     解压双击 <code>player.html</code> 就能播，同一个包在 <b>Win / 安卓 / 统信</b> 三端通用。</p>
+  <p class="muted"><b>⑫ 导出交付</b>：集中导出本项目全部产出（源文件 / 形象 / 方案 / 音频 / 视频 / 分身）。</p>
+  <p class="muted"><b>⑬ 播放文件</b>：导出离线演示包。勾上「📱 打包为离线便携播放包」后，
+     解压双击 <code>player.html</code> 就能播，同一个包在 <b>Win / 安卓 / 统信</b> 三端通用；
+     播放端导入时按包内 <code>manifest.params</code> 自动识别语言与分身，本包没有的选项会自动置灰。</p>
 
   <h4 style="margin:12px 0 4px">三层导航怎么理解</h4>
-  <p class="muted"><b>第一层菜单</b>＝全局命令：<b>项目 / 演示向导 / 📥 多源导入 / 📤 多项导出 / 播放 / 视图 / 语言 / 设置 / 帮助</b>，全部下拉式；
+  <p class="muted"><b>第一层菜单</b>＝全局命令：<b>项目 / 演示向导 / 📥 多源导入 / 📤 多项导出 / 📚 知识库 / 播放 / 视图 / 语言 / 设置 / 帮助</b>，全部下拉式；
      <b>第二层作用域栏</b>＝当前作用于哪个【项目 + 分身 + 形象】，只做选择不执行命令；
-     <b>第三层标签</b>＝按演示生命周期排列的九个工作台。
+     <b>第三层标签</b>＝按演示生命周期排列的<b>十三个</b>工作台。
      <b>语言一处切换、全程生效</b>：菜单「🌐 语言」选中文或英文后，讲解、答疑、书面稿、PPT 与分身视频会同步到同一语言。</p>
   <p class="muted" style="margin-top:10px">💡 想按部就班走一遍：菜单「🎬 演示流程」八阶段向导，每步都能直接跳到对应模块。</p>`);}
 function dlgKeys(){openModal('快捷键',`
@@ -1677,7 +1694,7 @@ function dlgDemoAvatar(){
       'jinzi_sonic.mp4' :{name:'金子',desc:'本人肖像 jinzi__meet.png + 金子声纹驱动，Sonic 扩散式出片'}
     };
     let h=`<p class="muted" style="margin-top:0">以下两条 8 秒演示片段已在出厂时用 <b>Sonic 扩散式引擎</b>（默认开启）真机生成并<b>内置进本应用</b>。
-      能正常播放即代表本机服务与视频链路就绪；若您本机还装好 ComfyUI（含 Sonic 节点）+ NVIDIA 显卡，则「④ 制作视频」也会走同样的引擎。</p>`;
+      能正常播放即代表本机服务与视频链路就绪；若您本机还装好 ComfyUI（含 Sonic 节点）+ NVIDIA 显卡，则「⑤ 制作视频」也会走同样的引擎。</p>`;
     if(!clips.length){
       h+=`<p class="muted">⚠ 未找到内置演示片段（demo_avatar/ 为空或缺失）。</p>`;
     }else{
@@ -1689,20 +1706,20 @@ function dlgDemoAvatar(){
               style="width:100%;max-width:420px;border-radius:8px;background:#000;display:block"></video>`;
       });
     }
-    h+=`<p class="muted" style="margin-top:12px">💡 想验证「自己跑一遍也不变形」：到「④ 制作视频」用任一分身生成 8 秒视频即可，引擎会优先走 Sonic（不可用时自动回退 LivePortrait）。</p>`;
+    h+=`<p class="muted" style="margin-top:12px">💡 想验证「自己跑一遍也不变形」：到「⑤ 制作视频」用任一分身生成 8 秒视频即可，引擎会优先走 Sonic（不可用时自动回退 LivePortrait）。</p>`;
     const el=$('demoAvBody'); if(el) el.innerHTML=h;
   }).catch(()=>{const el=$('demoAvBody'); if(el) el.innerHTML='<p class="muted">加载失败：服务未就绪。</p>';});
 }
 function dlgSoftware(){openModal('软件配置清单列表',`
-  <p class="muted">当前版本 <b>v2.9.0</b>。本机运行数字分身所依赖的软件与模型清单（均为本地部署，无云端依赖）。</p>
+  <p class="muted">当前版本 <b>v${MYME_VERSION}</b>。本机运行数字分身所依赖的软件与模型清单（均为本地部署，无云端依赖）。</p>
 
   <h4 style="margin:12px 0 4px">分发包怎么选（装给别人的第一步）</h4>
   <ul class="flist">
-    <li><span class="fk">myme-2.6.4-win-x64-full.msi</span><span class="fv">完整创作端，676MB，含 LivePortrait + ts_deps；<b>perUser 免管理员</b>，装到用户目录</span></li>
-    <li><span class="fk">myme-setup.exe + myme-2.6.4-runtime.7z</span><span class="fv">精简安装包(59MB) + 绿色伴随目录(608MB)；解压后在「设置 → 运行时目录配置」登记</span></li>
-    <li><span class="fk">myme-2.6.4-win-x64-play.zip</span><span class="fv">Windows 便携播放包，解压双击 playback/player.html 即播</span></li>
-    <li><span class="fk">myme-2.6.4-android-play.apk</span><span class="fv">安卓离线播放，装完点图标即播，不联网</span></li>
-    <li><span class="fk">myme-player_2.6.1_all.deb</span><span class="fv">统信/麒麟/Deepin，架构 all；本地 python3 服务 + 浏览器，不装 PyQt6</span></li>
+    <li><span class="fk">myme-2.9.2-win-x64-full.msi</span><span class="fv">完整创作端，含 LivePortrait + ts_deps；<b>perUser 免管理员</b>，装到用户目录</span></li>
+    <li><span class="fk">myme-setup.exe + myme-2.9.2-runtime.7z</span><span class="fv">精简安装包 + 绿色伴随目录；解压后在「设置 → 运行时目录配置」登记</span></li>
+    <li><span class="fk">myme-2.9.2-win-x64-play.zip</span><span class="fv">Windows 便携播放包，解压双击 playback/player.html 即播</span></li>
+    <li><span class="fk">myme-2.9.2-android-play.apk</span><span class="fv">安卓离线播放，装完点图标即播，不联网</span></li>
+    <li><span class="fk">myme-player_2.9.2_all.deb</span><span class="fv">统信/麒麟/Deepin，架构 all；本地 python3 服务 + 浏览器，不装 PyQt6</span></li>
   </ul>
 
   <h4 style="margin:12px 0 4px">运行时 · 基础</h4>
@@ -1776,122 +1793,49 @@ async function runUpgradeCheck(manual){
 function mdLite(t){ return esc(t).replace(/\r/g,'').split('\n').slice(0,24)
   .map(l=>l.replace(/^###\s?/,'• ').replace(/^##\s?/,'• ').replace(/^#\s?/,'• ').replace(/^- /,'　· ')).join('<br>'); }
 function dlgChangelog(){openModal('版本变更',`
-  <h4 style="margin:0 0 6px">v2.6.4（10-05 多源导入·多项导出落地 + 阻断级修复）</h4>
+  <h4 style="margin:0 0 6px">v2.9.2（10-15 交接线合并：v2.8.x 修复并入 · 播放参数契约 · 统信 deb 三根因修复 · 帮助与版本全面对齐）</h4>
   <ul style="margin:0;padding-left:20px" class="muted">
-    <li><b>新增「智能化内核 · 多源导入」</b>：菜单「智能化内核」下并入<b>知识库源录入</b>，可把
-        <b>网页文章 / 微信公众号文章 / 微博（含长微博全文） / 本地文件</b>直接采进本地离线知识库；
-        抓取修好了两处长期失效——微博需要 genvisitor2 访客令牌并改走 <code>statuses/show</code> 接口，
-        公众号标题的尾部空格要截断、并有 <code>activity-name</code> / <code>msg_title</code> 兜底。</li>
-    <li><b>新增「智能化内核 · 多项导出」</b>：知识库/文稿可一次导出 <b>markdown / txt / html</b> 三种格式，
-        导出走本地模型、不联网。</li>
-    <li><b>修复「根据知识库生成文字材料」必崩（阻断级）</b>：
-        <span class="fk">_handle_gen_kb_doc</span> 把模块级函数当方法调用（少了 self），
-        一点按钮就 500；<b>已后台实测通过</b>：HTTP 200、正文 11 个段落、命中知识库 12 条、docx 导出成功。</li>
-    <li><b>修复项目知识库路径</b>：知识库数据固定落到
-        <span class="fk">projects/default/kb_data</span>，不再随工作目录漂移，导入导出与问答同源。</li>
-    <li><b>本地素材库生成链路补齐</b>：<span class="fk">gen_local.py</span> 可一次产出
-        <b>文字材料 doc / 思维导图 / PPT</b>（PPT 走 <span class="fk">write_pptx</span>），
-        与「③ 制作 PPT · PDF」共用同一份内容源。</li>
-    <li><b>修复视频与配音解码</b>：<span class="fk">app.py</span> 的 <span class="fk">/api/video</span> 改判
-        <span class="fk">os.path.isfile</span>，<span class="fk">narrate.py</span> 的 stderr 用安全解码，
-        不再因编码抛异常中断配音。</li>
-    <li><b>补漏 · 应用内也能出思维导图（v2.6.4 续）</b>：此前「思维导图」只在技能侧
-        <span class="fk">gen_local.py</span> 有，APP 里点不到。
-        本版新增 <span class="fk">/api/make_mindmap</span> 与「🧠 思维导图（Markdown）」按钮：
-        与「③ 制作 PPT」共用同一份大纲与知识库依据，产出 <b>.md 树形导图</b>（主题 → 章节 → 要点），
-        可导入 <b>Xmind / 幕布 / 语雀</b> 继续手绘，「doc · 思维导图 · PPT」三项导出在应用内补齐。</li>
-    <li><b>出包版本号不再写死</b>：<span class="fk">msi</span> / <span class="fk">deb</span> 包名与
-        <span class="fk">exe</span> 版本资源统一取自 <span class="fk">config.VERSION</span>
-        （<span class="fk">pack_full.py</span> / <span class="fk">pack_portable.py</span> 曾写死 2.6.3，
-        会出现「源码 2.6.4、产物叫 2.6.3」），升级只需改一处。</li>
+    <li><b>合并 v2.8.1 交接线全部修复</b>：以 <span class="fk">handover_myme_2026-10-08b</span> 为基底，
+        并入安卓 WebView 文件选择器修复（<span class="fk">onShowFileChooser</span> + SAF 目录授权 + MymeNative JS 桥）、
+        播放器导入三通路（zip / 目录 / JSON）与播放端四级兜底加载、老壳体检提示；
+        当前线的四片段播放、深度加工四项（kb_graph / kb_agent / kb_editor / kb_trace）、
+        乔牧七项产出、13 标签编号全部保留，两线合一为 2.9.2。</li>
+    <li><b>播放参数契约（lang / person / avatar / avkey）</b>：生成讲解、导出播放文件、导入播放文件三处共用同一组参数名，
+        写进包内 <span class="fk">manifest.json</span> 的 <span class="fk">params</span> 与 <span class="fk">README.txt</span>「本播放包标注」抬头；
+        播放端导入后自动识别——只有中文配音时英文置灰，本包只有金子时分身里不出现炎冰。
+        导出对话框新增「🏷 本包标注」预览框，导入后回显本包标注。</li>
+    <li><b>统信 deb 装不上的三个根因都修了</b>：postinst <span class="fk">set -e</span> 遇 chmod 失败即中断
+        （改守卫式 fix_mode + 完整性自检，四件套任缺即报「安装不完整」）；
+        启动器包内权限 0644 且 CRLF 换行（<span class="fk">#!/bin/sh\r</span> 直接 execve ENOENT，
+        改强制 LF + 包内可执行成员 0755）；.desktop 用通用图标名导致菜单无图标
+        （改绝对路径 Exec/Icon + <span class="fk">/usr/bin</span> 转发入口）。
+        出包脚本新增 37 项 UOS 专项校验，四件套无 CRLF、postinst 无 set -e 才会放行。</li>
+    <li><b>版本标识五处对齐 2.9.2</b>：config.VERSION、安卓 versionCode 9 / versionName 2.9.2、
+        MSI 2.9.2、exe 版本资源 2.9.2.0、帮助「当前版本」改为动态取 <span class="fk">MYME_VERSION</span> 常量；
+        出包版本号统一由 <span class="fk">_pkg_ver()</span> 从 config 动态读取，杜绝「源码与产物版本不一致」。</li>
+    <li><b>帮助「功能介绍」重写为 13 标签</b>：按 准备 / 出稿 / 加工 / 演示 / 交付 五组讲清 ①~⑬ 每个工作台，
+        与第三层标签栏一字不差；「版本变更」按版本号降序重排（2.9.1 → 2.9.0 → 2.8.0 → …），新增本版块置顶。</li>
+    <li><b>全流程陈旧编号引用清零</b>：演示面板、导出对话框、导入回显、播放版横幅与启动引导中
+        残留的旧标签号（⑤ 正式演示 / ④ 制作视频 / ⑧ 便携播放版 / ⑩ 播放文件等）全部校正到 ⑨ / ⑤ / ⑬ 等现行编号。</li>
+    <li><b>验证链</b>：播放器 29 项参数断言 + 60 项菜单断言（三通路 + 快捷菜单）全绿；
+        deb 37 项解包校验通过；门禁脚本三层（源码 / EXE CArchive / APK-dex+zip+deb）随版本号同步升级。</li>
   </ul>
-  <h4 style="margin:14px 0 6px">v2.6.6（10-06 导入导出入口补齐 · 中英文贯通 · 分身声纹配对 · 播放器可直接打开 zip）</h4>
+  <h4 style="margin:0 0 6px">v2.9.1（版本一致性治理 · 深度加工四项落地 · 查库回灌与分块统计修复）</h4>
   <ul style="margin:0;padding-left:20px" class="muted">
-    <li><b>顶栏补回「📥 多源导入 / 📤 多项导出」两条命令</b>：这两个能力原先只在第三层标签里有散按钮，
-        帮助里却写着"智能化内核 · 多源导入 / 多项导出"，<b>功能存在但点不到</b>。
-        现在统一收成两条顶层菜单：导入侧覆盖链接采集（公众号 / 网页 / 微博）、粘贴正文、本地文档、
-        <span class="fk">.mymekb</span> 备份还原、播放包 <span class="fk">zip</span>、演示素材；
-        导出侧覆盖知识库备份、思维导图 <span class="fk">.md</span>、书面稿 <span class="fk">.docx</span>、
-        PPT / PDF、便携播放包、全部资源、答疑汇总。</li>
-    <li><b>「语言」只同步三个下拉 → 全局修好</b>：菜单里选「英文」后只有讲解 / 答疑 / 分身视频跟着变，
-        而 <span class="fk">PPT 生成（mp_lang）</span>、<span class="fk">书面稿（kd_lang）</span>、<span class="fk">演示（demoLang）</span>
-        仍停在「中文」，观感就是"选了英文、PPT 还是中文"。
-        现在 <span class="fk">syncLangControls()</span> 一次把全部语言控件同步过去，语言只有一个真相源。</li>
-    <li><b>分身 = 声音 + 形象一一绑定</b>：旧迁移把「炎冰 / 金子」两张脸都挂到同一个 person（炎冰）名下，
-        <span class="fk">persons.json.default</span> 永远是 <span class="fk">yanbing</span> → 选「金子」只换脸、声音还是炎冰。
-        现在按 id 各自成 person，形象只挂给自己，
-        <span class="fk">voice/jinzi-sample-01.wav</span> 正式生效；换分身时播放端会提示"形象与声纹已同步切换"。</li>
-    <li><b>便携播放器可直接打开 zip</b>：原来必须先整包解压、且页面里
-        <span class="fk">$('meta').textContent</span> 指向一个不存在的元素，一进页面就报
-        <span class="fk">Cannot set properties of null</span> 白屏。
-        现在 header 常驻「📥 导入播放包」+「▶ 播放」，
-        播放器内置<b>零依赖 ZIP 读取器</b>（中央目录 → local header → 原生 <span class="fk">DecompressionStream</span> 解 deflate，
-        stored 条目按中央目录 csize 截断），选一个 zip 即播，无需 JSZip 与解压步骤。</li>
-    <li><b>播放版端口 7861 自动进入播放模式</b>：原先起在 7861 却仍是完整版界面（顶部没有导入、没有播放按钮），
-        因为播放模式还要额外设环境变量或放标记文件。现在<b>端口即模式</b>，且顶部横幅直接铺出
-        「导入播放包 / ▶ 播放」两个按钮。</li>
-    <li><b>切英文无英文配音时不再静默播中文</b>：播放器检测到所选页面没有
-        <span class="fk">audio_en</span> 会明确提示"本页没有英文配音（第 N 页），已回落到中文"，
-        并指引回完整版重新生成英文讲解。</li>
-  </ul>
-  <h4 style="margin:14px 0 6px">v2.6.7（10-06 四片段默认出包 · 知识库菜单合并 · GitHub 升级入口 · 主链路自检）</h4>
-  <ul style="margin:0;padding-left:20px" class="muted">
-    <li><b>播放包默认带四个播放片段</b>：导出时按「分身 × 语言」固化出
-        <b>炎冰·中文 / 炎冰·英文 / 金子·中文 / 金子·英文</b>四段，
-        播放器顶部多一个<b>片段下拉</b>，选哪段就把「声音 + 形象 + 配音语言」一起换过去，
-        四个维度一次对齐，用来专门验证"换脸必须换声、切英文必须换配音"。
-        缺资源的段<b>照样列出来</b>并标"缺：…"，而不是藏起来让你打开才发现是哑的。</li>
-    <li><b>讲解默认双语（中文 + 英文讲稿 / 配音）</b>：生成语音讲解时，除中文外会自动再出一份英文讲稿与英文配音，
-        导出的包里英文才真的能播（原来只有中文，一切英文就回落）。
-        英文配音合成失败会逐页跳过并计入结果提示，不拖垮中文流程；
-        只想出中文时设 <span class="fk">MYME_BILINGUAL=0</span> 或「设置 → 全部设置」关掉即可。</li>
-    <li><b>顶栏新增「📚 知识库」菜单</b>：把知识库能干的三件事收成一个入口——
-        <b>① 多源导入</b>（链接 / 粘贴 / 本地文档 / 备份还原）、
-        <b>② 向量重建与优化</b>（统计 / 重建去重压缩 / <b>重建向量</b> / 检索自检 / 范围管理）、
-        <b>③ 多项输出</b>（.mymekb 备份 / 思维导图 / 便携播放包）。
-        原先重建只藏在第三层标签里，顶栏根本点不到。</li>
-    <li><b>顶栏新增「⑪ 深度加工 · 图谱/Agent/分块」</b>：把知识库往「能运营、能复盘」再推一层——
-        <b>① 知识图谱</b>（概况 / 重建 / 查概念邻居 / 导出 Mermaid）、
-        <b>② 分块可编辑</b>（按关键词筛块 → 改 → diff → 回滚 → 重算向量）、
-        <b>③ 链路追踪</b>（token、耗时、检索路径的聚合与最近记录）。
-        检索不再是个黑盒子。</li>
-    <li><b>知识库新增「🔄 重建向量」与「🔍 检索自检」</b>：换过嵌入模型后旧向量与新模型不同域，
-        检索会整体失准，光去重修不好——<span class="fk">reindex_vectors()</span> 只重算
-        <span class="fk">embedding</span>，原文与来源一字不动；
-        「检索自检」发一条测试问题，直接看命中来源与相似度，确认链路通不通。</li>
-    <li><b>帮助新增「⬆️ 软件升级（GitHub 下载）」</b>：一键查
-        <span class="fk">g101400/myme4060</span> 最新发行版，比对本地版本后列出各平台安装包（点名即下）、
-        版本说明与仓库入口；离线/内网会明确提示"当前离线环境 + 去发行页手动看"，而不是弹一句连接失败。</li>
-    <li><b>主链路重排 + 流程自检</b>：「📋 完整流程说明」重写为九步主链路
-        （多源导入 → 生成文稿 → 制作 PPT → 生成音频讲解 → 生成视频 → 正式演示 → 智能答疑 → 总结沉淀 → 导出交付），
-        每一步写清"喂什么 / 出什么 / 从哪个入口进"；
-        新增「🔍 主链路自检」把九步的产物扫一遍，哪一步空着、下一步该点哪，一次看全。</li>
-  </ul>
-  <h4 style="margin:14px 0 6px">v2.6.9（10-07 声音这条链路打通：TTS 死链四连修 · 英文配音实听 · 服务防叠）</h4>
-  <ul style="margin:0;padding-left:20px" class="muted">
-    <li><b>修掉「英文有讲稿、没声音」的根因，一条链路四层各坏一处</b>（详见下方「故障与排查」第 1~4 条）：
-        <span class="fk">qwen_tts</span> 旧写法 <span class="fk">@check_model_inputs()</span> 与
-        transformers 4.57 签名不匹配；ComfyUI 根目录探测撞上<b>盘符相对路径假阳性</b>，
-        模型明明在机器上却报「找不到」；ffmpeg 路径写死 chocolatey（本机是 <span class="fk">.local\bin</span>）；
-        8777 端口被<b>叠了 5 个服务实例</b>，请求被轮流分给新旧进程，时好时坏。</li>
-    <li><b>导出播放包的四个片段，英文两段现在真能出声</b>：跑一次「补录英文讲稿配音」即可，
-        脚本会先翻讲稿再逐页合成，已有讲稿的页自动跳过，中断了也能接着跑。</li>
-    <li><b>TTS 常驻服务防叠</b>：启动前先占坑校验端口，占不上就明说「端口已被占用」并退出，
-        不再出现「重启了却有两个服务在抢请求」这种查不出来的状态。</li>
-    <li><b>报错能查得清</b>：合成失败会把 traceback 打到服务日志（以前只回一句
-        <span class="fk">[WinError 2] 系统找不到指定的文件</span>，根本看不出是哪一步）；
-        补录脚本探活改打 <span class="fk">/ready</span>（以前探根路径 "/"，拿到 404 就误判服务不在、
-        把整轮配音静默跳过了）。</li>
-    <li><b>修掉"整段标 ready，其实只是有一页有声音"的假绿</b>：判定原来写的是
-        <span class="fk">any(...)</span>，只要有 1 页英文配音，整段就显示"可播"，
-        切过去大半页是哑的。现在逐页统计，缺几页就写"英文配音缺 N/30 页"，<b>全部页齐才 ready</b>，
-        并给播放器带上 <span class="fk">pages / pages_ready</span> 两个数字。</li>
-    <li><b>换机第一步不用再猜</b>：新增 <span class="fk">runtime_check.py</span> 一键体检
-        ——运行时依赖（ComfyUI / 内置 Python / LivePortrait / ts_deps / ffmpeg）、外部服务
-        （Ollama、TTS、数字人、7860/7861）、数据根在哪、四个片段齐不齐，一次打全；
-        缺哪件就写清「怎么补、缺了会坏哪一步」，<span class="fk">--json</span> 可直接贴给运维。</li>
-    <li><b>ffmpeg 改成自动探测</b>：不再写死 chocolatey 路径，登记路径 → 常见绿色版位置 → PATH 依次找，
-        换台机器没先装 choco 也能直接出视频。</li>
+    <li><b>「深度加工」四项能力全部进包可用</b>：知识图谱增强检索（<span class="fk">kb_graph</span>，问答候选 6→24 条并标注出处、图谱 0.03s 重建）、
+        ReAct Agent 答疑（<span class="fk">kb_agent</span>，自规划 + 工具调用 + 可开人工审批，联网动作等你确认）、
+        分块可编辑（<span class="fk">kb_editor</span>，改 → 重算向量 → diff → 回滚，旧版自动进快照）、
+        链路追踪（<span class="fk">kb_trace</span>，本地版 Langfuse，记录检索路径 / 耗时 / token）。</li>
+    <li><b>修复「关键词查库被误回灌入库」</b>：检索结果曾被当成「新素材」二次 ingest，一次往库里塞 7 块、历史污染块持续膨胀；
+        现改为「只回显不入库」，并清理历史污染块，真实内容块由 86 收敛到 65。</li>
+    <li><b>修复「分块改动量统计恒为 0」</b>：<span class="fk">kb_editor.update</span> 先写新文本再算差值导致前后恒相等；
+        改为先存旧值再赋值，diff 显示真实的 −33 字等变化。</li>
+    <li><b>修复 exe 里深度加工模块缺失</b>：<span class="fk">kb_graph / kb_agent / kb_editor / kb_trace</span> 为延迟导入，未列入 PyInstaller
+        <span class="fk">hiddenimports</span> 导致打包后点开报错；已补齐并重打 exe。</li>
+    <li><b>版本标识全面统一</b>：<span class="fk">config.VERSION</span> / 版本资源 <span class="fk">filevers</span> / 帮助「当前版本」/ 安装包名 全部对齐到 2.9.1，
+        消除此前「源码 2.9.0、版本资源写 2.6.4」的失配。</li>
+    <li><b>标签编号唯一化</b>：顶部 13 个功能标签原出现 ⑨ / ⑩ 重名（多源搬运与导出交付同为 ⑨、领域包与播放文件同为 ⑩），
+        统一按显示顺序重排为 ①~⑬，全流程引导文案同步改写。</li>
   </ul>
   <h4 style="margin:14px 0 6px">v2.9.0（10-07 吸收 WeKnora：图谱增强检索 · ReAct 答疑 · 分块可运营 · 链路追踪）</h4>
   <ul style="margin:0;padding-left:20px" class="muted">
@@ -1958,6 +1902,32 @@ function dlgChangelog(){openModal('版本变更',`
         权重走镜像拿下，并单独隔离出 <span class="fk">ts_deps/</span>（transformers 4.57 等）避免被 ComfyUI 的 5.5 顶掉；
         <span class="fk">pack_runtime.py</span> 打成 605MB 随行包。本机 RTX 4060 实测<b> 11.1 秒 </b>出片（此前 CPU 跑 8 分钟没出）。</li>
   </ul>
+  <h4 style="margin:14px 0 6px">v2.6.9（10-07 声音这条链路打通：TTS 死链四连修 · 英文配音实听 · 服务防叠）</h4>
+  <ul style="margin:0;padding-left:20px" class="muted">
+    <li><b>修掉「英文有讲稿、没声音」的根因，一条链路四层各坏一处</b>（详见下方「故障与排查」第 1~4 条）：
+        <span class="fk">qwen_tts</span> 旧写法 <span class="fk">@check_model_inputs()</span> 与
+        transformers 4.57 签名不匹配；ComfyUI 根目录探测撞上<b>盘符相对路径假阳性</b>，
+        模型明明在机器上却报「找不到」；ffmpeg 路径写死 chocolatey（本机是 <span class="fk">.local\bin</span>）；
+        8777 端口被<b>叠了 5 个服务实例</b>，请求被轮流分给新旧进程，时好时坏。</li>
+    <li><b>导出播放包的四个片段，英文两段现在真能出声</b>：跑一次「补录英文讲稿配音」即可，
+        脚本会先翻讲稿再逐页合成，已有讲稿的页自动跳过，中断了也能接着跑。</li>
+    <li><b>TTS 常驻服务防叠</b>：启动前先占坑校验端口，占不上就明说「端口已被占用」并退出，
+        不再出现「重启了却有两个服务在抢请求」这种查不出来的状态。</li>
+    <li><b>报错能查得清</b>：合成失败会把 traceback 打到服务日志（以前只回一句
+        <span class="fk">[WinError 2] 系统找不到指定的文件</span>，根本看不出是哪一步）；
+        补录脚本探活改打 <span class="fk">/ready</span>（以前探根路径 "/"，拿到 404 就误判服务不在、
+        把整轮配音静默跳过了）。</li>
+    <li><b>修掉"整段标 ready，其实只是有一页有声音"的假绿</b>：判定原来写的是
+        <span class="fk">any(...)</span>，只要有 1 页英文配音，整段就显示"可播"，
+        切过去大半页是哑的。现在逐页统计，缺几页就写"英文配音缺 N/30 页"，<b>全部页齐才 ready</b>，
+        并给播放器带上 <span class="fk">pages / pages_ready</span> 两个数字。</li>
+    <li><b>换机第一步不用再猜</b>：新增 <span class="fk">runtime_check.py</span> 一键体检
+        ——运行时依赖（ComfyUI / 内置 Python / LivePortrait / ts_deps / ffmpeg）、外部服务
+        （Ollama、TTS、数字人、7860/7861）、数据根在哪、四个片段齐不齐，一次打全；
+        缺哪件就写清「怎么补、缺了会坏哪一步」，<span class="fk">--json</span> 可直接贴给运维。</li>
+    <li><b>ffmpeg 改成自动探测</b>：不再写死 chocolatey 路径，登记路径 → 常见绿色版位置 → PATH 依次找，
+        换台机器没先装 choco 也能直接出视频。</li>
+  </ul>
   <h4 style="margin:14px 0 6px">v2.6.8（10-06 四片段收口：片段只按分身生成 · 自检 GET/POST 双通道 · 英文配音补录）</h4>
   <ul style="margin:0;padding-left:20px" class="muted">
     <li><b>片段的第一维改回「分身」，不再把形象当分身</b>：之前导出清单用
@@ -1979,6 +1949,68 @@ function dlgChangelog(){openModal('版本变更',`
     <li><b>英文讲稿/配音可单独补录</b>：新增 <span class="fk">gen_en_narration.py</span>，
         只给当前演示版本补英文讲稿与英文配音，不重造已有中文音频；四片段中的英文段补齐后即为可播。</li>
   </ul>
+  <h4 style="margin:14px 0 6px">v2.6.7（10-06 四片段默认出包 · 知识库菜单合并 · GitHub 升级入口 · 主链路自检）</h4>
+  <ul style="margin:0;padding-left:20px" class="muted">
+    <li><b>播放包默认带四个播放片段</b>：导出时按「分身 × 语言」固化出
+        <b>炎冰·中文 / 炎冰·英文 / 金子·中文 / 金子·英文</b>四段，
+        播放器顶部多一个<b>片段下拉</b>，选哪段就把「声音 + 形象 + 配音语言」一起换过去，
+        四个维度一次对齐，用来专门验证"换脸必须换声、切英文必须换配音"。
+        缺资源的段<b>照样列出来</b>并标"缺：…"，而不是藏起来让你打开才发现是哑的。</li>
+    <li><b>讲解默认双语（中文 + 英文讲稿 / 配音）</b>：生成语音讲解时，除中文外会自动再出一份英文讲稿与英文配音，
+        导出的包里英文才真的能播（原来只有中文，一切英文就回落）。
+        英文配音合成失败会逐页跳过并计入结果提示，不拖垮中文流程；
+        只想出中文时设 <span class="fk">MYME_BILINGUAL=0</span> 或「设置 → 全部设置」关掉即可。</li>
+    <li><b>顶栏新增「📚 知识库」菜单</b>：把知识库能干的三件事收成一个入口——
+        <b>① 多源导入</b>（链接 / 粘贴 / 本地文档 / 备份还原）、
+        <b>② 向量重建与优化</b>（统计 / 重建去重压缩 / <b>重建向量</b> / 检索自检 / 范围管理）、
+        <b>③ 多项输出</b>（.mymekb 备份 / 思维导图 / 便携播放包）。
+        原先重建只藏在第三层标签里，顶栏根本点不到。</li>
+    <li><b>顶栏新增「⑪ 深度加工 · 图谱/Agent/分块」</b>：把知识库往「能运营、能复盘」再推一层——
+        <b>① 知识图谱</b>（概况 / 重建 / 查概念邻居 / 导出 Mermaid）、
+        <b>② 分块可编辑</b>（按关键词筛块 → 改 → diff → 回滚 → 重算向量）、
+        <b>③ 链路追踪</b>（token、耗时、检索路径的聚合与最近记录）。
+        检索不再是个黑盒子。</li>
+    <li><b>知识库新增「🔄 重建向量」与「🔍 检索自检」</b>：换过嵌入模型后旧向量与新模型不同域，
+        检索会整体失准，光去重修不好——<span class="fk">reindex_vectors()</span> 只重算
+        <span class="fk">embedding</span>，原文与来源一字不动；
+        「检索自检」发一条测试问题，直接看命中来源与相似度，确认链路通不通。</li>
+    <li><b>帮助新增「⬆️ 软件升级（GitHub 下载）」</b>：一键查
+        <span class="fk">g101400/myme4060</span> 最新发行版，比对本地版本后列出各平台安装包（点名即下）、
+        版本说明与仓库入口；离线/内网会明确提示"当前离线环境 + 去发行页手动看"，而不是弹一句连接失败。</li>
+    <li><b>主链路重排 + 流程自检</b>：「📋 完整流程说明」重写为九步主链路
+        （多源导入 → 生成文稿 → 制作 PPT → 生成音频讲解 → 生成视频 → 正式演示 → 智能答疑 → 总结沉淀 → 导出交付），
+        每一步写清"喂什么 / 出什么 / 从哪个入口进"；
+        新增「🔍 主链路自检」把九步的产物扫一遍，哪一步空着、下一步该点哪，一次看全。</li>
+  </ul>
+  <h4 style="margin:14px 0 6px">v2.6.6（10-06 导入导出入口补齐 · 中英文贯通 · 分身声纹配对 · 播放器可直接打开 zip）</h4>
+  <ul style="margin:0;padding-left:20px" class="muted">
+    <li><b>顶栏补回「📥 多源导入 / 📤 多项导出」两条命令</b>：这两个能力原先只在第三层标签里有散按钮，
+        帮助里却写着"智能化内核 · 多源导入 / 多项导出"，<b>功能存在但点不到</b>。
+        现在统一收成两条顶层菜单：导入侧覆盖链接采集（公众号 / 网页 / 微博）、粘贴正文、本地文档、
+        <span class="fk">.mymekb</span> 备份还原、播放包 <span class="fk">zip</span>、演示素材；
+        导出侧覆盖知识库备份、思维导图 <span class="fk">.md</span>、书面稿 <span class="fk">.docx</span>、
+        PPT / PDF、便携播放包、全部资源、答疑汇总。</li>
+    <li><b>「语言」只同步三个下拉 → 全局修好</b>：菜单里选「英文」后只有讲解 / 答疑 / 分身视频跟着变，
+        而 <span class="fk">PPT 生成（mp_lang）</span>、<span class="fk">书面稿（kd_lang）</span>、<span class="fk">演示（demoLang）</span>
+        仍停在「中文」，观感就是"选了英文、PPT 还是中文"。
+        现在 <span class="fk">syncLangControls()</span> 一次把全部语言控件同步过去，语言只有一个真相源。</li>
+    <li><b>分身 = 声音 + 形象一一绑定</b>：旧迁移把「炎冰 / 金子」两张脸都挂到同一个 person（炎冰）名下，
+        <span class="fk">persons.json.default</span> 永远是 <span class="fk">yanbing</span> → 选「金子」只换脸、声音还是炎冰。
+        现在按 id 各自成 person，形象只挂给自己，
+        <span class="fk">voice/jinzi-sample-01.wav</span> 正式生效；换分身时播放端会提示"形象与声纹已同步切换"。</li>
+    <li><b>便携播放器可直接打开 zip</b>：原来必须先整包解压、且页面里
+        <span class="fk">$('meta').textContent</span> 指向一个不存在的元素，一进页面就报
+        <span class="fk">Cannot set properties of null</span> 白屏。
+        现在 header 常驻「📥 导入播放包」+「▶ 播放」，
+        播放器内置<b>零依赖 ZIP 读取器</b>（中央目录 → local header → 原生 <span class="fk">DecompressionStream</span> 解 deflate，
+        stored 条目按中央目录 csize 截断），选一个 zip 即播，无需 JSZip 与解压步骤。</li>
+    <li><b>播放版端口 7861 自动进入播放模式</b>：原先起在 7861 却仍是完整版界面（顶部没有导入、没有播放按钮），
+        因为播放模式还要额外设环境变量或放标记文件。现在<b>端口即模式</b>，且顶部横幅直接铺出
+        「导入播放包 / ▶ 播放」两个按钮。</li>
+    <li><b>切英文无英文配音时不再静默播中文</b>：播放器检测到所选页面没有
+        <span class="fk">audio_en</span> 会明确提示"本页没有英文配音（第 N 页），已回落到中文"，
+        并指引回完整版重新生成英文讲解。</li>
+  </ul>
   <h4 style="margin:14px 0 6px">v2.6.5（10-06 分身演示体检：象库回填 · 数字人降级出片 · 首页副标题修复）</h4>
   <ul style="margin:0;padding-left:20px" class="muted">
     <li><b>象库自动回填（换机/换盘不再"数字人缺图"）</b>：项目制上线后象库从
@@ -1999,6 +2031,35 @@ function dlgChangelog(){openModal('版本变更',`
     <li><b>象库重建</b>：用内置 demo 分身视频抽帧重建炎冰 / 金子两张形象图并登记清单，
         <span class="fk">/api/avatars</span> 与「分身管理」恢复可选形象。</li>
   </ul>
+  <h4 style="margin:14px 0 6px">v2.6.4（10-05 多源导入·多项导出落地 + 阻断级修复）</h4>
+  <ul style="margin:0;padding-left:20px" class="muted">
+    <li><b>新增「智能化内核 · 多源导入」</b>：菜单「智能化内核」下并入<b>知识库源录入</b>，可把
+        <b>网页文章 / 微信公众号文章 / 微博（含长微博全文） / 本地文件</b>直接采进本地离线知识库；
+        抓取修好了两处长期失效——微博需要 genvisitor2 访客令牌并改走 <code>statuses/show</code> 接口，
+        公众号标题的尾部空格要截断、并有 <code>activity-name</code> / <code>msg_title</code> 兜底。</li>
+    <li><b>新增「智能化内核 · 多项导出」</b>：知识库/文稿可一次导出 <b>markdown / txt / html</b> 三种格式，
+        导出走本地模型、不联网。</li>
+    <li><b>修复「根据知识库生成文字材料」必崩（阻断级）</b>：
+        <span class="fk">_handle_gen_kb_doc</span> 把模块级函数当方法调用（少了 self），
+        一点按钮就 500；<b>已后台实测通过</b>：HTTP 200、正文 11 个段落、命中知识库 12 条、docx 导出成功。</li>
+    <li><b>修复项目知识库路径</b>：知识库数据固定落到
+        <span class="fk">projects/default/kb_data</span>，不再随工作目录漂移，导入导出与问答同源。</li>
+    <li><b>本地素材库生成链路补齐</b>：<span class="fk">gen_local.py</span> 可一次产出
+        <b>文字材料 doc / 思维导图 / PPT</b>（PPT 走 <span class="fk">write_pptx</span>），
+        与「③ 制作 PPT · PDF」共用同一份内容源。</li>
+    <li><b>修复视频与配音解码</b>：<span class="fk">app.py</span> 的 <span class="fk">/api/video</span> 改判
+        <span class="fk">os.path.isfile</span>，<span class="fk">narrate.py</span> 的 stderr 用安全解码，
+        不再因编码抛异常中断配音。</li>
+    <li><b>补漏 · 应用内也能出思维导图（v2.6.4 续）</b>：此前「思维导图」只在技能侧
+        <span class="fk">gen_local.py</span> 有，APP 里点不到。
+        本版新增 <span class="fk">/api/make_mindmap</span> 与「🧠 思维导图（Markdown）」按钮：
+        与「③ 制作 PPT」共用同一份大纲与知识库依据，产出 <b>.md 树形导图</b>（主题 → 章节 → 要点），
+        可导入 <b>Xmind / 幕布 / 语雀</b> 继续手绘，「doc · 思维导图 · PPT」三项导出在应用内补齐。</li>
+    <li><b>出包版本号不再写死</b>：<span class="fk">msi</span> / <span class="fk">deb</span> 包名与
+        <span class="fk">exe</span> 版本资源统一取自 <span class="fk">config.VERSION</span>
+        （<span class="fk">pack_full.py</span> / <span class="fk">pack_portable.py</span> 曾写死 2.6.3，
+        会出现「源码 2.6.4、产物叫 2.6.3」），升级只需改一处。</li>
+  </ul>
   <h4 style="margin:14px 0 6px">v2.6.3（10-03 交接源同步 + 本机环境适配）</h4>
   <ul style="margin:0;padding-left:20px" class="muted">
     <li><b>交接源同步</b>：以 v2.6.2 交接包（<span class="fk">handover_myme_2026-10-03</span>）为唯一功能基底，
@@ -2011,15 +2072,15 @@ function dlgChangelog(){openModal('版本变更',`
         会导致 7z 包里没有 myme.exe、SFX 自解压产物残缺；改为相对脚本目录，换机/迁目录不再失效。</li>
     <li><b>三平台交付</b>：Win11 完整版 MSI + 绿色伴随目录、安卓 APK、统信 UOS deb 同步重出。</li>
   </ul>
-<h4 style="margin:0 0 6px">v2.6.2（10-03 续二）</h4>
+  <h4 style="margin:14px 0 6px">v2.6.2（10-03 续二）</h4>
   <ul style="margin:0;padding-left:20px" class="muted">
     <li><b>PPT 制作与分身演示流程重构</b>：把「生成分身语音讲解」从原来的「② 素材与文稿」前移到 <b>④ 生成分身语音讲解</b>（排在「③ 制作 PPT · PDF」之后）；
         「素材与文稿智能」（根据知识库生成 doc / 打磨 doc / 生成文稿 pdf）前移为新的 <b>② 素材与文稿智能</b>。
         逻辑理顺：先出文字材料 → 再做 PPT → 最后才用 PPT 生成分身语音讲解，避免"还没 PPT 就生成语音"的不合理顺序。</li>
     <li><b>备用方案同步调整</b>：从备用素材目录取 PPT 生成讲解的入口，随语音讲解一起迁移到 ④，同样排在 PPT 之后。</li>
-    <li><b>全流程引导更新</b>：顶部页签、演示向导（STAGES）、关于/帮助文案、mp_import 跳转提示、正式演示前置校验，全部按新顺序（① 知识库 → ② 素材与文稿智能 → ③ 制作 PPT → ④ 生成分身语音讲解 → ⑤ 制作视频 → ⑥ 正式演示 → ⑦ 答疑 → ⑧ 总结 → ⑨ 导出交付 → ⑩ 播放文件）同步改写。</li>
+    <li><b>全流程引导更新</b>：顶部页签、演示向导（STAGES）、关于/帮助文案、mp_import 跳转提示、正式演示前置校验，全部按新顺序（① 知识库 · 沉淀 → ② 素材与文稿智能 → ③ 制作 PPT · PDF → ④ 生成分身语音讲解 → ⑤ 制作视频 → ⑥ 多源搬运 · 多项产出 → ⑦ 领域包 · 水利古建与感知 → ⑧ 深度加工 · 图谱/Agent/分块 → ⑨ 正式演示 → ⑩ 智能答疑 → ⑪ 答疑总结 → ⑫ 导出交付 → ⑬ 播放文件）同步改写，13 个标签编号唯一、无重名。</li>
   </ul>
-  <h4 style="margin:0 0 6px">v2.6.1 增补二（10-03 续）</h4>
+  <h4 style="margin:14px 0 6px">v2.6.1 增补二（10-03 续）</h4>
   <ul style="margin:0;padding-left:20px" class="muted">
     <li><b>内置分身演示片段（验证环境）</b>：炎冰、金子两条 8 秒 Sonic 真机演示片段<b>默认打进 APP</b>（demo_avatar/），
         帮助菜单新增「🎭 内置分身演示（验证环境）」——装好后不用先跑一次推理，点开就能播放本机出片，
@@ -2087,16 +2148,6 @@ function dlgChangelog(){openModal('版本变更',`
     <li>新增<b>知识库重建</b>：一键去重（精确+近重复余弦）/ 剔除低质短块 / 压缩冗余，提升检索质量；重建只动索引与冗余，<b>不把知识库存成压缩结果</b>，仍可溯源、仍可二次检索</li>
     <li>④ 知识库面板新增<b>管理卡片</b>（备份/导入/重建/统计），② 答疑新增「🗜️ 压缩上下文」开关（默认开）</li>
   </ul>
-  <h4 style="margin:0 0 6px">v2.3（本次）</h4>
-  <ul style="margin:0;padding-left:20px" class="muted">
-    <li><b>应用更名</b>：产品名改为「PPT制作及分身演示」，不再局限于某一行业/某一个人；首页标题动态显示当前分身</li>
-    <li>完整版默认端口 <b>7860</b>、便携播放版默认端口 <b>7861</b>，两者可同时运行互不冲突</li>
-    <li>「设置 → 大模型接入」新增<b>模型接入菜单</b>：可配置地址 / 密钥 / 模型 / 其他参数，既可接本地模型，也可接线上模型</li>
-    <li>知识库 / 答疑 / 制作 PPT <b>统一接入</b>配置好的大模型（原写死 Ollama 已解耦），知识向量库借大模型提升答疑质量</li>
-    <li>新增<b>「③ 制作 PPT · PDF」</b>：输入主题/风格/页数/语言，大模型生成结构化大纲并落盘 .pptx（可下载或一键导入准备工作），可选接本机 ComfyUI + LoRA 配图</li>
-    <li>页签顺序调整：<b>答疑（② 智能答疑 / ⑥ 答疑总结）移至「正式演示 ⑤」之后</b>，流程更顺</li>
-    <li>帮助与关于文案同步更新为产品新名；版本号统一为 2.3.0</li>
-  </ul>
   <h4 style="margin:14px 0 6px">v2.4.0</h4>
   <ul style="margin:0;padding-left:20px" class="muted">
     <li><b>制作 PPT 全链路补齐</b>：需求解析 → 本地知识库 → 大纲 → 版式/图表 → .pptx</li>
@@ -2114,6 +2165,16 @@ function dlgChangelog(){openModal('版本变更',`
     <li><b>完整版也加入「📥 导入播放文件」菜单</b>（原来点了只是切页签，实际无反应）</li>
     <li><b>导出播放文件可选精度 / 压缩比例</b>：无损（原样）/ 标准（mp3 192k + x264 CRF23）/ 精简（mp3 128k + 720p CRF27）；由本机 ffmpeg 转码，同份资源实测 467MB → 132MB（省约 72%）</li>
     <li>压缩导出同步改写讲稿里的音频引用（.wav → .mp3），并在读取侧做双向兜底，避免转码后整场静音</li>
+  </ul>
+  <h4 style="margin:14px 0 6px">v2.3（本次）</h4>
+  <ul style="margin:0;padding-left:20px" class="muted">
+    <li><b>应用更名</b>：产品名改为「PPT制作及分身演示」，不再局限于某一行业/某一个人；首页标题动态显示当前分身</li>
+    <li>完整版默认端口 <b>7860</b>、便携播放版默认端口 <b>7861</b>，两者可同时运行互不冲突</li>
+    <li>「设置 → 大模型接入」新增<b>模型接入菜单</b>：可配置地址 / 密钥 / 模型 / 其他参数，既可接本地模型，也可接线上模型</li>
+    <li>知识库 / 答疑 / 制作 PPT <b>统一接入</b>配置好的大模型（原写死 Ollama 已解耦），知识向量库借大模型提升答疑质量</li>
+    <li>新增<b>「③ 制作 PPT · PDF」</b>：输入主题/风格/页数/语言，大模型生成结构化大纲并落盘 .pptx（可下载或一键导入准备工作），可选接本机 ComfyUI + LoRA 配图</li>
+    <li>页签顺序调整：<b>答疑（② 智能答疑 / ⑥ 答疑总结）移至「正式演示 ⑤」之后</b>，流程更顺</li>
+    <li>帮助与关于文案同步更新为产品新名；版本号统一为 2.3.0</li>
   </ul>
   <h4 style="margin:14px 0 6px">v2.2</h4>
   <ul style="margin:0;padding-left:20px" class="muted">
@@ -2139,10 +2200,12 @@ function dlgChangelog(){openModal('版本变更',`
   <ul style="margin:0;padding-left:20px" class="muted">
     <li>菜单栏：分身 / 知识库 / 语言 / 播放 / 视图 / 设置 / 帮助</li>
     <li>PPT 讲解页面同步、答疑自动定位相关页、多人多形象、多格式知识库、双语问答、设置持久化、异步进度条</li>
-  </ul>`);}
-/* 演示向导：编号与第三层标签一致（v2.6.1 按用户流程重排；2026-10-03 再把"生成分身语音讲解"迁移到"制作 PPT"之后）。
+  </ul>
+`);}
+/* 演示向导：阶段编号与第三层标签一致（⑥~⑧ 加工车间按需使用，不在主线向导里）；
+   2026-10-03 把"生成分身语音讲解"迁移到"制作 PPT"之后，2026-10-15 菜单补全为 9 阶段。
    选择分身（第二层作用域栏）→ ① 知识库·沉淀 → ② 素材与文稿智能 → ③ 制作PPT·PDF
-   → ④ 生成分身语音讲解 → ⑤ 制作视频 → ⑥ 正式演示 → ⑦ 答疑 → ⑧ 总结 → ⑨ 导出交付 →（沉淀回①，闭环）*/
+   → ④ 生成分身语音讲解 → ⑤ 制作视频 → ⑨ 正式演示 → ⑩ 答疑 → ⑪ 总结 → ⑫ 导出交付 →（沉淀回①，闭环）*/
 const STAGES=[
   {t:'① 备料 · 知识库（公有 / 私有）与沉淀',tab:4,go:'知识库 · 沉淀',steps:[
     '在第二层作用域栏选好【项目】、【分身】、【形象】——分身＝声音与人设，形象＝画面上的样子。',
@@ -2169,19 +2232,19 @@ const STAGES=[
     '分身与形象的增删改都在本页「分身管理」卡片；换形象即换画面，声音跟着分身走。',
     '可逐页生成口型视频，也可一键生成整场演示视频（自动按讲解时长拼接）。',
     '若提示"语音合成失败"，多半是 ComfyUI 内置 Python 或声纹模型不在位，按提示到「设置 → 🧩 运行环境自检」核对。']},
-  {t:'⑥ 上台 · 正式演示',tab:5,go:'正式演示',steps:[
-    '在「⑥ 正式演示」点「▶ 开始演示」：分身肖像 + PPT 原稿逐页同步，自动翻页并播放讲解。',
+  {t:'⑨ 上台 · 正式演示',tab:5,go:'正式演示',steps:[
+    '在「⑨ 正式演示」点「▶ 开始演示」：分身肖像 + PPT 原稿逐页同步，自动翻页并播放讲解。',
     '被提问时点「⏸ 领导提问」，自动暂停并打开答疑框；答完点「▶ 继续演示（从此页）」精确续播。',
     '全屏快捷键、页码跳转、断点续播都在演示页底部工具条。']},
-  {t:'⑦ 答疑 · 现场问答',tab:2,go:'智能答疑',steps:[
-    '在「⑦ 智能答疑」提问，系统按 公有 / 项目 / 分身 三库检索作答，命中某页会自动定位展示。',
-    '可勾选「记入答疑记录」，供第 ⑧ 步自动汇总。',
+  {t:'⑩ 答疑 · 现场问答',tab:2,go:'智能答疑',steps:[
+    '在「⑩ 智能答疑」提问，系统按 公有 / 项目 / 分身 三库检索作答，命中某页会自动定位展示。',
+    '可勾选「记入答疑记录」，供第 ⑪ 步自动汇总。',
     '答案里没有依据的部分会明确标出，不会编造。']},
-  {t:'⑧ 总结 · 沉淀问答',tab:6,go:'答疑总结',steps:[
-    '「⑧ 答疑总结」自动生成《答疑汇总》，可导出 Markdown，也可把高频问答沉淀回知识库。',
+  {t:'⑪ 总结 · 沉淀问答',tab:6,go:'答疑总结',steps:[
+    '「⑪ 答疑总结」自动生成《答疑汇总》，可导出 Markdown，也可把高频问答沉淀回知识库。',
     '沉淀回知识库的内容会自动带上"由答疑沉淀"分类，便于日后追溯。']},
-  {t:'⑨ 交付 · 导出相关文档',tab:7,go:'导出交付',steps:[
-    '「⑨ 导出交付」集中导出本项目全部产出：PPT、PDF、书面文档、音频、视频、分身、知识库备份。',
+  {t:'⑫ 交付 · 导出相关文档',tab:7,go:'导出交付',steps:[
+    '「⑫ 导出交付」集中导出本项目全部产出：PPT、PDF、书面文档、音频、视频、分身、知识库备份。',
     '勾「📱 打包为离线便携播放包」可产出一个 zip，给便携播放版 / 安卓 / 统信播放端原样播放。',
     '交付给需要留档的人：PPT + PDF + 书面文档三种一起给最稳。',
     '交付完成把新资料回传到第 ① 步的知识库，形成"演示 → 答疑 → 沉淀"的闭环。']},
@@ -2201,7 +2264,7 @@ const FLOW=[
   ['②','生成文稿',
    '拿知识库起草书面材料（总结 / 半年 / 工作 / 项目 / 季度）或打磨已有讲稿',
    '产出：.docx 书面稿（段落式、内容详实）',
-   '① 素材与文稿 → 📝 生成文字材料'],
+   '② 素材与文稿智能 → 📝 生成文字材料'],
   ['③','生成 PPT / PDF',
    '填主题 → 可选「引用知识库」（有依据才写、没依据标【待补充】）→ 生成 PPTX / PDF',
    '产出：.pptx + .pdf（PPT 是给"讲"用的，书面稿是给"读"的，两者都留最稳）',
@@ -2217,19 +2280,19 @@ const FLOW=[
   ['⑥','正式演示',
    '分身肖像 + PPT 原稿逐页同步，自动翻页播放；被提问可暂停进答疑，答完精确续播',
    '产出：一场跑通的演示（也可直接播整场视频）',
-   '⑥ 正式演示 → ▶ 开始演示'],
+   '⑨ 正式演示 → ▶ 开始演示'],
   ['⑦','智能答疑',
    '现场提问 → 三库检索作答，命中某页自动定位',
    '产出：答疑记录（勾选「记入答疑记录」才会进第 ⑧ 步）',
-   '⑦ 智能答疑'],
+   '⑩ 智能答疑'],
   ['⑧','答疑总结与沉淀',
    '自动生成《答疑汇总》可导出；高频问答回灌知识库，下次演示直接用',
    '产出：.md 汇总 + 知识库新增分类（"由答疑沉淀"）',
-   '⑧ 答疑总结'],
+   '⑪ 答疑总结'],
   ['⑨','导出交付',
    '一次性导出本项目全部产出（PPT/PDF/文档/音频/视频/分身/知识库备份）',
    '产出：.pptx / .pdf / .docx / 音频 / 视频 / .mymekb / 便携播放包 zip',
-   '⑨ 导出交付 → 📀 打包为离线便携播放包'],
+   '⑫ 导出交付 → 📀 打包为离线便携播放包'],
 ];
 function dlgWorkflow(){
   let h='<p class="muted">数字分身演示主链路（按顺序走一遍即可闭环，每步都能从菜单直接跳过去）：</p>';
@@ -4136,6 +4199,7 @@ async function uploadZipFile(file){
     if(last.error) throw new Error(last.error);
     _impSet(100,'✅ 导入完成，共 '+(last.count||0)+' 项（临时文件已清理）');
     _impHide();
+    window._lastImportParams = last.params || null;   // 包内 manifest.params，供导入后回显
     return last.count||0;
   }catch(e){
     _impSet(100,'❌ 导入失败：'+e.message); _impHide();
@@ -4150,7 +4214,7 @@ async function importResources(){
 }
 
 /* ================= 完整版：导出"播放文件"（对话框 + 选择 + 可靠下载） ================= */
-let _exStop=false, _lastExSig=null, _lastExFile=null, _lastExName=null;
+let _exStop=false, _lastExSig=null, _lastExFile=null, _lastExName=null, _exParams=null;
 function _exSig(cats, vers, vids){
   return JSON.stringify({c:cats.slice().sort(), v:vers.slice().sort(), d:vids.slice().sort()});
 }
@@ -4171,7 +4235,7 @@ function renderExFileList(){
   if(_exChk('exCatsVideo')){
     const vids=Array.from(document.querySelectorAll('.exVid:checked')).map(e=>e.value);
     if(vids.length){ vids.forEach(f=>add('video/'+f,'数字分身视频')); }
-    else{ add('video/demo_av_full_<版本>.mp4','整场分身视频（当前暂无可选视频，可先在「⑤ 正式演示」生成）'); }
+    else{ add('video/demo_av_full_<版本>.mp4','整场分身视频（当前暂无可选视频，可先在「⑨ 正式演示」生成）'); }
     add('video/demo_av_full_<版本>_dur.json','逐页翻页时间轴（播放版按页同步用）');
   }
   if(_exChk('exCatsAvatar')){
@@ -4186,15 +4250,36 @@ async function openExportPlayback(){
   if(S.playback){ alert('当前为便携播放版，不支持导出；请在完整版中导出播放文件。'); return; }
   let vids=[];
   try{ const r=await getJSON('/api/playback_files'); vids=r.videos||[]; }catch(e){}
+  // 播放参数契约（lang / person / avatar / avkey）：与后端导出、播放端导入同一组参数名。
+  // 导出前就把"本包是中文还是英文、分身是谁"显示出来，导出的 manifest.params 与这里一致。
+  try{ _exParams=await postJSON('/api/resources',{act:'playback_params'}); }catch(e){ _exParams=null; }
+  const P=_exParams||{};
+  const LangN={zh:'中文',en:'English'};
+  const pLangs=(P.langs||[]).map(x=>LangN[x]||x).join('、')||'未检测';
+  const pMain=LangN[P.lang]||P.lang||'未标注';
+  const pWho=P.avatar_name||([P.person,P.avatar].filter(Boolean).join(' · '))||'未标注';
+  const paramsBox=`
+    <div class="exSec" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px">
+      <b>🏷 本包标注（导入播放文件时自动识别，本包没有的选项会自动置灰）</b>
+      <ul class="flist" style="margin:6px 0 0">
+        <li><span class="fk">lang（配音语言）</span><span class="fv">${esc(pMain)}　·　本包实际包含：${esc(pLangs)}</span></li>
+        <li><span class="fk">person / avatar（分身）</span><span class="fv">${esc(pWho)}</span></li>
+        <li><span class="fk">avkey（分身键）</span><span class="fv">${esc(P.avkey||'未标注')}　<code>person_avatar</code>，与逐页视频名中的那段一致</span></li>
+      </ul>
+      <p class="muted" style="margin:6px 0 0">生成讲解、导出播放文件、导入播放文件三处使用这同一组参数（也写进包内
+        <code>manifest.json</code> 的 <code>params</code> 与 <code>README.txt</code>），所以播放端导入后能自动认出：
+        只有中文配音时英文置灰；本包只有金子时分身里不出现炎冰。</p>
+    </div>`;
   const vers=(S.versions||[]);
   const verChk = vers.map(v=>'<label class="chk"><input type="checkbox" class="exVer" value="'+esc(v.id)+'" checked> '
       +esc(v.name)+'（'+(v.count||0)+'页）</label>').join('')
       || '<span class="muted">暂无版本</span>';
   const vidChk = vids.map(f=>'<label class="chk"><input type="checkbox" class="exVid" value="'+esc(f)+'" checked> '
       +esc(f)+'</label>').join('')
-      || '<span class="muted">暂无整场分身视频（可在「⑤ 正式演示」点「生成整场分身视频」后导出）</span>';
+      || '<span class="muted">暂无整场分身视频（可在「⑨ 正式演示」点「生成整场分身视频」后导出）</span>';
   const body = `
-    <p class="muted">选择要导出的内容，生成 zip 后可在「便携播放版（⑧）」导入离线演示。带 <b>*</b> 为必选项。</p>
+    <p class="muted">选择要导出的内容，生成 zip 后可在「便携播放版（⑬）」导入离线演示。带 <b>*</b> 为必选项。</p>
+    ${paramsBox}
     <div class="exSec">
       <label class="exHead"><input type="checkbox" id="exCatsVersions" checked> <b>方案讲稿 *</b>（slides.json，含所选版本）</label>
       <div class="exIndent" id="exVerBox">${verChk}</div>
@@ -4292,18 +4377,28 @@ async function doExportPlayback(){
   $('exBarWrap').style.display='block'; $('exBar').style.width='25%';
   _showEx('正在生成播放文件…（打包可能需十几秒，请稍候）','');
   try{
+    // 参数与「本包标注」框显示的一致（后端未指定时也会用同一套兜底规则取值）
+    const P=_exParams||{};
     const r=await postJSON('/api/resources',{act:'export',cats,
       versions: needVersions?selVer:[], videos: needVideo?selVid:[], quality,
-      include_player: includePlayer});
+      include_player: includePlayer,
+      lang:P.lang||'', person:P.person||'', avatar:P.avatar||'', avkey:P.avkey||''});
     $('exBar').style.width='100%';
     if(r.ok){
       _lastExSig=sig; _lastExName=r.name; _lastExFile=r.zip;
       const mb=r.size?(r.size/1048576).toFixed(1)+' MB':'未知';
       const ff=r.ffmpeg?'':'⚠ 未检测到 ffmpeg，已按<b>无损原样</b>拷贝。';
+      const RP=r.params||{};
+      const LANGN={zh:'中文',en:'English'};
+      const mark=RP.avkey||RP.person
+        ? ('<br>🏷 本包标注：<b>'+(LANGN[RP.lang]||RP.lang||'未标注')+'</b>'
+           +' · 分身 <b>'+esc(RP.avkey||RP.person)+'</b>（已写入 manifest.params 与 README.txt，导入时自动识别）')
+        : '';
       _showEx('✅ 已生成 <b>'+r.count+'</b> 项 · 精度 <b>'+esc(r.quality||quality)+'</b> · 体积 <b>'+mb+'</b>。'+ff
         +'<br>文件：<b>'+esc(r.name)+'</b><br>'
         +'服务器已保存于：<code>'+esc(r.path||'')+'</code><br>'
-        +'已自动开始下载；若未弹出，请点下方「下载文件」。也可在「便携播放版（⑧）」导入此 zip。'
+        +'已自动开始下载；若未弹出，请点下方「下载文件」。也可在「便携播放版（⑬）」导入此 zip。'
+        +mark
         +(includePlayer?'<br>📱 <b>这是离线便携播放包</b>：解压后双击 <code>player.html</code> 即可播放，'
           +'也可直接放进安卓 APK / 统信 deb / Win 便携包三端使用。':''),'');
       $('exDl').href=r.zip; $('exDl').setAttribute('download', r.name||'myme_playback.zip');
@@ -4336,14 +4431,21 @@ function exportPlayback(){ openExportPlayback(); }
 async function importPlayback(){
   pickZip(async f=>{
     const n=await uploadZipFile(f);
-    if(n!==null){ $('playImportHint').textContent='已导入 '+n+' 项，前往「⑤ 正式演示」即可播放';
+    if(n!==null){
+      // 回显包内 manifest.params：导入后就知道"这包是中文还是英文、分身是谁"
+      const P=window._lastImportParams||{}, LANGN={zh:'中文',en:'English'};
+      const who=P.avatar_name||[P.person,P.avatar].filter(Boolean).join(' · ');
+      const mark=(P.avkey||P.person||P.lang)
+        ? ('。🏷 本包标注：'+(LANGN[P.lang]||P.lang||'未标注')+(who?(' · 分身 '+who):''))
+        : '';
+      $('playImportHint').textContent='已导入 '+n+' 项，前往「⑨ 正式演示」即可播放'+mark;
       await loadSlides(); await loadVersions(); await loadPersons(); renderPlayList(); switchTab('5'); }
   });
 }
 function renderPlayList(){
   const list=$('playList'); if(!list) return;
   if(!S.slides.length){ list.innerHTML='<div class="muted">尚未导入。</div>'; return; }
-  list.innerHTML='<div class="muted">已载入 '+S.slides.length+' 页讲解，可前往「⑤ 正式演示」播放。</div>';
+  list.innerHTML='<div class="muted">已载入 '+S.slides.length+' 页讲解，可前往「⑨ 正式演示」播放。</div>';
 }
 
 /* ================= 播放版 / 完整版 UI 切换 ================= */
@@ -4362,12 +4464,12 @@ function applyPlaybackMode(){
     if(!b){ b=document.createElement('div'); b.id='pbBanner';
             b.style.cssText='padding:10px 14px;margin:8px 0;background:#fff7ed;color:#9a3412;border:1px solid #fdba74;border-radius:10px;font-size:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap';
             const m=document.querySelector('main'); if(m) m.prepend(b); }
-    // ⚠ 播放版原先只有底部标签「⑩ 播放文件」一个导入口，顶栏菜单里也没有明显入口，
+    // ⚠ 播放版原先只有底部标签「⑬ 播放文件」一个导入口，顶栏菜单里也没有明显入口，
     //   用户第一反应是"这个版本没导入菜单、也没有播放按钮"（# 反馈）。这里把两个最常用的动作直接铺到横幅上。
     b.innerHTML='<span>🎬 便携播放版 · 仅演示播放</span>'
       + '<button class="btn" onclick="importPlayback()" style="padding:4px 10px">📥 导入播放包（zip）</button>'
       + '<button class="btn" onclick="const a=$(\'full1\')||$(\'aud\'); if(a){a.paused?a.play():a.pause();}" style="padding:4px 10px">▶ 播放 / 暂停</button>'
-      + '<button class="btn ghost" onclick="switchTab(\'8\')" style="padding:4px 10px">⑩ 播放文件</button>'
+      + '<button class="btn ghost" onclick="switchTab(\'8\')" style="padding:4px 10px">⑬ 播放文件</button>'
       + '<span class="muted" style="font-size:12px">播放前请先导入完整版导出的便携播放包</span>';
     if(!S.slides.length) switchTab('8'); else switchTab('5');
   } else {
@@ -4377,7 +4479,7 @@ function applyPlaybackMode(){
   }
   refreshTabGroups();
 }
-/* 播放版只剩「⑤ 正式演示 / ⑧ 导入播放文件」，分组标题与分隔线会变成孤儿，直接隐藏 */
+/* 播放版只剩「⑨ 正式演示 / ⑬ 播放文件」，分组标题与分隔线会变成孤儿，直接隐藏 */
 function refreshTabGroups(){
   const bar=$('tabs'); if(!bar) return;
   const show=!S.playback;
@@ -4402,16 +4504,16 @@ function showStartupGuide(force){
         <b>导入播放文件</b>拿到完整版导出的 <code>myme_playback_xxx.zip</code>，在此导入。
         方案 / 音频 / 视频 / 分身形象会保存到本机，可反复播放。
         ${has?'<div style="color:var(--accent);margin-top:4px">✅ 当前已载入 '+S.slides.length+' 页讲解，可直接进入第 3 步。</div>':''}
-        <div class="gact"><button class="btn" onclick="closeModal();switchTab('8')">前往「⑨ 播放文件」→</button></div>
+        <div class="gact"><button class="btn" onclick="closeModal();switchTab('8')">前往「⑬ 播放文件」→</button></div>
       </div></div>
       <div class="gstep"><div class="gno">2</div><div class="gtxt">
         <b>选择分身</b>在顶部菜单「🧑 分身」中选择本次出镜的人与形象（随时可再换）。
         <div class="gact"><button class="btn ghost" onclick="closeModal();openMenuByName('分身')">打开「分身」菜单</button></div>
       </div></div>
       <div class="gstep"><div class="gno">3</div><div class="gtxt">
-        <b>开始播放</b>到「⑤ 正式演示」点「▶ 开始演示」，数字分身按页播放讲解并自动同步翻页；
+        <b>开始播放</b>到「⑨ 正式演示」点「▶ 开始演示」，数字分身按页播放讲解并自动同步翻页；
         中途可用「⏸ 领导提问」打断答疑，答完「继续演示」从断点续播。
-        <div class="gact"><button class="btn" onclick="closeModal();switchTab('5')">前往「⑤ 正式演示」→</button></div>
+        <div class="gact"><button class="btn" onclick="closeModal();switchTab('5')">前往「⑨ 正式演示」→</button></div>
       </div></div>
     </div>
     <p class="muted" style="margin-top:10px">💡 想再看一次：帮助菜单 →「🎬 启动引导（首次使用）」。</p>`;
@@ -4448,7 +4550,7 @@ function showStartupGuide(force){
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeMenus();}});
 
 
-/* ================= ⑨⑩ 加工车间：多源搬运 / 多项产出 / 领域包 ================= */
+/* ================= ⑥⑦⑧ 加工车间：多源搬运 / 多项产出 / 领域包 ================= */
 const $qm = id => document.getElementById(id);
 
 $qm('qmDetect').onclick = async () => {

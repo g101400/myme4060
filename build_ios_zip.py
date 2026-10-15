@@ -7,7 +7,7 @@
 - iPhone 用 Safari 打开该机器的局域网地址 → 分享 →「添加到主屏幕」，即得到一个本地 PWA App；
 - 数据全程本地，不出机。
 
-说明：语音（炎冰声音）与数字人视频依赖本机另行的 Ollama + 常驻 TTS 服务（ComfyUI 嵌式 python）。
+说明：语音（分身声纹克隆）与数字人视频依赖本机另行的 Ollama + 常驻 TTS 服务（ComfyUI 嵌式 python）。
 仅跑本 zip 也能用 Web / 知识库检索 / 文字答疑；要"开口说话"需按 README 部署 AI 栈。
 """
 import os
@@ -26,9 +26,9 @@ PY_MODULES = [
 ]
 
 MANIFEST = """{
-  "name": "炎冰数字分身",
-  "short_name": "炎冰分身",
-  "description": "本地数字分身：用炎冰的声音讲 PPT 并自动答疑",
+  "name": "PPT制作及分身演示",
+  "short_name": "myme分身",
+  "description": "本地数字分身：用本人的声音讲 PPT 并自动答疑",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -41,7 +41,7 @@ MANIFEST = """{
 }
 """
 
-SW_JS = """const CACHE='myme-v5';
+SW_JS = """const CACHE='myme-v6';
 const SHELL=['/','/manifest.json','/icon-192.png','/icon-512.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)));self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim();});
@@ -51,9 +51,10 @@ self.addEventListener('fetch',e=>{
 });
 """
 
-README = """# 炎冰数字分身 · 本地部署 PWA（iOS / 任意主机）
+README = """# PPT制作及分身演示 · 本地部署 PWA（iOS / 任意主机）
 
-一个**完全本地运行**的数字分身：用「炎冰」本人的声音讲 PPT，讲完自动答疑，数据不出机。
+一个**完全本地运行**的数字分身系统（产品名「PPT制作及分身演示」，支持多个分身）：
+用分身本人的声音讲 PPT，讲完别人问 PPT 内容自动用分身声音回答，数据不出机。
 本压缩包即「可部署的 PWA 网页」——把它跑在一台机器上，手机/平板用浏览器访问并"添加到主屏幕"，即可像原生 App 一样使用。
 
 ## 一、在主机上启动（一次性）
@@ -71,15 +72,15 @@ python myme_launcher.py        # 启动本地服务并自动打开浏览器
 1. 让手机与主机在**同一局域网**（连同一个 Wi-Fi）。
 2. 在 iPhone 的 **Safari** 打开主机的局域网地址，例如：
    `http://192.168.1.XX:7860` （把 `192.168.1.XX` 换成主机的局域网 IP； Windows 可用 `ipconfig`、macOS/Linux 用 `ifconfig` 查看）。
-3. 点 Safari 底部**分享按钮** → **"添加到主屏幕"** → 取名"炎冰分身" → 完成。
+3. 点 Safari 底部**分享按钮** → **"添加到主屏幕"** → 取名「myme分身」 → 完成。
 4. 以后从桌面图标打开，即为全屏、离线壳的本地 PWA App（manifest + service worker 已内置）。
 
 > 安卓 / 桌面 Chrome / Edge 同样支持"安装"为 PWA。
 
 ## 三、让分身"开口说话" + 生成数字人视频（可选 AI 栈）
-本包只含 Web / 知识库检索 / 文字答疑。要合成**炎冰声音**与**口型视频**，需在本机另行部署：
+本包只含 Web / 知识库检索 / 文字答疑。要合成**分身声音**与**口型视频**，需在本机另行部署：
 - **Ollama**：安装后拉取模型 `ollama pull bge-m3` 与 `ollama pull qwen3.5:9b`（嵌入 + 问答大模型）。
-- **常驻 TTS 服务**（炎冰声纹，Qwen3-TTS，运行在 ComfyUI 嵌式 python）：
+- **常驻 TTS 服务**（Qwen3-TTS 声纹克隆，运行在 ComfyUI 嵌式 python）：
   在 ComfyUI 环境执行 `python tts_service.py --eager`（端口 8777）。
 - 数字人视频还需 **LivePortrait**（torch 环境）。未部署时，Web 内相关按钮会优雅降级（仅出文字/音频）。
 
@@ -87,8 +88,8 @@ python myme_launcher.py        # 启动本地服务并自动打开浏览器
 
 ## 四、目录说明
 - `app.py` / `config.py` / `pptx_parse.py` / `knowledge_base.py` / `qa_brain.py` / `narrate.py` / `avatar.py` / `doc_parse.py` / `persons.py`：纯标准库后端（无需 pip 安装）。
-- `ui/index.html`：前端（含「🎬 演示流程」五阶段向导、正式演示、答疑总结）。
-- `voice/yanbing-sample-01.wav`：炎冰声纹样本（供 TTS 服务使用）。
+- `ui/index.html`：前端（13 标签工作台 / 正式演示 / 智能答疑等）。
+- `voice/`：分身声纹样本（`yanbing-sample-01.wav` / `jinzi-sample-01.wav`，供 TTS 服务使用）。
 - `prompts/`：问答 / 讲稿提示词。
 - `pwa/`：静态 PWA 资源参考（manifest / service worker / 图标），由后端自动服务，一般无需手动处理。
 - `myme_launcher.py`：启动器（开发 / 部署通用，自动开浏览器）。
@@ -113,6 +114,7 @@ def main():
         _cp(m, m)
     _cp("ui/index.html", "ui/index.html")
     _cp("voice/yanbing-sample-01.wav", "voice/yanbing-sample-01.wav")
+    _cp("voice/jinzi-sample-01.wav", "voice/jinzi-sample-01.wav")
     _cp("icon-192.png", "icon-192.png")
     _cp("icon-512.png", "icon-512.png")
     _cp("prompts/__init__.py", "prompts/__init__.py")

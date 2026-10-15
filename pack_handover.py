@@ -32,6 +32,16 @@ KEY_SRC = [
     "build_ios_zip.py", "gen_en_narration.py", "publish_release.py",
     "tts_worker.py", "tts_service.py", "pack_source.py", "narrate.py", "qa_brain.py",
     "runtime_check.py", "_chk_seg.py",   # runtime_check：换机一键体检；_chk_seg：四段复验
+    # v2.9 深度加工四件套 + 知识库增强
+    "kb_graph.py", "kb_agent.py", "kb_editor.py", "kb_trace.py", "kb_qa.py",
+    "kb_wiki.py", "kb_chunking.py",
+    # v2.8 多源搬运 + 领域包
+    "qiaomu_local.py", "domain_water.py",
+    # v2.6 PPT 制作链
+    "make_ppt.py", "pptx_write.py", "ppt_templates.py", "pptx_parse.py",
+    "deck_narration.py", "doc_ingest.py", "doc_write.py",
+    # 分身语音/视频
+    "avatar_service.py", "avatar_sonic.py", "asr_listen.py",
 ]
 
 OTHER = ["README.md", "ui/index.html", "ui/player.html", "tts_service.py"]

@@ -33,6 +33,18 @@ def main():
         return m.group(1) + v4 + "')"
 
     new = re.sub(r"(StringStruct\('(?:File|Product)Version', ')[^']+'\)", _rep, old)
+
+    # 2026-10-15 补：filevers / prodvers 是 (major, minor, patch, build) 数值元组，
+    # 原先手写 —— 只同步 StringStruct 会出现「字符串已升、元组还停在旧版」的漂移
+    #（本次审计发现 version_info.txt 写着 filevers=(2,6,4,0) 而 FileVersion 已是 2.9.1）。
+    parts = [int(x) for x in v4.split(".")]
+
+    def _rep_tuple(m):
+        return "%s(%d, %d, %d, %d)%s" % (m.group(1), parts[0], parts[1], parts[2], parts[3], m.group(2))
+
+    new = re.sub(r"(\b(?:filevers|prodvers)\s*=\s*)\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)(\s*,)",
+                 _rep_tuple, new)
+
     if new != old:
         with open(p, "w", encoding="utf-8") as f:
             f.write(new)

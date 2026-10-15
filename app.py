@@ -3757,6 +3757,14 @@ def _worker_import_zip(jid, tmp_zip):
             jid, stage="导入中 %d/%d" % (i, t), cur=name,
             pct=90 + int(i * 7 / max(1, t))))
         _imp_update(jid, stage="清理临时文件", pct=97, cur="")
+        # 顺手读出包内 manifest 的播放参数（导入端据此显示"本包是中文还是英文、分身是谁"）
+        pman = {}
+        try:
+            with zipfile.ZipFile(tmp_zip) as _zf:
+                if "manifest.json" in _zf.namelist():
+                    pman = (json.loads(_zf.read("manifest.json").decode("utf-8")) or {}).get("params") or {}
+        except Exception:
+            pman = {}
         try:
             os.remove(tmp_zip)
         except Exception:
@@ -3764,14 +3772,14 @@ def _worker_import_zip(jid, tmp_zip):
         # 重新载入幻灯片（可能含 slides.json），与 /api/resources import 行为一致
         _load_slides()
         _res_log("import", "restore", "%d 个项目" % n)
-        _imp_update(jid, stage="完成", pct=100, done=True, count=n)
+        _imp_update(jid, stage="完成", pct=100, done=True, count=n, params=pman)
     except Exception as e:
         _imp_update(jid, stage="失败：" + str(e), done=True, error=str(e))
 
 
 def _handle_resources(self, data):
     """资源管理：list / rename / delete / set_default_persona / set_current_version /
-    export / import。所有文件操作均经 _res_safe 防穿越。"""
+    playback_params / export / import。所有文件操作均经 _res_safe 防穿越。"""
     try:
         act = (data.get("act") or "list").strip()
         if act == "list":
@@ -3868,6 +3876,10 @@ def _handle_resources(self, data):
             else:
                 self._json({"ok": False, "error": "版本不存在"})
             return
+        if act == "playback_params":
+            # 导出对话框用：当前项目的语言 / 分身 / 形象（与导出、导入三处同一组参数名）
+            self._json(_res_playback_params())
+            return
         if act == "export":
             cats = data.get("cats") or ["audio", "video", "avatar", "source", "versions", "personas"]
             only_versions = data.get("versions") or None   # 仅导出这些版本（过滤 slides.json）
@@ -3880,11 +3892,21 @@ def _handle_resources(self, data):
             include_player = bool(data.get("include_player"))
             if include_player and "versions" not in cats:
                 cats = list(cats) + ["versions"]
+            # 播放参数契约：允许前端显式指定 lang/person/avatar/avkey，
+            # 未指定则取"当前项目"（内容实际语言 + 当前激活分身），
+            # 保证生成 / 导出 / 导入三处用的是同一组参数名与同一个值。
+            _pp = _res_playback_params()
+            params = {
+                "lang": (data.get("lang") or _pp.get("lang") or ""),
+                "person": (data.get("person") or _pp.get("person") or ""),
+                "avatar": (data.get("avatar") or _pp.get("avatar") or ""),
+                "avkey": (data.get("avkey") or _pp.get("avkey") or ""),
+            }
             out_zip = os.path.join(config.DIR_TEST, "myme_playback_%s.zip"
                                    % time.strftime("%Y%m%d_%H%M%S"))
             n = _res_export_zip(out_zip, cats, only_versions=only_versions,
                                 videos=videos, quality=quality,
-                                include_player=include_player)
+                                include_player=include_player, params=params)
             _res_log("export", ",".join(cats), "%d 个文件（%s）" % (n, quality))
             try:
                 size = os.path.getsize(out_zip)
@@ -3893,7 +3915,8 @@ def _handle_resources(self, data):
             self._json({"ok": True,
                         "zip": "/api/download?name=" + os.path.basename(out_zip),
                         "path": out_zip, "name": os.path.basename(out_zip), "count": n,
-                        "size": size, "quality": quality, "ffmpeg": bool(_FFMPEG)})
+                        "size": size, "quality": quality, "ffmpeg": bool(_FFMPEG),
+                        "params": params})
             return
         if act == "import":
             b64 = data.get("zip") or ""
@@ -3902,6 +3925,14 @@ def _handle_resources(self, data):
             tmp_zip = os.path.join(config.DIR_TEST, "myme_import_%s.zip" % time.strftime("%Y%m%d_%H%M%S"))
             with open(tmp_zip, "wb") as f:
                 f.write(base64.b64decode(b64))
+            # 先读包内 manifest 的播放参数：导入端据此显示"本包是中文还是英文、分身是谁"
+            pman = {}
+            try:
+                with zipfile.ZipFile(tmp_zip) as _zf:
+                    if "manifest.json" in _zf.namelist():
+                        pman = (json.loads(_zf.read("manifest.json").decode("utf-8")) or {}).get("params") or {}
+            except Exception:
+                pman = {}
             n = _res_import_zip(tmp_zip)
             try:
                 os.remove(tmp_zip)
@@ -3910,7 +3941,7 @@ def _handle_resources(self, data):
             # 重新载入幻灯片（可能含 slides.json）
             _load_slides()
             _res_log("import", "restore", "%d 个项目" % n)
-            self._json({"ok": True, "count": n})
+            self._json({"ok": True, "count": n, "params": pman})
             return
         self._json({"ok": False, "error": "未知操作：%s" % act})
     except Exception as e:
@@ -4048,13 +4079,16 @@ def _find_file(name, dirs):
     return ""
 
 
-def _build_manifest(slides_doc, only_versions, quality, packed_videos):
+def _build_manifest(slides_doc, only_versions, quality, packed_videos, params=None):
     """生成便携播放包的 manifest.json：把 /api/xxx?name= 的引用改写成包内相对路径。
 
     播放端（安卓 APK / 统信 deb / Win 便携包里的 player.html）只读这一个文件，
     不必理解主程序的 slides.json 结构，也不依赖任何服务端接口。
     新增：audio_en（英配）、personas（可选分身列表）、
-    videoAlt（各分身逐页视频变体，供播放端"选分身"切换）。
+    videoAlt（各分身逐页视频变体，供播放端"选分身"切换）、
+    segments（分身 × 语言播放片段，v2.6.7）。
+    新增（v2.8.0 合并）：params —— 播放参数契约，把"本包是中文还是英文、
+    分身是谁、哪个形象"写进清单，导入端据此自动识别并互斥禁用（见 params_out）。
     """
     wav2mp3 = (quality != "lossless")
     vs = slides_doc.get("versions") or {}
@@ -4082,6 +4116,10 @@ def _build_manifest(slides_doc, only_versions, quality, packed_videos):
                 personas = [{"id": cur["id"], "name": cur.get("name") or cur["id"]}]
         except Exception:
             personas = []
+    # 「默认分身」项必须常在：播放端 applyParams 的互斥过滤以它为保底，
+    # 没有它时"只有一个人有片子"会把分身下拉整个弄空（v2.8.0 合并）。
+    if not any(p.get("id") == "default" for p in personas):
+        personas = [{"id": "default", "name": "默认分身"}] + personas
     out = []
     for vid, v in vs.items():
         raw = (v or {}).get("slides") or []
@@ -4139,8 +4177,63 @@ def _build_manifest(slides_doc, only_versions, quality, packed_videos):
     _ids = [v["id"] for v in out]
     _seg_src = [v for v in out if v["id"] and v["id"] == _cur] or out
     segments = _build_segments(_seg_src, personas)
+    # ================= 播放参数契约（生成 / 导出 / 导入三处共用同一组键名）=================
+    # 用户诉求：导出播放文件要"注明是中文还是英文、分身是谁"，导入时能据此自动识别，
+    # 且不可用的选项不可选（只有中文→英文置灰；本包只有金子→炎冰不出现）。
+    # 键名与播放端 player.html 的 detectParams() 严格一致：
+    #   lang   配音语言（zh / en）
+    #   langs  本包实际拥有的语言（内容为准，供导入端置灰不可选的那种）
+    #   person 分身 id（如 yanbing / jinzi）      avatar 形象 id（如 selfie / pro）
+    #   avkey  person + "_" + avatar（如 yanbing_selfie），与逐页视频名中的那一段一致
+    _p = dict(params or {})
+    _langs = []
+    for _v in out:
+        for _s in _v["slides"]:
+            if _s.get("audio") and "zh" not in _langs:
+                _langs.append("zh")
+            if _s.get("audio_en") and "en" not in _langs:
+                _langs.append("en")
+    _langs = [x for x in ("zh", "en") if x in _langs]
+    _avkeys = sorted({k for _v in out for _s in _v["slides"]
+                      for k in (_s.get("videoAlt") or {})})
+    _persons_present = sorted({k.split("_")[0] for k in _avkeys if k})
+    _person = str(_p.get("person") or "").strip()
+    _avatar = str(_p.get("avatar") or "").strip()
+    _avkey = str(_p.get("avkey") or "").strip()
+    # 没显式标注时，用「当前激活分身」补上 —— 这样"分身是谁"在导出后一定有据可查
+    if not (_person and _avatar and _avkey):
+        try:
+            _a = persons.active()
+            if not _person:
+                _person = _a.get("person") or ""
+            if not _avatar:
+                _avatar = _a.get("avatar") or ""
+        except Exception:
+            pass
+    if not _avkey and _person and _avatar:
+        _avkey = "%s_%s" % (_person, _avatar)
+    if not _person and _avkey:
+        _person = _avkey.split("_")[0]
+    if not _avatar and _person and _avkey.startswith(_person + "_"):
+        _avatar = _avkey[len(_person) + 1:]
+    if not _person and len(_persons_present) == 1:
+        _person = _persons_present[0]
+    _declared_lang = str(_p.get("lang") or "").strip().lower()
+    _lang = _declared_lang if _declared_lang in ("zh", "en") else (_langs[0] if _langs else "zh")
+    if _langs and _lang not in _langs:
+        _lang = _langs[0]
+    params_out = {
+        "lang": _lang,
+        "langs": _langs or ["zh", "en"],       # 内容判不出来时两种都留着，别把播放端锁死
+        "person": _person,
+        "avatar": _avatar,
+        "avkey": _avkey,
+        "avkeys": _avkeys,                     # 本包真的有逐分身视频的分身键
+        "persons": _persons_present,
+        "video_naming": "demo_av_<版本>_<分身>_<页>.mp4（人_形象 亦兼容）",
+    }
     return {"app": "myme", "manifest": 1, "generated": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "personas": personas, "versions": out, "segments": segments,
+            "params": params_out, "personas": personas, "versions": out, "segments": segments,
             "currentVersion": _cur or (_ids[0] if _ids else "")}
 
 
@@ -4341,8 +4434,73 @@ def check_upgrade(timeout=8):
             "msg": ("本地已是最新版（%s）" % cur) if not has_new else ("可升级到 %s（当前 %s）" % (latest, cur))}
 
 
+def _res_playback_params():
+    """播放参数契约的"当前项目"取值（生成 / 导出 / 导入三处共用）。
+
+    语言统一用 zh / en，分身统一用 person + avatar + avkey（<人>_<形象>）。
+    导出对话框与导出接口都用它，保证同一个项目里"标注的语言与分身"前后一致。
+    """
+    langs = []
+    try:
+        doc = json.load(open(config.SLIDES_FILE, encoding="utf-8")) or {}
+        for _v in (doc.get("versions") or {}).values():
+            for _s in ((_v or {}).get("slides") or []):
+                if _s.get("audio") and "zh" not in langs:
+                    langs.append("zh")
+                if _s.get("audio_en") and "en" not in langs:
+                    langs.append("en")
+    except Exception:
+        pass
+    langs = [x for x in ("zh", "en") if x in langs]
+    person = avatar = ""
+    try:
+        _a = persons.active()
+        person = _a.get("person") or ""
+        avatar = _a.get("avatar") or ""
+    except Exception:
+        pass
+    # 形象全名（给导出对话框显示"金子 · 职业·正装"这种人话）
+    av_name = ""
+    try:
+        for _p in (persons.list_persons().get("persons") or []):
+            if _p.get("id") != person:
+                continue
+            for _av in (_p.get("avatars") or []):
+                if _av.get("id") == avatar:
+                    av_name = "%s · %s" % (_p.get("name") or person, _av.get("name") or avatar)
+    except Exception:
+        pass
+    return {"ok": True,
+            "lang": (langs[0] if langs else "zh"),
+            "langs": langs or ["zh", "en"],
+            "person": person, "avatar": avatar,
+            "avkey": ("%s_%s" % (person, avatar)) if (person and avatar) else "",
+            "avatar_name": av_name}
+
+
+def _playback_readme(man=None):
+    """播放包 README.txt：抬头注明"本包是中文还是英文、分身是谁"，
+    与 manifest.params 用同一组参数名（导入端与人都能据此识别）。"""
+    p = (man or {}).get("params") or {}
+    _L = {"zh": "中文", "en": "英文"}
+    lang = _L.get(p.get("lang") or "", p.get("lang") or "未标注")
+    langs = "、".join(_L.get(x, x) for x in (p.get("langs") or [])) or "未标注"
+    person = p.get("person") or "未标注"
+    avatar = p.get("avatar") or "未标注"
+    avkey = p.get("avkey") or "未标注"
+    head = (
+        "本播放包标注（导入播放器后自动识别；本包没有的语言/分身会自动置灰或不列出）\n"
+        "  lang    配音语言 : %s      （本包实际包含：%s）\n"
+        "  person  分身     : %s\n"
+        "  avatar  形象     : %s\n"
+        "  avkey   分身键   : %s\n"
+        "\n"
+    ) % (lang, langs, person, avatar, avkey)
+    return head + PLAYBACK_README
+
+
 def _res_export_zip(out_zip, cats, only_versions=None, videos=None, quality="lossless",
-                    include_player=False):
+                    include_player=False, params=None):
     """把选定类别导出为一个 zip（slides.json + 各资源目录）。返回文件数。
 
     only_versions: 若给定（版本 id 列表），slides.json 仅保留这些版本。
@@ -4504,7 +4662,8 @@ def _res_export_zip(out_zip, cats, only_versions=None, videos=None, quality="los
                     z.write(fp, "images/" + b); cnt += 1
         if include_player:
             try:
-                man = _build_manifest(slides_doc, only_versions, quality, packed_videos)
+                man = _build_manifest(slides_doc, only_versions, quality, packed_videos,
+                                      params=params)
                 z.writestr("manifest.json", json.dumps(man, ensure_ascii=False, indent=1))
                 cnt += 1
             except Exception as e:
@@ -4515,7 +4674,9 @@ def _res_export_zip(out_zip, cats, only_versions=None, videos=None, quality="los
             # 播放包说明（用户解压后第一眼看到）
             # ⚠ 文件名必须 ASCII：aapt2 打安卓 assets 时非 ASCII 名会 "failed to open file"，
             #    为了让同一个播放包能直接进 APK，这里统一用 README.txt（内容仍是中文）。
-            z.writestr("README.txt", PLAYBACK_README)
+            # ⚠ 文本一律用 \n（zipfile.writestr 不转换换行，但源串别混进 \r）：
+            #    Linux 侧 `#!/bin/sh\r` 会直接 ENOENT，README 也不例外。
+            z.writestr("README.txt", _playback_readme(man))
             cnt += 1
     return cnt
 
@@ -4534,6 +4695,14 @@ PLAYBACK_README = """myme 便携播放包
 【统信 UOS 上播放】
   安装 myme 播放版 deb 后，桌面/开始菜单点「myme 播放版」；
   本质是启动一个本地服务再用浏览器打开同一个播放器，无需额外依赖。
+
+【换成别的播放包】（不用覆盖安装目录）
+  打开播放器，点顶部「📂 导入播放文件」，三条通路任选：
+    ① 导入播放包压缩包（.zip）—— 推荐，直接选完整版导出的 myme_playback_*.zip；
+    ② 导入播放包文件夹 —— 先在系统里解压，再选解压出来的整个文件夹（安卓端会自动展开目录）；
+    ③ 导入清单文件 —— 多选 manifest.json 与 images / audio / video 里的素材。
+  导入后立即播放；点「↺ 恢复到随包自带的播放文件」即可还原。
+  导入时会自动识别本包是中文还是英文、分身是谁（顶栏「本包：…」）。
 
 【目录里都是什么】
   manifest.json  播放清单（版本 / 每页文字 / 配音 / 视频 / 页图）
