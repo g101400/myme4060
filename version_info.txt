@@ -2,8 +2,8 @@
 # Windows 版本资源：让任务栏悬停 / 资源管理器 / 任务管理器 显示中文名"PPT制作及分身演示"
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(2, 9, 2, 0),
-    prodvers=(2, 9, 2, 0),
+    filevers=(2, 9, 4, 0),
+    prodvers=(2, 9, 4, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -16,12 +16,12 @@ VSVersionInfo(
       StringTable('080404b0', [
         StringStruct('CompanyName', '小七'),
         StringStruct('FileDescription', 'PPT制作及分身演示'),
-        StringStruct('FileVersion', '2.9.2.0'),
+        StringStruct('FileVersion', '2.9.4.0'),
         StringStruct('InternalName', 'myme'),
         StringStruct('LegalCopyright', '© 2026 小七'),
         StringStruct('OriginalFilename', 'myme.exe'),
         StringStruct('ProductName', 'PPT制作及分身演示'),
-        StringStruct('ProductVersion', '2.9.2.0'),
+        StringStruct('ProductVersion', '2.9.4.0'),
       ])
     ]),
     VarFileInfo([VarStruct('Translation', [2052, 1200])]),

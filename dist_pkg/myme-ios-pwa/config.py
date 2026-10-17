@@ -26,6 +26,18 @@ else:
     # 的真实用户数据，或换机复现时指到拷贝出来的那份）。不设则等于包目录。
     DATA_DIR = (os.environ.get("MYME_DATA", "") or "").strip() or WORKSPACE
 
+# ============ 运行期项目根 KP_ROOT（知识库 / 项目资源唯一权威根）============
+# 用「项目根」而不是 DATA_DIR，是因为 DATA_DIR 在 dev 态会退化成源码包目录，
+# 而打包态 DATA_DIR 才是 %LOCALAPPDATA%\myme —— 让 CLI 和 UI 各读一份库是老 bug 的根源。
+# 解析顺序：MYME_KP_ROOT > MYME_DATA > 真实用户根（已存在 projects/ 的那个）> 包目录。
+_LOCALAPP_ROOT = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "myme")
+KP_ROOT = (
+    (os.environ.get("MYME_KP_ROOT", "") or "").strip()
+    or (os.environ.get("MYME_DATA", "") or "").strip()
+    or (_LOCALAPP_ROOT if os.path.isdir(os.path.join(_LOCALAPP_ROOT, "projects")) else "")
+    or WORKSPACE
+)
+
 # ============ 语音克隆 TTS（复用已验证管线）============
 # ComfyUI 内置 python（自带 torch 2.10+cu130 / transformers 5.5 / soundfile）
 # 【2026-10-03 修复】原先写死 D:\ComfyUI_Mie_2026_V8.0，而本机实际实例在 H 盘，
@@ -174,7 +186,49 @@ def resolve_voice(person=None):
     return p if (p and os.path.exists(p)) else VOICE_SAMPLE
 
 # ============ 音频工具 ============
-FFMPEG = r"C:\ProgramData\chocolatey\bin\ffmpeg.exe"
+# 【v2.6.9 补】早先这里写死 chocolatey 路径，本机没装 choco 时就报
+# `[WinError 2] 系统找不到指定的文件`，而真 ffmpeg 常常就在别处。改成「登记优先 + 自动探测」：
+# MYME_FFMPEG > 设置里登记且文件在 > 常见绿色/包管位置 > PATH 兜底。
+FFMPEG = r"C:\ProgramData\chocolatey\bin\ffmpeg.exe"   # 占位，稍后被真实探测覆盖
+_FF_CANDIDATES = [
+    os.environ.get("MYME_FFMPEG", ""),
+    r"C:\Users\admin\.local\bin\ffmpeg.exe",
+    r"C:\Users\admin\.local\bin\ffmpeg.EXE",
+    r"C:\ProgramData\chocolatey\bin\ffmpeg.exe",
+    r"C:\ffmpeg\bin\ffmpeg.exe",
+    r"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
+]
+
+
+def _probe_ffmpeg():
+    """按登记路径 → 常见位置 → PATH 的顺序找 ffmpeg，找不到返回空串。"""
+    try:
+        import shutil
+    except Exception:
+        shutil = None
+    import string
+    for c in _FF_CANDIDATES:  # 登记路径（含环境变量）优先
+        c = (c or "").strip()
+        if c and os.path.isfile(c):
+            return c
+    for drive in string.ascii_uppercase:  # 全盘扫一眼绿色版，别为 1 个 exe 逼用户补件
+        for rel in ("ffmpeg/bin/ffmpeg.exe", "ffmpeg/ffmpeg.exe", "myme-runtime/ffmpeg/bin/ffmpeg.exe"):
+            c = drive + ":" + os.sep + rel
+            if os.path.isfile(c):
+                return c
+    if shutil is not None:
+        try:
+            w = shutil.which("ffmpeg")
+            if w and os.path.isfile(w):
+                return w
+        except Exception:
+            pass
+    return ""
+
+
+_FF = _probe_ffmpeg()
+if _FF:
+    FFMPEG = _FF
 
 # ============ 本地大模型 / 嵌入（Ollama）============
 OLLAMA_BASE = "http://localhost:11434"
@@ -184,14 +238,21 @@ LLM_MODEL = os.environ.get("MYME_LLM", "qwen3.5:9b")
 EMBED_MODEL = os.environ.get("MYME_EMBED", "bge-m3")
 
 # ============ 目录 ============
-DIR_KB = os.path.join(WORKSPACE, "kb_data")          # 知识库持久化（JSON + Ollama 嵌入）
+# ⚠ 项目私有库必须挂在当前**数据根**下，不能挂源码目录。
+# 【2026-10-07 修复：CLI / UI 数据根同源】
+#   原先 DIR_KB 挂 DATA_DIR，而 dev 态 DATA_DIR 默认 = 源码包目录（里面那份是旧壳库），
+#   打包态 DATA_DIR = %LOCALAPPDATA%\myme —— 两条路径指向两个不同的库，
+#   于是「CLI 脚本（kb_wiki / kb_qa / 复验脚本）读到旧壳库、UI 读到真库」，结论互相打架。
+#   现在统一由下面 KP_ROOT（运行期项目根）解析，CLI 与 UI 必然同源：
+#     MYME_KP_ROOT（显式钉死）> MYME_DATA（显式指向）> 真实用户根(%LOCALAPPDATA%\myme) > 包目录
+DIR_KB = os.path.join(KP_ROOT, "projects", "default", "kb_data")   # 知识库持久化（JSON + Ollama 嵌入）
 # ============ 知识库三层范围（v2.6）============
 #   public       —— 公有库（通用常识：IT / 水利 / 公文写作…），全机共享，跨项目可用
 #   project      —— 项目私有库（config.DIR_KB），跟随当前项目
 #   person:<id>  —— 分身私有库（保证每个分身有自己的用语习惯、人设与文档模板）
 # 原则：私有的可以「提升」到公有（沉淀复用），公有不必下沉到私有（避免重复占空间）。
-DIR_KB_PUBLIC = os.path.join(DATA_DIR, "kb_public")
-DIR_KB_PERSON = os.path.join(DATA_DIR, "kb_person")
+DIR_KB_PUBLIC = os.path.join(KP_ROOT, "kb_public")
+DIR_KB_PERSON = os.path.join(KP_ROOT, "kb_person")
 DIR_NARR = os.path.join(WORKSPACE, "narrations")      # 讲解音频产出
 DIR_AVATAR = os.path.join(WORKSPACE, "avatar_out")    # 数字人产出
 DIR_TEST = os.path.join(WORKSPACE, "test_out")        # 验证产出
@@ -366,12 +427,12 @@ AVATAR_AUDIO_PEAK = -1.0
 #      否则静止帧也带一个恒定唇形偏移，整张脸会像被下巴顶起来（双下颌、肿胀感）。
 #   ③ 源姿态必须保留：R_d 要乘上源的 R_s，不能拿小幅度摆动矩阵直接把源姿态覆盖掉。
 AVATAR_DRIVE_MULT = float(os.environ.get("MYME_LP_MULT", "0.72"))   # 0.6~1.0，越小越保守（脸变形多次修复后下调到 0.72）
-# v2.6.1 第三批（口型极简化）：实测用户真实肖像（中老年男性、薄唇）在 0.32/0.42 下
+# 口型极简化：实测用户真实肖像（中老年男性、薄唇）在 0.32/0.42 下
 # 说话时嘴部被拉成"呲牙假笑"、嘴角涂抹变形—— retarget_lip 的 MLP 稍一超出训练分布，
 # 下半张脸就跟着歪。把张嘴幅度砍半、上限砍半，口型动得少但脸保得住（用户明确要求"口型调到最小"）。
 AVATAR_LIP_AMP = float(os.environ.get("MYME_LP_LIP_AMP", "0.15"))   # 音频能量 -> 张嘴幅度（0.32→0.15）
 AVATAR_LIP_MAX = float(os.environ.get("MYME_LP_LIP_MAX", "0.22"))   # 唇开合比上限（0.42→0.22）
-# v2.6.1 第三批：说话时的"微笑微表情"是呲牙假笑的直接推手——它把嘴角/脸颊关键点往外拉，
+# 说话时的"微笑微表情"是呲牙假笑的直接推手——它把嘴角/脸颊关键点往外拉，
 # 与口型叠加后嘴被拉宽、露出僵硬牙条。默认压到 0.25 倍；设 0 完全关闭（MYME_LP_SMILE）。
 AVATAR_SMILE_MULT = float(os.environ.get("MYME_LP_SMILE", "0.25"))
 AVATAR_MOTION_DEFAULT = float(os.environ.get("MYME_LP_MOTION", "0.6"))  # 微动总强度
@@ -469,7 +530,7 @@ _LEGACY_PORTRAITS_DIR = os.path.join(WORKSPACE, "avatar_out", "portraits")
 # ============ 项目系统基础常量 ============
 # 所有运行时可变资源（知识库/讲解/数字人/分身象库/版本/问答日志/资源历史）均归属某个项目；
 # 当前所有资源默认落入 default 项目。详细 CRUD 见文末 init_projects / _recompute 等。
-PROJECTS_DIR = os.path.join(DATA_DIR, "projects")
+PROJECTS_DIR = os.path.join(KP_ROOT, "projects")
 DEFAULT_PROJECT_ID = "default"
 ACTIVE_PROJECT_FILE = os.path.join(PROJECTS_DIR, "active.json")
 _active_project = DEFAULT_PROJECT_ID
@@ -577,7 +638,7 @@ if PLAYBACK_MODE:
     USE_AVATAR_SERVICE = False
 
 # ============ 版本号（同时用于关于/安装包标识）============
-VERSION = "2.6.9"
+VERSION = "2.9.4"
 
 # ============ 应用名称（多分身通用，不绑定具体人或行业）============
 # 产品名：PPT制作及分身演示。首页标题/关于/安装包均用此名，

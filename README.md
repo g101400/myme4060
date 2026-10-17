@@ -9,7 +9,22 @@
 > ④ 源码态已实跑验证（`/api/meta` = 2.6.3、`/api/projects`、`/api/scope` 全绿）；三平台（Win / 安卓 APK / 统信 deb）已重出。
 > 公开源码仓：<https://github.com/g101400/myme4060>　**v2.8.0（2026-10-07，历史记录）**新增内容：吸收开源项目 [qiaomu-anything-to-notebooklm](https://github.com/joeseesun/qiaomu-anything-to-notebooklm) 的骨架，把它依赖的 NotebookLM / 微信 MCP / Get 笔记 API / r.jina.ai **整体换成本机链路**——**多源搬运工**（自动认来源：微信 / 网页 / B站 / 播客 / 18 种格式 / 目录 / 关键词，按来源分派提取策略再清洗入库）、**七项产出**（报告 docx / PPTX / 播客音频 / 思维导图 / 测验 / 闪卡 / 数据表）、**三轮递进深度解读**；并新增「领域包」把 **水利古建 · 感知应用 · 三端四平台** 口径做成可编辑配置，按骨架一键出 PPT 后可挂分身演示。更详细的分条说明见应用内「❓ 帮助 → 版本变更」。
 
-### 最新版本 v2.9.2（2026-10-15 · 交接线合并）
+### 最新版本 v2.9.3（2026-10-16 · 防卡死与三端统一）
+
+| # | 变化 | 说明 |
+|---|------|------|
+| 1 | **★ 根治统信 deb「装了打不开」** | 真凶是**旧启动器用 `curl` 探就绪、且没绕系统代理**：`curl -s -o /dev/null <url>` 对**任何 HTTP 应答**都返回 `0`，而 UOS 专业版内网普遍配了 HTTP 代理，`http://127.0.0.1:7862/...` 会**走代理**、代理回 **502**，curl 仍 `rc=0` → 启动器误判「服务已在运行」→ **根本不启动服务** → 浏览器打开死端口 → **白屏**。本机实测 `http_code=502 / rc=0`，加 `--noproxy '*'` 才是 `000 / rc=7`。修复：启动逻辑整体搬进 **python3**（`deb_assets/launch.py`），用**显式空代理 opener** + magic token 探针（`/__myme_ping__` 回 `myme-player-ok`），并把 `127.0.0.1,localhost,::1` 写进 `no_proxy`。 |
+| 2 | **另外两类静默失败一并消除** | ① `curl`/`wget` 双缺时，服务其实起来了（探针 200）也被判失败，白等 22 秒假报错；② 精简 rootfs 无 `setsid` 命令 → `setsid: command not found`，后台服务根本没起，而诊断只 `echo` 到 stdout，桌面点图标无终端 → 什么都看不到。现改为 `subprocess.Popen(..., start_new_session=True)` 脱离会话，失败**绝不静默**：出中文诊断页 + 桌面通知 + `/tmp/myme-player.log` + 状态文件。 |
+| 3 | **统信 deb 从「一个 all 包」改为「逐架构 5 个包」** | 按固化口径出 `all / amd64 / arm64 / mips64el / loongarch64`，文件名 `myme-player_<ver>_<arch>.deb`，control 的 `Architecture` 与文件名严格一致（dpkg 据此判可装性）。**龙芯 3A400 → `mips64el`**（3A3000/3A4000→mips64el；3A5000+→loongarch64；FT2000/鲲鹏→arm64；其余→amd64）。 |
+| 4 | **三端界面统一精修（用户点名「标题不美观」）** | 统一设计 token：主色青绿 `#0f766e`、辅色 `#14b8a6`、藏青品牌栏 `#0f172a`、页面底 `#f1f5f9`、圆角 12/9px；字体栈统一 `"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Source Han Sans SC",-apple-system…`。品牌栏改为**「圆角渐变 logo + 主标题 + 版本徽标胶囊 + 副标题」四件套**（`index.html` 与 `player.html` 同款）。播放器**舞台区刻意保留深色**（视频与字幕对比度，属"内容面"而非"工作台面"）。 |
+| 5 | **★ 防卡死三件套（用户点名的两条硬要求）** | ① 每页必备「**⏏ 退出当前页面**」按钮：停掉一切播放 / 关闭所有弹层 / 回安全落地页；② **空白处连点三下**呼出主菜单快捷入口（再连点三下或 `Esc` 收起，首次使用有一次性提示）；③ `Esc` 统一走 `closeTopLayer()` **逐层关闭**（一次只关最上层）。主程序此前**完全没有**这三样，本版补齐；`ui/index.html` 新增 `#btnExit / #quickNav / #bye / #tapTip` 与 `topLayer/anyBusy/closeTopLayer` 统一判定，快捷菜单清单从 `#menubar` + `#tabs` **实时生成**（不写死，功能加到哪它就有哪）。 |
+| 6 | **出包脚本补真坑：复用播放包时不刷新 `player.html`** | `ensure_bundle()` 原会「复用 `C:/tmp/myme_pkg/portable`」，而里面的 `player.html` 是**上一版产物**——源码改了、打进 apk/zip/deb 的还是旧播放器（本版就实测到 android 侧 `assets/player.html` 仍是旧版 51,658 B）。现每次强制从 `ui/player.html` 覆写，并加门禁断言。 |
+| 7 | **门禁加固 + 可证伪性** | 新增源码断言：`DEB_ARCHES` 五架构口径、`deb_name` 按架构命名、逐架构出包并逐架构校验、复用顺序刷新播放器、主程序/播放器防卡死六类元素。另做**变异体测试**：解包逐成员替换字符串再重打，8 项变异体**全部被拦下**（含把旧 `curl` 探针塞回去）。`pack_portable.py` 校验失败改为**非零退出**（历史坑：校验没过却 exit 0）。 |
+| 8 | **新增夹具：桩 DOM 真跑点击语义** | `_harness_index_guard.js`（桩 DOM + `vm.runInContext` 真跑）逐条断言三击语义：**33 项全过**；`_harness_player_menu.js` **60 项全过**。两条铁律级收敛：`Esc` 只允许**唯一一处** `keydown` 判定（否则一次 Esc 连关两层）；桩里 `getElementById('p4')` 与 `querySelectorAll('.panel')` 必须是**同一个对象**（否则断言假失败）。 |
+| 9 | **新增《三端对照表.md》** | 九节：定位与原生技术栈 / 产物清单与命名 / **架构对照表** / 功能对照（三端差异，重依赖只在 Win）/ **三条硬要求一致性表** / 统一设计 token / 端口与进程 / **各平台已知坑与对策**（统信 6 条 + 安卓 2 条 + Win 1 条 + 全端 1 条）/ 维护纪律。 |
+| 10 | **功能只增不减** | 全程严守「可调顺序、**严禁删除**任何已有功能和菜单」：13 标签、9 阶段演示向导、播客/思维导图/测验/闪卡/数据表七项产出、四片段播放、深度加工四项、便携三端导出全部在位。 |
+
+### 历史版本 v2.9.2（2026-10-15 · 交接线合并）
 
 | # | 变化 | 说明 |
 |---|------|------|

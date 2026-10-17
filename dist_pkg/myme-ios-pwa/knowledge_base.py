@@ -54,24 +54,55 @@ def _split_sentences(text):
     return [p.strip() for p in parts if p.strip()]
 
 
+# —— 分块内核（吸收 WeKnora 的自适应分块 / 上下文面包屑） ——
+# 开关：MYME_KB_STRATEGY=auto|heading|heuristic|recursive；默认 auto。
+#      MYME_KB_PARENT_CHILD=1 打开父子分块（小块匹配、大块返回上下文）。
+KB_STRATEGY = os.environ.get("MYME_KB_STRATEGY", "auto") or "auto"
+KB_PARENT_CHILD = (os.environ.get("MYME_KB_PARENT_CHILD", "0") == "1")
+
+
+def embed_text(chunk):
+    """嵌入用文本 = 上下文面包屑 + 正文。
+
+    ⚠ 老库（v2.6.x 建的）里 chunk 没有 breadcrumb 字段，get(c, "") 保证向后兼容：
+      老块按纯正文嵌入 → 检索不退化，只是拿不到标题上下文这点加成。
+    """
+    try:
+        import kb_chunking
+        return kb_chunking.embedding_content(chunk)
+    except Exception:
+        return (chunk.get("text") or "")
+
+
 def chunk_text(text, meta=None, size=CHUNK_SIZE, overlap=CHUNK_OVERLAP):
-    """把一段文本切成带重叠的块，保留元数据（来源/页码/标题等）。"""
-    sents = _split_sentences(text)
-    chunks, cur, cur_len = [], [], 0
-    for s in sents:
-        if cur and cur_len + len(s) > size:
+    """把一段文本切成带重叠的块，保留元数据（来源/页码/标题等）。
+
+    2026-10-07 起委托 kb_chunking（WeKnora 分块内核）：先做文档画像自动选档
+    （heading / heuristic / recursive），并把「上级标题链」作为上下文面包屑
+    拼进嵌入文本。老实现保留为兜底——kb_chunking 万一挂了，知识库不能跟着挂。
+    """
+    try:
+        import kb_chunking
+        return kb_chunking.chunk_text(text, meta=meta, size=size, overlap=overlap,
+                                      strategy=KB_STRATEGY)
+    except Exception as e:
+        print("[kb] 分块内核不可用，回退旧递归切分：%s" % e)
+        sents = _split_sentences(text)
+        chunks, cur, cur_len = [], [], 0
+        for s in sents:
+            if cur and cur_len + len(s) > size:
+                chunks.append("".join(cur))
+                # 重叠：保留末尾不超过 overlap 字符，保证上下文连贯
+                tail = "".join(cur)
+                if len(tail) > overlap:
+                    tail = tail[-overlap:]
+                cur = [tail]
+                cur_len = len(tail)
+            cur.append(s)
+            cur_len += len(s)
+        if cur:
             chunks.append("".join(cur))
-            # 重叠：保留末尾不超过 overlap 字符，保证上下文连贯
-            tail = "".join(cur)
-            if len(tail) > overlap:
-                tail = tail[-overlap:]
-            cur = [tail]
-            cur_len = len(tail)
-        cur.append(s)
-        cur_len += len(s)
-    if cur:
-        chunks.append("".join(cur))
-    return [{"text": c, "meta": dict(meta or {})} for c in chunks]
+        return [{"text": c, "meta": dict(meta or {})} for c in chunks]
 
 
 def chunk_slide(slide, size=CHUNK_SIZE, overlap=CHUNK_OVERLAP):
@@ -122,7 +153,7 @@ def build_kb(slides, name="myme_kb", model=EMBED_MODEL):
     for sl in slides:
         chunks.extend(chunk_slide(sl))
     for i, c in enumerate(chunks):
-        c["embedding"] = ollama_embed(c["text"], model=model)
+        c["embedding"] = ollama_embed(embed_text(c), model=model)
         c["src"] = f"ppt:{name}"
     store = {"name": name, "model": model, "chunks": chunks, "sources": {}}
     path = _save_store(store)
@@ -153,7 +184,7 @@ def ingest_document(path, name="myme_kb", category="", model=EMBED_MODEL):
                 "status": "current"}
     chunks = chunk_text(text, meta=meta_doc)
     for c in chunks:
-        c["embedding"] = ollama_embed(c["text"], model=model)
+        c["embedding"] = ollama_embed(embed_text(c), model=model)
         c["src"] = h
 
     if os.path.exists(_store_path(name)):
@@ -244,7 +275,7 @@ def _tokenize(text):
 
 def bm25_scores(q_tokens, store, k1=1.5, b=0.75):
     """纯 Python BM25。返回与 store['chunks'] 对齐的原始分数列表。"""
-    docs = [_tokenize(c["text"]) for c in store["chunks"]]
+    docs = [_tokenize(embed_text(c)) for c in store["chunks"]]
     n = len(docs)
     if n == 0:
         return []
@@ -277,12 +308,13 @@ def _vec_scores(qe, store):
     return out
 
 
-def _label(meta):
+def _label(meta, breadcrumb=""):
     if not meta:
         return "知识库"
     if meta.get("page"):
         return f"PPT第{meta['page']}页 {meta.get('title','')}"
-    return meta.get("source") or meta.get("name") or "知识库"
+    base = meta.get("source") or meta.get("name") or "知识库"
+    return (breadcrumb + " · " + base) if breadcrumb else base
 
 
 def query(question, name="myme_kb", top_k=RETRIEVE_TOP_K):
@@ -295,7 +327,8 @@ def query(question, name="myme_kb", top_k=RETRIEVE_TOP_K):
     for s, c in scored[:top_k]:
         out.append({"text": c["text"], "score": round(s, 4),
                     "page": c["meta"].get("page"), "title": c["meta"].get("title"),
-                    "source": c["meta"].get("source"), "label": _label(c["meta"])})
+                    "source": c["meta"].get("source"), "label": _label(c["meta"],
+                    c.get("breadcrumb", "")), "breadcrumb": c.get("breadcrumb", "")})
     return out
 
 
@@ -329,6 +362,7 @@ def _fuse(question, store, vec, bm, top_k=RETRIEVE_TOP_K, alpha=0.6,
         out.append({"text": c["text"], "score": round(f, 4), "vec": round(v, 4),
                     "page": c["meta"].get("page"), "title": c["meta"].get("title"),
                     "source": c["meta"].get("source"), "label": _label(c["meta"]),
+                    "breadcrumb": c.get("breadcrumb", ""),
                     "scope": scope, "kb": store.get("name", "")})
     return out
 

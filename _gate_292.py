@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""myme v2.9.2 抽包门禁：解包断言"本版标记与关键实现真的在包里"。
+"""myme v2.9.3 抽包门禁：解包断言"本版标记与关键实现真的在包里"。
 
 为什么必须做（v2.6.5 血的教训）：源码改好 ≠ 包里是新的。打包脚本可能
 拿 dist 里的旧 exe 继续打 MSI/SFX，或者 build_apk.sh 中途失败只 `return ""`，
@@ -9,11 +9,11 @@
   Layer 1  源码层：八处版本号一致
   Layer 2  EXE 层：从 CArchive 抽 ui/index.html / config.py / ui/player.html
   Layer 3  打包产物层：
-    · APK   —— assets/player.html 含 v2.9.2/MymeNative/applyParams/pickInput、
+    · APK   —— assets/player.html 含 v2.9.3/MymeNative/applyParams/pickInput、
                assets/manifest.json 含 params、classes.dex 含 onShowFileChooser/MymeNative、
                aapt2 badging（包名/版本/启动图标）+ apksigner verify
     · win zip —— playback/player.html + manifest.json(params) + README.txt(本播放包标注)
-    · deb   —— data.tar.xz 内 opt/myme-player/player.html 含 v2.9.2 + manifest.json(params)
+    · deb   —— 逐架构 data.tar.xz 内 opt/myme-player/player.html 含 v2.9.3 + manifest.json(params)
 用法： 用装了 PyInstaller 的解释器跑：
   用装了 PyInstaller 的解释器跑 _gate_292.py（版本随 2.9.x 手动改 EXPECT_VCODE）
 """
@@ -32,7 +32,7 @@ DIST = os.path.join(HERE, "dist")
 sys.path.insert(0, HERE)
 import pack_portable as _PP          # 单一真相源：版本号只从打包脚本读
 VER = _PP.VER
-EXPECT_VCODE = 9                     # 随版本 bump 手动 +1（与 AndroidManifest 对齐）
+EXPECT_VCODE = 10                     # 随版本 bump 手动 +1（与 AndroidManifest 对齐）
 PKG = "myme-player"
 # SDK 位置：环境变量优先，其次自动探测（本机 SDK 曾在 D:/Android，2026-10-15 起装在用户目录）
 def _find_build_tools():
@@ -89,14 +89,37 @@ def l1():
     check("pack_full.py 版本接 config（_pkg_ver）", "_pkg_ver" in pf and 'VER = "2.' not in pf)
     pp = read(os.path.join(HERE, "pack_portable.py"))
     check("pack_portable.py 版本接 config（_pkg_ver）", "_pkg_ver" in pp and 'VER = "2.' not in pp)
-    check("pack_portable.py DEB_NAME 接 _pkg_ver",
-          'DEB_NAME = "myme-player_%s_all.deb" % VER' in pp and "_pkg_ver" in pp)
+    # ★ v2.9.3：deb 从"一个 all 包"改成"逐架构 5 个包"（dpkg 会拒绝架构不符的包）
+    check("pack_portable.py DEB_ARCHES 五架构口径",
+          'DEB_ARCHES = ["all", "amd64", "arm64", "mips64el", "loongarch64"]' in pp)
+    check("pack_portable.py deb_name 按架构命名",
+          'def deb_name(arch="all")' in pp and '"myme-player_%s_%s.deb" % (VER, arch)' in pp)
+    check("pack_portable.py 逐架构出包并逐架构校验",
+          "for arch in arches:" in pp and "verify_deb(p, arch)" in pp)
+    # ★ v2.9.3：bundle 复用分支必须强制刷新 player.html
+    #   否则「复用旧播放包」会把上一版播放器打进 apk/zip/deb（源码≠产物）。
+    check("pack_portable.py 复用播放包时强制刷新 player.html",
+          'shutil.copy2(src_ph, dst_ph)' in pp
+          and '"ui", "player.html"' in pp
+          and "刷新播放器" in pp)
     am = read(os.path.join(HERE, "android-player", "AndroidManifest.xml"))
     check("AndroidManifest versionName==%s" % VER, 'android:versionName="%s"' % VER in am)
     check("AndroidManifest versionCode==%d" % EXPECT_VCODE,
           ('android:versionCode="%d"' % EXPECT_VCODE) in am)
-    check("ui/index.html MYME_VERSION", 'const MYME_VERSION="%s"' % VER in read(os.path.join(HERE, "ui", "index.html")))
+    ih = read(os.path.join(HERE, "ui", "index.html"))
+    check("ui/index.html MYME_VERSION", 'const MYME_VERSION="%s"' % VER in ih)
     check("ui/player.html 版本注释", ("v%s" % VER) in read(os.path.join(HERE, "ui", "player.html")))
+    # ★ v2.9.3 防卡死硬要求（用户点名的两条，源码层先卡住）：
+    #   ① 每个页面都必须有「退出当前页面」按钮；② 空白处连点三下可进主菜单。
+    #   主程序 index.html 在 v2.9.3 之前这两条**完全缺失**，所以这里逐条断言，别再回退。
+    for needle, why in (('id="btnExit"', "主程序缺「退出当前页面」按钮"),
+                        ('id="quickNav"', "主程序缺三击空白呼出的主菜单浮层"),
+                        ('id="bye"', "主程序缺退出后的安全落地页"),
+                        ("mymeCloseTopLayer", "主程序缺「先关最上层」的统一判定"),
+                        ("mymeAnyBusy", "主程序缺「当前有没有弹层」的判定"),
+                        ("addEventListener('click'", "主程序缺三击空白的点击捕获")):
+        check("index.html 防卡死：%s" % why, needle in ih)
+    check("index.html 三击阈值写死为 3", "hits < 3" in ih or "hits>=3" in ih or "hits >= 3" in ih)
     # player.html 两份必须字节一致（历史铁律：改一处必须同步另一处）
     a = os.path.join(HERE, "ui", "player.html")
     b = os.path.join(HERE, "android-player", "assets", "player.html")
@@ -107,6 +130,10 @@ def l1():
     ph = read(os.path.join(HERE, "ui", "player.html"))
     for needle in ("MymeNative", "applyParams", "detectParams", "pickInput", "paramSummary"):
         check("player.html 含实现「%s」" % needle, needle in ph)
+    for needle, why in (('id="btnExit"', "播放器缺「退出当前页面」按钮"),
+                        ("closeTopLayer", "播放器缺「先关最上层」"),
+                        ("anyBusy", "播放器缺「有没有弹层」判定")):
+        check("player.html 防卡死：%s" % why, needle in ph)
     mj = read(os.path.join(HERE, "android-player", "src", "com", "myme", "player", "MainActivity.java"))
     for needle in ("onShowFileChooser", "onActivityResult", "ACTION_OPEN_DOCUMENT_TREE",
                    "collectTreeFiles", "MymeNative"):
@@ -244,21 +271,22 @@ def l3_winzip():
             check("playback/README.txt 含「本播放包标注」", "本播放包标注" in get(rdn[0]))
 
 
-def l3_deb():
-    print("\n=== Layer 3c：统信 deb ===")
-    deb = os.path.join(DIST, "myme-player_%s_all.deb" % VER)
+def l3_deb(arch="all"):
+    print("\n=== Layer 3c：统信 deb [%s] ===" % arch)
+    ck = lambda label, ok, note="": check("deb[%s] %s" % (arch, label), ok, note)
+    deb = os.path.join(DIST, _PP.deb_name(arch))
     if not os.path.isfile(deb):
-        check("deb 存在", False, "缺失")
+        ck("deb 存在", False, "缺失")
         return
-    check("deb 存在", True, "%.1f MB" % (os.path.getsize(deb) / 1048576))
+    ck("deb 存在", True, "%.1f MB" % (os.path.getsize(deb) / 1048576))
     # 结构门禁（PAX 头 / 顶层散落 / 关键成员）——复用 pack_portable 的成熟校验
     try:
         sys.path.insert(0, HERE)
         import pack_portable as P
-        err = P.verify_deb(deb)
-        check("deb 结构与成员校验（verify_deb）", err == "", err)
+        err = P.verify_deb(deb, arch)
+        ck("deb 结构与成员校验（verify_deb）", err == "", err)
     except Exception as e:
-        check("deb verify_deb 可执行", False, repr(e))
+        ck("deb verify_deb 可执行", False, repr(e))
     # 内容级：真的把新 player.html / manifest.json 打进去了 + 统信安装铁律
     raw = open(deb, "rb").read()
     pos, data, ctrl = 8, None, None
@@ -272,9 +300,9 @@ def l3_deb():
             ctrl = body
         pos += 60 + size + (size % 2)
     if data is None:
-        check("deb 能取出 data.tar.xz", False)
+        ck("deb 能取出 data.tar.xz", False)
         return
-    check("deb 能取出 data.tar.xz", True)
+    ck("deb 能取出 data.tar.xz", True)
 
     # ★ 统信 UOS「装不上 / 装上了打不开」专项门禁
     #   2026-10-08 实机报错复盘：
@@ -288,23 +316,23 @@ def l3_deb():
             for m in ct.getmembers():
                 k = m.name[2:] if m.name.startswith("./") else m.name.lstrip("/")
                 cs[k] = m
-            check("deb control.tar 含 postinst/prerm/postrm",
-                  set(cs) >= {"control", "postinst", "prerm", "postrm"})
+            ck("deb control.tar 含 postinst/prerm/postrm",
+               set(cs) >= {"control", "postinst", "prerm", "postrm"})
             pi = (ct.extractfile(cs["postinst"]).read().decode("utf-8", "ignore")
                   if "postinst" in cs else "")
-            check("deb postinst 无 set -e（行级）",
-                  not [l for l in pi.splitlines()
-                       if l.strip() in ("set -e", "set -eu", "set -ex", "set -euo pipefail")])
-            check("deb postinst chmod 有容错（|| true）", "chmod" in pi and "|| true" in pi)
-            check("deb postinst 含完整性自检", "安装不完整" in pi)
-            check("deb postinst 无 CRLF", "\r\n" not in pi)
+            ck("deb postinst 无 set -e（行级）",
+               not [l for l in pi.splitlines()
+                    if l.strip() in ("set -e", "set -eu", "set -ex", "set -euo pipefail")])
+            ck("deb postinst chmod 有容错（|| true）", "chmod" in pi and "|| true" in pi)
+            ck("deb postinst 含完整性自检", "安装不完整" in pi)
+            ck("deb postinst 无 CRLF", "\r\n" not in pi)
 
     with tarfile.open(fileobj=io.BytesIO(data)) as tf:
         want = {"opt/%s/player.html" % PKG, "opt/%s/manifest.json" % PKG,
                 "opt/%s/serve.py" % PKG, "opt/%s/myme-player" % PKG}
         mem = set(tf.getnames())
         for w in want:
-            check("deb 含 %s" % w, any(m.endswith(w) or m == "./" + w for m in mem))
+            ck("deb 含 %s" % w, any(m.endswith(w) or m == "./" + w for m in mem))
         nm2m = {}
         for m in tf.getmembers():
             k = m.name[2:] if m.name.startswith("./") else m.name.lstrip("/")
@@ -315,32 +343,32 @@ def l3_deb():
             return tf.extractfile(m).read().decode("utf-8", "ignore") if m else ""
 
         ph = rd("opt/%s/player.html" % PKG)
-        check("deb 内 player.html 版本 %s" % VER, ("v%s" % VER) in ph)
-        check("deb 内 player.html 含自动识别实现", "applyParams" in ph and "MymeNative" in ph)
+        ck("deb 内 player.html 版本 %s" % VER, ("v%s" % VER) in ph)
+        ck("deb 内 player.html 含自动识别实现", "applyParams" in ph and "MymeNative" in ph)
         try:
             mj = json.loads(rd("opt/%s/manifest.json" % PKG))
-            check("deb 内 manifest.json 含 params", _params_ok(mj))
+            ck("deb 内 manifest.json 含 params", _params_ok(mj))
         except Exception as e:
-            check("deb 内 manifest.json 可解析", False, repr(e))
+            ck("deb 内 manifest.json 可解析", False, repr(e))
 
         lp = nm2m.get("opt/%s/myme-player" % PKG)
-        check("deb 启动器在包内就是 0o755（不靠 postinst 补）",
-              lp is not None and bool(lp.mode & 0o111),
-              oct(lp.mode & 0o777) if lp else "缺失")
+        ck("deb 启动器在包内就是 0o755（不靠 postinst 补）",
+           lp is not None and bool(lp.mode & 0o111),
+           oct(lp.mode & 0o777) if lp else "缺失")
         for rel in ("opt/%s/myme-player" % PKG, "opt/%s/serve.py" % PKG,
                     "usr/share/applications/%s.desktop" % PKG, "usr/bin/%s" % PKG):
             m = nm2m.get(rel)
-            check("deb %s 无 CRLF" % rel,
-                  m is not None and b"\r\n" not in tf.extractfile(m).read())
+            ck("deb %s 无 CRLF" % rel,
+               m is not None and b"\r\n" not in tf.extractfile(m).read())
         ub = nm2m.get("usr/bin/%s" % PKG)
-        check("deb usr/bin/%s 在包内 0o755" % PKG, ub is not None and bool(ub.mode & 0o111))
-        check("deb 含 opt/%s/icon.png" % PKG, nm2m.get("opt/%s/icon.png" % PKG) is not None)
+        ck("deb usr/bin/%s 在包内 0o755" % PKG, ub is not None and bool(ub.mode & 0o111))
+        ck("deb 含 opt/%s/icon.png" % PKG, nm2m.get("opt/%s/icon.png" % PKG) is not None)
         det = rd("usr/share/applications/%s.desktop" % PKG)
-        check("deb .desktop Exec 绝对路径", ("Exec=/usr/bin/%s" % PKG) in det)
-        check("deb .desktop Icon 绝对路径（禁通用图标名）",
-              ("Icon=/opt/%s/icon.png" % PKG) in det)
-        check("deb 无中文文件名（LANG=C 机器上不乱码）",
-              not [m.name for m in tf.getmembers() if any(ord(c) > 127 for c in m.name)])
+        ck("deb .desktop Exec 绝对路径", ("Exec=/usr/bin/%s" % PKG) in det)
+        ck("deb .desktop Icon 绝对路径（禁通用图标名）",
+           ("Icon=/opt/%s/icon.png" % PKG) in det)
+        ck("deb 无中文文件名（LANG=C 机器上不乱码）",
+           not [m.name for m in tf.getmembers() if any(ord(c) > 127 for c in m.name)])
 
 
 def l3_others():
@@ -362,7 +390,8 @@ def main():
     l2()
     l3_apk()
     l3_winzip()
-    l3_deb()
+    for _a in _PP.DEB_ARCHES:
+        l3_deb(_a)
     l3_others()
     print("\n" + "=" * 62)
     print("通过 %d 项，失败 %d 项" % (len(PASS), len(FAIL)))

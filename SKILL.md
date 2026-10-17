@@ -162,3 +162,38 @@ kb_export.export / kb_qa.answer / make_ppt.gen_outline / kb_wiki.generate_wiki
 | r.jina.ai → defuddle → agent-fetch | 国内直连 + Googlebot/Bingbot UA + AMP |
 | `notebooklm generate audio/slide-deck/…` | `kb_export.export(...)` 走本机管道 |
 | 飞书 `lark-cli docs +create` | 本地 Markdown / docx / pptx 落盘 |
+
+## 附：myme APP 三端交付与防卡死约定（v2.9.4）
+
+本知识库能力内置在 **myme（PPT 制作及分身演示）** 这个本地 APP 里；APP 的交付与交互约定如下，
+改 APP 前先读《三端对照表.md》（同目录）。
+
+**三端定位（原生实现，不套壳）**
+
+| 平台 | 角色 | 产物 |
+|---|---|---|
+| Windows | 创作端 + 播放端 | `myme-2.9.4-win-x64-full.msi`（WiX）/ `myme-setup.exe` + `runtime.7z` / `win-x64-play.zip` |
+| 统信 UOS / 麒麟 / Deepin | 纯播放端 | `myme-player_2.9.4_<arch>.deb`，**逐 CPU 架构出包**（all/amd64/arm64/mips64el/loongarch64） |
+| 安卓 | 纯播放端 | `myme-2.9.4-android-play.apk`（原生 WebView + SAF 文件授权） |
+| iOS | PWA | `myme-ios-pwa.zip` |
+
+**CPU 架构对照（固化，别再猜）**：3A3000/3A4000 → `mips64el`；3A5000+ → `loongarch64`；
+FT2000 / 鲲鹏 → `arm64`；其余 → `amd64`。`uname -m` 可当场确认。
+
+**三条硬要求（三端必须一致，缺一即视为不合格）**
+
+1. **每个页面都有「⏏ 退出当前页面」**：停掉一切播放 → 关闭所有弹层 → 回安全落地页。
+2. **空白处连点三下**呼出「主菜单」快捷入口（再连点三下 / `Esc` 收起）。
+3. **`Esc` 逐层关闭**：一次只关最上面那一层，不叠开新层。
+
+**铁律**
+
+- `ui/player.html` 与 `android-player/assets/player.html` **必须字节一致**；出包脚本现在会强制把
+  `ui/player.html` 刷进示例播放包（否则「源码改了、打进包里还是旧播放器」）。
+- 版本号**单一真相源**是 `config.VERSION`；`pack_full.py` / `pack_portable.py` 都从它动态取，别写死字面量。
+- **三端设计 token 必须一致**：藏青导航 `#0f172a` + 青绿主色 `#0f766e` / 辅色 `#14b8a6` + 圆角(12/9) + 同一字体栈；主程序加载**不得**把 `--accent` 重置回旧蓝，不得残留靛蓝 `#4f46e5` / 旧蓝 `#1d4ed8` 字面量。
+- **缺失项灰选 + 提示**：分身 / 语言中本包没有的项（配音语言、分身、片段）在 UI 上**置灰并明确提示**，不藏不漏，避免"打开才发现没声音 / 切了个寂寞"。
+- **功能只增不减**：可调顺序，严禁删掉任何已有功能与菜单。
+- 统信端启动逻辑在 `deb_assets/launch.py`：探针必须**显式空代理** + magic token（`/__myme_ping__` → `myme-player-ok`）；
+  绝不用 `curl` 判 HTTP 就绪（`curl` 对任何应答都返回 0，内网代理会把它骗成"服务已在运行" → 白屏）。
+

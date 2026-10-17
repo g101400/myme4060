@@ -17,6 +17,7 @@ PWA：manifest.json(display=standalone) + service worker 离线壳 + 图标，�
 import os
 import sys
 import json
+import difflib
 import time
 import re
 import base64
@@ -445,7 +446,7 @@ def _extract_json(text):
         return {}
 
 
-# ============ v2.6.1 根据知识库生成文字材料（总结报告 / 半年汇报 / …）============
+# ============ 根据知识库生成文字材料（总结报告 / 半年汇报 / …）============
 # 与「制作 PPT」的书面文档不同：这里不依赖 PPT 提纲，而是直接拿【知识库检索到的素材】
 # 按所选模板（总结报告 / 半年汇报 / 工作总结 / 项目汇报 / 季度汇报 / 自定义）起草成文。
 _KB_DOC_TEMPLATES = {
@@ -1398,6 +1399,66 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._handle_kb_backup(data)
         elif p.path == "/api/kb_rebuild":
             self._handle_kb_rebuild(data)
+        elif p.path == "/api/kb/ingest":
+            # v2.7 多源导入（18 种格式 + 目录批量）；长任务本身不慢，但整批可能几十个文件，
+            # 这里保持同步返回汇总（单文件失败不中断整批），前端只显示汇总。
+            self._handle_kb_ingest(data)
+        elif p.path == "/api/kb/wiki":
+            self._handle_kb_wiki(data)
+        elif p.path == "/api/kb/qa":
+            self._handle_kb_qa(data)
+        elif p.path == "/api/open_path":
+            self._handle_open_path(data)
+        # ---------- v2.8 加工车间 ----------
+        elif p.path == "/api/qm/detect":
+            self._handle_qm_detect(data)
+        elif p.path == "/api/qm/run":
+            self._handle_qm_run(data)
+        elif p.path == "/api/qm/batch":
+            self._handle_qm_batch(data)
+        elif p.path == "/api/qm/deep":
+            self._handle_qm_deep(data)
+        elif p.path == "/api/qm/status":
+            self._handle_qm_status(data)
+        elif p.path == "/api/export/run":
+            self._handle_export_run(data)
+        elif p.path == "/api/domain/list":
+            self._handle_domain(data, "list")
+        elif p.path == "/api/domain/get":
+            self._handle_domain(data, "get")
+        elif p.path == "/api/domain/update":
+            self._handle_domain(data, "update")
+        elif p.path == "/api/domain/ppt":
+            self._handle_domain_ppt(data)
+        elif p.path == "/api/domain/kb":
+            self._handle_domain_kb(data)
+        # ---------- v2.9 深度加工 ----------
+        elif p.path == "/api/graph/stats":
+            self._handle_graph(data, "stats")
+        elif p.path == "/api/graph/rebuild":
+            self._handle_graph(data, "rebuild")
+        elif p.path == "/api/graph/nodes":
+            self._handle_graph(data, "nodes")
+        elif p.path == "/api/graph/neighbors":
+            self._handle_graph(data, "neighbors")
+        elif p.path == "/api/graph/mermaid":
+            self._handle_graph(data, "mermaid")
+        elif p.path == "/api/agent/run":
+            self._handle_agent(data, "run")
+        elif p.path == "/api/agent/confirm":
+            self._handle_agent(data, "confirm")
+        elif p.path == "/api/agent/get":
+            self._handle_agent(data, "get")
+        elif p.path == "/api/agent/list":
+            self._handle_agent(data, "list")
+        elif p.path == "/api/kb/chunks":
+            self._handle_chunk(data, "list")
+        elif p.path == "/api/kb/chunk":
+            self._handle_chunk(data, data.get("act") or "get")
+        elif p.path == "/api/trace/stats":
+            self._handle_trace(data, "stats")
+        elif p.path == "/api/trace/list":
+            self._handle_trace(data, "list")
         elif p.path == "/api/make_mindmap":
             # v2.6.4 补漏：UI v2.6.4 变更条目承诺「文字材料 doc / 思维导图 / PPT」，
             # 但应用侧此前只有 PPT 与书面稿 doc —— 思维导图能力只在技能侧 gen_local.py，
@@ -1915,7 +1976,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if data:
                 s = save_settings(data)
                 # ⚠ 「选择分身」必须同步落到 persons.json，否则后端取声纹/形象时读到的
-                #    还是旧 default → 界面选金子、语音却合成炎冰（v2.6.1 修复）。
+                #    还是旧 default → 界面选金子、语音却合成炎冰（此前修过的坑）。
                 if data.get("person") or data.get("avatar"):
                     persons.set_active(data.get("person"), data.get("avatar"))
                 self._json({"ok": True, "settings": s,
@@ -2246,6 +2307,499 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     self._json({"ok": False, "error": "检索失败：%s" % e})
                 return
             self._json({"ok": False, "error": "未知操作：%s" % act})
+        except Exception as e:
+            self._json({"ok": False, "error": str(e)})
+
+    # ==================== v2.7 多源导入（18 种格式 + 目录批量）====================
+    def _handle_kb_ingest(self, data):
+        """多源导入：单文件 / 目录批量 / 显式路径表。
+
+        入参 {mode: "file"|"dir"|"paths", path: "...", recursive: true,
+              ext: "pdf,xlsx", limit: 200}
+        返回 {ok, ok[], fail[], scanned, note} —— 单文件失败不中断整批（WeKnora 做法）。"""
+        import kb_chunking  # noqa: F401  确保分块内核可用（缺则下面 import 报明确错误）
+        import doc_ingest
+        mode = (data.get("mode") or "dir").strip()
+        kbname = data.get("kb_name") or KB_NAME
+        try:
+            if mode == "paths":
+                files = [p for p in (data.get("paths") or [])
+                         if isinstance(p, str) and p.strip()]
+                files = [p.strip() for p in files]
+            elif mode == "file":
+                p = (data.get("path") or "").strip()
+                if not p or not os.path.isfile(p):
+                    self._json({"ok": False, "error": "文件不存在：%s" % p}); return
+                files = [p]
+            else:
+                p = (data.get("path") or "").strip()
+                if not p or not os.path.isdir(p):
+                    self._json({"ok": False, "error": "目录不存在：%s" % p}); return
+                exts = [("." + x.strip().lstrip(".").lower()) for x in
+                        (data.get("ext") or "").split(",") if x.strip()] or None
+                scanned = doc_ingest.iter_files(
+                    p, exts=exts, recursive=bool(data.get("recursive", True)))
+                files = [fp for fp, _e in scanned]
+                if not files:
+                    self._json({"ok": False, "error":
+                                "该目录下没有可识别的文档（支持：%s）"
+                                % "、".join(doc_ingest.SUPPORTED_EXT),
+                                "scanned": scanned}); return
+            if not files:
+                self._json({"ok": False, "error": "没有可导入的文件"}); return
+            ok_list, fail_list = [], []
+            cat = data.get("category") or "多源导入"
+            for fp in files:
+                try:
+                    # ingest_document 返回 {added, removed, total, skipped}（无 ok 字段，
+                    # 内容未变时 skipped="unchanged"），所以用 added 判成败 —— 判错会
+                    # 把「成功入库」的文件全报成失败（本版第一个坑就踩在这）。
+                    r = knowledge_base.ingest_document(fp, kbname, category=cat)
+                    # 不抛异常即视为入库（added=0 可能是空文档或内容未变，
+                    # 这两种都不是错误，但要如实告诉用户「抽不出正文 / 内容未变」）
+                    note = ""
+                    if r.get("skipped") == "empty":
+                        note = "没抽到正文（格式不受支持或文件是空的）"
+                    elif r.get("skipped") == "unchanged":
+                        note = "内容未变，跳过向量化"
+                    ok_list.append({"file": os.path.basename(fp),
+                                    "chunks": r.get("added", 0), "note": note})
+                except Exception as e:
+                    fail_list.append({"file": os.path.basename(fp), "err": str(e)})
+            self._json({"ok": True, "ok": ok_list, "fail": fail_list,
+                        "imported": len(ok_list), "failed": len(fail_list),
+                        "scanned": len(files),
+                        "note": "成功 %d / 失败 %d" % (len(ok_list), len(fail_list))})
+        except Exception as e:
+            self._json({"ok": False, "error": str(e)})
+
+    # ==================== v2.7 AI 自动 Wiki ====================
+    def _handle_kb_wiki(self, data):
+        """AI 自动 Wiki：异步任务（Planner 选题 → Writer 逐页写 → 图谱/索引落盘）。
+
+        入参 {act: "plan"|"run", topics: 6, max_chars: 12000}
+        act=plan 只出主题清单（秒回，前端先给用户看选题）；act=run 起后台任务。"""
+        import kb_wiki
+        act = (data.get("act") or "plan").strip()
+        try:
+            if act == "plan":
+                # 注意：plan_topics(语料, n=…)，主题数是关键字参数。
+                # 写成 plan_topics(n) 会把数字当成语料（int 不支持切片，直接 500）。
+                blob = kb_wiki.corpus_blob()
+                if not blob:
+                    self._json({"ok": False, "error": "知识库里没有可索引的语料，先导点文档进来"}); return
+                topics = kb_wiki.plan_topics(blob, n=int(data.get("topics") or 6))
+                self._json({"ok": True, "act": "plan", "topics": topics})
+                return
+            if act == "run":
+                cnt = int(data.get("topics") or 6)
+                jid = _job_new(total=cnt)
+                t = threading.Thread(target=_wiki_job, args=(jid, int(data.get("max_chars") or 12000)),
+                                     daemon=True)
+                t.start()
+                self._json({"ok": True, "act": "run", "job": jid})
+                return
+            self._json({"ok": False, "error": "未知操作：%s" % act})
+        except Exception as e:
+            self._json({"ok": False, "error": str(e)})
+
+    # ==================== v2.7 AI Wiki 后台任务 ====================
+    # 走通用 JOBS 通道（前端已在轮询 /api/progress），给每页刷进度。
+    def _wiki_job(jid, max_chars=12000):
+        import kb_wiki
+        def _prog(i, total, topic, body):
+            _job_update(jid, page=i, total=total, stage="正在写：%s" % topic)
+        try:
+            _job_update(jid, stage="正在规划主题…", page=0)
+            r = kb_wiki.generate_wiki(progress=_prog, ctx_max_chars=max_chars)
+            if not r.get("ok"):
+                _job_update(jid, done=True, error=r.get("reason") or "生成失败")
+                return
+            _job_update(jid, done=True, page=r.get("pages") or 0, stage="完成",
+                        wiki_out=r.get("out"), wiki_pages=r.get("pages"),
+                        wiki_secs=r.get("secs"),
+                        graph=(r.get("graph") or {}).get("nodes", []).__len__())
+        except Exception as e:
+            _job_update(jid, done=True, error=str(e))
+
+    # ==================== v2.8 加工车间：多源搬运 / 多项产出 / 领域包 ====================
+    QM_TIP = {
+        "weixin": "微信公众号：直连抓取正文，自动去导航页脚",
+        "url": "通用网页：失败时自动升级为爬虫 UA / AMP 兜底",
+        "video": "B站：先取官方字幕，取不到再走本地语音转写",
+        "podcast": "播客：挖音频直链后本地转写（平台有防盗链时给可执行的下一步）",
+        "youtube": "YouTube 国内不可达，请先本地录制，再把文件放进待转写目录",
+        "x_twitter": "X/Twitter 国内不可达，建议粘贴正文或存成 txt 再导入",
+        "document": "本地文档：走既有 18 种格式抽取器",
+        "epub": "EPUB：ebooklib 优先，退 zip+xml",
+        "audio": "音频：勾选「本地转写」后走本机 ASR",
+        "zip": "压缩包：解压后批量抽取",
+        "dir": "目录：递归扫描全部可解析文件",
+        "search": "关键词：不联网，直接查本机知识库",
+    }
+
+    def _handle_qm_detect(self, data):
+        """先识别再搬运，让用户看清「它打算怎么搬」。"""
+        try:
+            import qiaomu_local
+            s = (data.get("input") or "").strip()
+            if not s:
+                return self._json({"ok": False, "error": "请先填一个链接 / 文件路径 / 目录 / 关键词"})
+            typ, site = qiaomu_local.detect_input(s)
+            return self._json({"ok": True, "type": typ, "site": site,
+                               "label": qiaomu_local.TYPE_LABEL.get(typ, "这份内容"),
+                               "tip": self.QM_TIP.get(typ, "")})
+        except Exception as e:
+            return self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
+
+    def _handle_qm_run(self, data):
+        """单条搬运 → 本地向量知识库。"""
+        try:
+            import qiaomu_local
+            s = (data.get("input") or "").strip()
+            if not s:
+                return self._json({"ok": False, "error": "输入为空"})
+            r = qiaomu_local.run(s, kb=data.get("kb") or "myme_kb",
+                                 category=data.get("category") or "多源导入",
+                                 asr=bool(data.get("asr")))
+            return self._json(r)
+        except Exception as e:
+            return self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
+
+    def _handle_qm_batch(self, data):
+        """批量搬运：一行一条（可带 #分类 后缀），单条失败不中断整批。"""
+        try:
+            import qiaomu_local
+            raw = (data.get("inputs") or "").strip()
+            if isinstance(raw, list):
+                items = [str(x).strip() for x in raw if str(x).strip()]
+            else:
+                items = [l.strip() for l in raw.splitlines() if l.strip() and not l.startswith("#")]
+            if not items:
+                return self._json({"ok": False, "error": "至少填一行（一行一个链接 / 路径 / 关键词）"})
+            kb = data.get("kb") or "myme_kb"
+            asr = bool(data.get("asr"))
+            results, ok_n, fail_n = [], 0, 0
+            for it in items:
+                cat, src = it, it
+                if "#" in it:
+                    src, cat = it.rsplit("#", 1)[0].strip(), it.rsplit("#", 1)[1].strip()
+                r = qiaomu_local.run(src, kb=kb, category=cat or "多源导入", asr=asr)
+                r["input"] = it
+                if r.get("ok"):
+                    ok_n += 1
+                else:
+                    fail_n += 1
+                results.append(r)
+            return self._json({"ok": True, "total": len(items), "ok_n": ok_n,
+                               "fail_n": fail_n, "results": results})
+        except Exception as e:
+            return self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
+
+    def _handle_qm_deep(self, data):
+        """三轮递进深度解读（后台）：概览 → 深度挖掘 → 综合反刍。
+
+        12 问 × 每问一次模型调用约 40s，同步会超时，所以挂后台作业轮询。"""
+        try:
+            import qiaomu_local
+            s = (data.get("input") or "").strip()
+            kb = data.get("kb") or "myme_kb"
+            if not s:
+                return self._json({"ok": False, "error": "输入为空"})
+            typ, _ = qiaomu_local.detect_input(s)
+            # 先入库，再围绕刚入库的内容问，保证问得到
+            if typ not in ("search", "unknown"):
+                ing = qiaomu_local.run(s, kb=kb, category=data.get("category") or "深度解读")
+                if not ing.get("ok"):
+                    return self._json({"ok": False, "error": ing.get("error") or "入库失败",
+                                       "ingest": ing})
+            jid = _job_new(total=12)
+            _job_update(jid, stage="已入库，开始三轮提问")
+
+            def _work():
+                try:
+                    r = qiaomu_local.deep_analyze(s, kb=kb)
+                    _job_update(jid, done=True, result=r,
+                                stage="完成 %d/%d 问" % (r.get("answered", 0), r.get("total_questions", 0)))
+                except Exception as e:
+                    _job_update(jid, done=True, error="%s: %s" % (type(e).__name__, e))
+
+            threading.Thread(target=_work, daemon=True).start()
+            return self._json({"ok": True, "job": jid, "stage": "已入库，开始三轮提问"})
+        except Exception as e:
+            return self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
+
+    def _handle_qm_status(self, data):
+        j = _job_get(str(data.get("job") or ""))
+        if not j:
+            return self._json({"ok": False, "error": "作业不存在"})
+        return self._json({"ok": True, "stage": j.get("stage"), "done": j.get("done"),
+                           "error": j.get("error"), "result": j.get("result")})
+
+    # ---------- v2.9 深度加工：图谱 / ReAct Agent / 分块编辑 / 链路追踪 ----------
+    def _handle_graph(self, data, act):
+        """知识图谱：实体共现行 → 邻居扩展检索 → mermaid 可视化。"""
+        try:
+            import kb_graph
+            kb = data.get("kb") or "myme_kb"
+            if act == "rebuild":
+                self._json({"ok": True, **kb_graph.rebuild(kb)}); return
+            if act == "nodes":
+                self._json({"ok": True, "items": kb_graph.top_nodes(kb, int(data.get("n") or 20))}); return
+            if act == "neighbors":
+                term = (data.get("term") or "").strip()
+                if not term:
+                    self._json({"ok": False, "error": "没给 term"}); return
+                self._json({"ok": True, "items": kb_graph.neighbors(term, kb)}); return
+            if act == "mermaid":
+                self._json({"ok": True, "mermaid": kb_graph.mermaid(kb, int(data.get("n") or 18))}); return
+            self._json({"ok": True, **kb_graph.stats(kb)})
+        except Exception as e:
+            self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
+
+    def _handle_agent(self, data, act):
+        """ReAct Agent：规划 → 调工具（本地库/国内搜索/抓网页/领域口径）→ 收尾，可人工审批。"""
+        try:
+            import kb_agent
+            if act == "run":
+                q = (data.get("q") or "").strip()
+                if not q:
+                    self._json({"ok": False, "error": "问题不能空"}); return
+                kb = data.get("kb") or "myme_kb"
+                domain = (data.get("domain") or "").strip()
+                jid = _job_new(total=1)
+                stage = "Agent 正在规划步骤…"
+                _job_update(jid, stage=stage)
+
+                def _work():
+                    try:
+                        r = kb_agent.run(q, kb=kb, domain=domain or None,
+                                         max_steps=int(data.get("steps") or 6),
+                                         approve=bool(data.get("approve")))
+                        _job_update(jid, done=True, result=r)
+                    except Exception as e:
+                        _job_update(jid, done=True, error="%s: %s" % (type(e).__name__, e))
+
+                threading.Thread(target=_work, daemon=True).start()
+                self._json({"ok": True, "job": jid, "stage": stage}); return
+            if act == "confirm":
+                r = kb_agent.confirm((data.get("agent_id") or "").strip(),
+                                     allowed=(data.get("allowed", True) not in (0, "0", False)),
+                                     edited_input=(data.get("input") or None))
+                self._json({"ok": True, **r}); return
+            if act == "list":
+                self._json({"ok": True, "items": kb_agent.list_recent(int(data.get("n") or 8))}); return
+            r = kb_agent.get((data.get("agent_id") or "").strip())
+            if not r:
+                self._json({"ok": False, "error": "任务不存在（可能已清理）"}); return
+            self._json({"ok": True, **r})
+        except Exception as e:
+            self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
+
+    def _handle_chunk(self, data, act):
+        """分块可编辑：列出 / 查看 / 改（自动留版本）/ diff / 回滚 / 重建索引。"""
+        try:
+            import kb_editor
+            kb = data.get("kb") or "myme_kb"
+            if act == "stats":
+                self._json({"ok": True, **kb_editor.stats(kb)}); return
+            if act == "list":
+                self._json({"ok": True, **kb_editor.list_chunks(
+                    kb, query=data.get("query") or "", limit=int(data.get("limit") or 50))}); return
+            if act == "get":
+                self._json({"ok": True, **kb_editor.get(kb, int(data.get("idx") or 0))}); return
+            if act == "update":
+                self._json({"ok": True, **kb_editor.update(
+                    kb, int(data.get("idx") or 0), data.get("text") or "",
+                    note=data.get("note") or "界面编辑")}); return
+            if act == "diff":
+                r = kb_editor.diff(kb, int(data.get("idx") or 0), int(data.get("v") or 0))
+                self._json({"ok": True, **r} if "error" not in r else r); return
+            if act == "rollback":
+                self._json({"ok": True, **kb_editor.rollback(
+                    kb, int(data.get("idx") or 0), int(data.get("v") or 1))}); return
+            if act == "reindex":
+                self._json({"ok": True, **kb_editor.reindex(kb, data.get("idx"))}); return
+            self._json({"ok": False, "error": "未知的 act：%s" % act})
+        except Exception as e:
+            self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
+
+    def _handle_trace(self, data, act):
+        """链路追踪（本地版 Langfuse）：按类型聚合 + 最近记录。"""
+        try:
+            import kb_trace
+            if act == "list":
+                self._json({"ok": True, "items": kb_trace.query(
+                    limit=int(data.get("limit") or 20), kind=(data.get("kind") or None))}); return
+            self._json({"ok": True, **kb_trace.stats()})
+        except Exception as e:
+            self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
+
+    def _handle_export_run(self, data):
+        """知识库 → 七种产物之一。"""
+        try:
+            import kb_export
+            kind = (data.get("kind") or "").strip()
+            topic = (data.get("topic") or "").strip()
+            if not kind or not topic:
+                return self._json({"ok": False, "error": "kind 与 topic 都要填"})
+            r = kb_export.export(kind, topic, kb=data.get("kb") or "myme_kb",
+                                 pages=int(data.get("pages") or 8),
+                                 style=(data.get("style") or "商务简洁"))
+            return self._json(r)
+        except Exception as e:
+            return self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
+
+    def _handle_domain(self, data, act):
+        """领域包：读 / 改（水利古建 · 感知应用 · 三端四平台口径）。"""
+        try:
+            import domain_water
+            key = data.get("key") or "water"
+            if act == "list":
+                return self._json({"ok": True, "profiles": domain_water.list_profiles()})
+            if act == "get":
+                return self._json(domain_water.get(key))
+            patch = {}
+            for f in ("name", "note"):
+                if f in data:
+                    patch[f] = data[f]
+            for f in ("tri_ends", "four_platforms"):
+                v = data.get(f)
+                if isinstance(v, str):
+                    patch[f] = [x.strip() for x in v.splitlines() if x.strip()]
+                elif isinstance(v, list):
+                    patch[f] = [str(x) for x in v if str(x).strip()]
+            if data.get("terms"):
+                patch["terms"] = [x for x in str(data["terms"]).splitlines() if x.strip()]
+            return self._json(domain_water.update(key, patch))
+        except Exception as e:
+            return self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
+
+    def _handle_domain_kb(self, data):
+        """把领域口径（三端四平台 / 术语）当文档并入知识库，让答疑按同一口径说话。"""
+        try:
+            import domain_water, qiaomu_local
+            key = data.get("key") or "water"
+            txt = domain_water.kb_entry(key)
+            if not txt.strip():
+                return self._json({"ok": False, "error": "领域口径是空的"})
+            r = qiaomu_local.ingest_text(domain_water.load_all().get(key, {}).get("name") or key,
+                                         txt, kb=data.get("kb") or "myme_kb",
+                                         category="领域口径")
+            return self._json({"ok": True, **r})
+        except Exception as e:
+            return self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
+
+    def _handle_domain_ppt(self, data):
+        """领域骨架 + 模型大纲 → PPTX，并提示下一步接分身讲解。"""
+        try:
+            import domain_water, make_ppt, pptx_write
+            key = data.get("key") or "water"
+            topic = (data.get("topic") or "").strip()
+            pages = int(data.get("pages") or 8)
+            if not topic:
+                return self._json({"ok": False, "error": "请填演示主题"})
+            p = domain_water.get(key)
+            if not p.get("ok"):
+                return self._json({"ok": False, "error": p.get("error", "领域档读不到")})
+            res = make_ppt.gen_outline(topic, pages=pages, use_kb=True, kb_name="myme_kb")
+            slides = res[0] if isinstance(res, tuple) else res
+            # 模型漏填的页，用领域骨架里的三端/四平台要点补上，保证每页不空
+            fill = (p.get("tri_ends") or []) + (p.get("four_platforms") or [])
+            filled = 0
+            for s in slides:
+                if not (s.get("bullets") or []) and fill:
+                    s["bullets"] = fill[:4]
+                    filled += 1
+            # 模型漏页（填 N 页只出 N-1）时用领域骨架补到目标页数，避免用户点 6 页拿到 5 页
+            skeleton = domain_water.outline(key, topic, pages)
+            used, ordered = set(), []
+            for t in skeleton:
+                if len(ordered) >= pages:
+                    break
+                title = (t.get("title") or "").strip()
+                pick = None
+                for k, s in enumerate(slides):
+                    if k not in used and (s.get("title") or "").strip() == title:
+                        pick = k
+                        break
+                if pick is None:
+                    # 标题不完全一致（模型自己起了名字）也认：同骨架位就近复用，保证顺序不乱
+                    best, bi = 0.0, None
+                    for k, s in enumerate(slides):
+                        if k in used:
+                            continue
+                        r = difflib.SequenceMatcher(
+                            None, (s.get("title") or ""), title).ratio()
+                        if r > best:
+                            best, bi = r, k
+                    if bi is not None and best >= 0.45:
+                        pick = bi
+                if pick is not None:
+                    used.add(pick)
+                    item = slides.pop(pick)
+                else:
+                    item = {"title": title, "bullets": t.get("bullets") or fill[:4],
+                            "layout": t.get("layout") or "bullets", "icons": [], "chart":
+                            {"type": "none", "labels": [], "values": []}, "source": "domain"}
+                if item.get("title") != title:
+                    item["title"] = title
+                ordered.append(item)
+            for k, s in enumerate(slides):          # 骨架里没有的页（模型加戏的）收在最后
+                if k not in used:
+                    ordered.append(s)
+            slides = ordered[:pages]
+            if len(slides) < 3:
+                for t in domain_water.outline(key, "", pages)[:max(0, 3 - len(slides))]:
+                    if (t.get("title") or "").strip() in have:
+                        continue
+                    have.add((t.get("title") or "").strip())
+                    slides.append({"title": t["title"], "bullets": t.get("bullets") or fill[:3],
+                                   "layout": "bullets", "icons": [], "chart":
+                                   {"type": "none", "labels": [], "values": []}, "source": "domain"})
+            outdir = os.path.join(config.KP_ROOT, "exports")
+            os.makedirs(outdir, exist_ok=True)
+            out = os.path.join(outdir, "%s.pptx" % re.sub(r'[\\/:*?"<>|\s]+', "_", topic)[:50])
+            pptx_write.write_pptx(out, slides)
+            return self._json({"ok": True, "pptx": out, "slides": len(slides),
+                               "filled": filled, "domain": key})
+        except Exception as e:
+            return self._json({"ok": False, "error": "%s: %s" % (type(e).__name__, e)})
+
+    # ==================== v2.7 增强答疑（多查询扩展 + 去重 + 追问）====================
+    def _handle_kb_qa(self, data):
+        """在线答疑增强：拆子问法 → 混合检索 → 指纹/向量去重 → 上下文压缩 → 生成。
+
+        入参 {q, history, expand, max_chars}
+        history 形如 "上轮问题|上轮答案"（多轮用 && 连接）。"""
+        try:
+            import kb_qa
+            q = (data.get("q") or "").strip()
+            if not q:
+                self._json({"ok": False, "error": "请填问题"}); return
+            hist = (data.get("history") or "").strip() or None
+            r = kb_qa.answer_with_history(q, names=[data.get("kb_name") or KB_NAME],
+                                          history=hist,
+                                          expand=(data.get("expand", True) not in (0, "0", False)),
+                                          max_chars=data.get("max_chars"))
+            self._json({"ok": True, **r})
+        except Exception as e:
+            self._json({"ok": False, "error": str(e)})
+
+    # ---------- 在资源管理器里打开一个本地路径（Wiki 产物 / 目录）----------
+    def _handle_open_path(self, data):
+        try:
+            p = os.path.abspath(data.get("path") or "")
+            if not os.path.exists(p):
+                self._json({"ok": False, "error": "路径不存在：%s" % p}); return
+            try:
+                if os.path.isdir(p):
+                    os.startfile(p)
+                else:
+                    subprocess.Popen(["explorer", "/select,", p])
+            except Exception:
+                os.startfile(os.path.dirname(p) if os.path.isfile(p) else p)
+            self._json({"ok": True, "path": p})
         except Exception as e:
             self._json({"ok": False, "error": str(e)})
 
@@ -3203,6 +3757,14 @@ def _worker_import_zip(jid, tmp_zip):
             jid, stage="导入中 %d/%d" % (i, t), cur=name,
             pct=90 + int(i * 7 / max(1, t))))
         _imp_update(jid, stage="清理临时文件", pct=97, cur="")
+        # 顺手读出包内 manifest 的播放参数（导入端据此显示"本包是中文还是英文、分身是谁"）
+        pman = {}
+        try:
+            with zipfile.ZipFile(tmp_zip) as _zf:
+                if "manifest.json" in _zf.namelist():
+                    pman = (json.loads(_zf.read("manifest.json").decode("utf-8")) or {}).get("params") or {}
+        except Exception:
+            pman = {}
         try:
             os.remove(tmp_zip)
         except Exception:
@@ -3210,14 +3772,14 @@ def _worker_import_zip(jid, tmp_zip):
         # 重新载入幻灯片（可能含 slides.json），与 /api/resources import 行为一致
         _load_slides()
         _res_log("import", "restore", "%d 个项目" % n)
-        _imp_update(jid, stage="完成", pct=100, done=True, count=n)
+        _imp_update(jid, stage="完成", pct=100, done=True, count=n, params=pman)
     except Exception as e:
         _imp_update(jid, stage="失败：" + str(e), done=True, error=str(e))
 
 
 def _handle_resources(self, data):
     """资源管理：list / rename / delete / set_default_persona / set_current_version /
-    export / import。所有文件操作均经 _res_safe 防穿越。"""
+    playback_params / export / import。所有文件操作均经 _res_safe 防穿越。"""
     try:
         act = (data.get("act") or "list").strip()
         if act == "list":
@@ -3314,6 +3876,10 @@ def _handle_resources(self, data):
             else:
                 self._json({"ok": False, "error": "版本不存在"})
             return
+        if act == "playback_params":
+            # 导出对话框用：当前项目的语言 / 分身 / 形象（与导出、导入三处同一组参数名）
+            self._json(_res_playback_params())
+            return
         if act == "export":
             cats = data.get("cats") or ["audio", "video", "avatar", "source", "versions", "personas"]
             only_versions = data.get("versions") or None   # 仅导出这些版本（过滤 slides.json）
@@ -3326,11 +3892,21 @@ def _handle_resources(self, data):
             include_player = bool(data.get("include_player"))
             if include_player and "versions" not in cats:
                 cats = list(cats) + ["versions"]
+            # 播放参数契约：允许前端显式指定 lang/person/avatar/avkey，
+            # 未指定则取"当前项目"（内容实际语言 + 当前激活分身），
+            # 保证生成 / 导出 / 导入三处用的是同一组参数名与同一个值。
+            _pp = _res_playback_params()
+            params = {
+                "lang": (data.get("lang") or _pp.get("lang") or ""),
+                "person": (data.get("person") or _pp.get("person") or ""),
+                "avatar": (data.get("avatar") or _pp.get("avatar") or ""),
+                "avkey": (data.get("avkey") or _pp.get("avkey") or ""),
+            }
             out_zip = os.path.join(config.DIR_TEST, "myme_playback_%s.zip"
                                    % time.strftime("%Y%m%d_%H%M%S"))
             n = _res_export_zip(out_zip, cats, only_versions=only_versions,
                                 videos=videos, quality=quality,
-                                include_player=include_player)
+                                include_player=include_player, params=params)
             _res_log("export", ",".join(cats), "%d 个文件（%s）" % (n, quality))
             try:
                 size = os.path.getsize(out_zip)
@@ -3339,7 +3915,8 @@ def _handle_resources(self, data):
             self._json({"ok": True,
                         "zip": "/api/download?name=" + os.path.basename(out_zip),
                         "path": out_zip, "name": os.path.basename(out_zip), "count": n,
-                        "size": size, "quality": quality, "ffmpeg": bool(_FFMPEG)})
+                        "size": size, "quality": quality, "ffmpeg": bool(_FFMPEG),
+                        "params": params})
             return
         if act == "import":
             b64 = data.get("zip") or ""
@@ -3348,6 +3925,14 @@ def _handle_resources(self, data):
             tmp_zip = os.path.join(config.DIR_TEST, "myme_import_%s.zip" % time.strftime("%Y%m%d_%H%M%S"))
             with open(tmp_zip, "wb") as f:
                 f.write(base64.b64decode(b64))
+            # 先读包内 manifest 的播放参数：导入端据此显示"本包是中文还是英文、分身是谁"
+            pman = {}
+            try:
+                with zipfile.ZipFile(tmp_zip) as _zf:
+                    if "manifest.json" in _zf.namelist():
+                        pman = (json.loads(_zf.read("manifest.json").decode("utf-8")) or {}).get("params") or {}
+            except Exception:
+                pman = {}
             n = _res_import_zip(tmp_zip)
             try:
                 os.remove(tmp_zip)
@@ -3356,7 +3941,7 @@ def _handle_resources(self, data):
             # 重新载入幻灯片（可能含 slides.json）
             _load_slides()
             _res_log("import", "restore", "%d 个项目" % n)
-            self._json({"ok": True, "count": n})
+            self._json({"ok": True, "count": n, "params": pman})
             return
         self._json({"ok": False, "error": "未知操作：%s" % act})
     except Exception as e:
@@ -3494,13 +4079,16 @@ def _find_file(name, dirs):
     return ""
 
 
-def _build_manifest(slides_doc, only_versions, quality, packed_videos):
+def _build_manifest(slides_doc, only_versions, quality, packed_videos, params=None):
     """生成便携播放包的 manifest.json：把 /api/xxx?name= 的引用改写成包内相对路径。
 
     播放端（安卓 APK / 统信 deb / Win 便携包里的 player.html）只读这一个文件，
     不必理解主程序的 slides.json 结构，也不依赖任何服务端接口。
-    新增（v2.6.1 反馈）：audio_en（英配）、personas（可选分身列表）、
-    videoAlt（各分身逐页视频变体，供播放端"选分身"切换）。
+    新增：audio_en（英配）、personas（可选分身列表）、
+    videoAlt（各分身逐页视频变体，供播放端"选分身"切换）、
+    segments（分身 × 语言播放片段，v2.6.7）。
+    新增（v2.8.0 合并）：params —— 播放参数契约，把"本包是中文还是英文、
+    分身是谁、哪个形象"写进清单，导入端据此自动识别并互斥禁用（见 params_out）。
     """
     wav2mp3 = (quality != "lossless")
     vs = slides_doc.get("versions") or {}
@@ -3528,6 +4116,10 @@ def _build_manifest(slides_doc, only_versions, quality, packed_videos):
                 personas = [{"id": cur["id"], "name": cur.get("name") or cur["id"]}]
         except Exception:
             personas = []
+    # 「默认分身」项必须常在：播放端 applyParams 的互斥过滤以它为保底，
+    # 没有它时"只有一个人有片子"会把分身下拉整个弄空（v2.8.0 合并）。
+    if not any(p.get("id") == "default" for p in personas):
+        personas = [{"id": "default", "name": "默认分身"}] + personas
     out = []
     for vid, v in vs.items():
         raw = (v or {}).get("slides") or []
@@ -3585,8 +4177,63 @@ def _build_manifest(slides_doc, only_versions, quality, packed_videos):
     _ids = [v["id"] for v in out]
     _seg_src = [v for v in out if v["id"] and v["id"] == _cur] or out
     segments = _build_segments(_seg_src, personas)
+    # ================= 播放参数契约（生成 / 导出 / 导入三处共用同一组键名）=================
+    # 用户诉求：导出播放文件要"注明是中文还是英文、分身是谁"，导入时能据此自动识别，
+    # 且不可用的选项不可选（只有中文→英文置灰；本包只有金子→炎冰不出现）。
+    # 键名与播放端 player.html 的 detectParams() 严格一致：
+    #   lang   配音语言（zh / en）
+    #   langs  本包实际拥有的语言（内容为准，供导入端置灰不可选的那种）
+    #   person 分身 id（如 yanbing / jinzi）      avatar 形象 id（如 selfie / pro）
+    #   avkey  person + "_" + avatar（如 yanbing_selfie），与逐页视频名中的那一段一致
+    _p = dict(params or {})
+    _langs = []
+    for _v in out:
+        for _s in _v["slides"]:
+            if _s.get("audio") and "zh" not in _langs:
+                _langs.append("zh")
+            if _s.get("audio_en") and "en" not in _langs:
+                _langs.append("en")
+    _langs = [x for x in ("zh", "en") if x in _langs]
+    _avkeys = sorted({k for _v in out for _s in _v["slides"]
+                      for k in (_s.get("videoAlt") or {})})
+    _persons_present = sorted({k.split("_")[0] for k in _avkeys if k})
+    _person = str(_p.get("person") or "").strip()
+    _avatar = str(_p.get("avatar") or "").strip()
+    _avkey = str(_p.get("avkey") or "").strip()
+    # 没显式标注时，用「当前激活分身」补上 —— 这样"分身是谁"在导出后一定有据可查
+    if not (_person and _avatar and _avkey):
+        try:
+            _a = persons.active()
+            if not _person:
+                _person = _a.get("person") or ""
+            if not _avatar:
+                _avatar = _a.get("avatar") or ""
+        except Exception:
+            pass
+    if not _avkey and _person and _avatar:
+        _avkey = "%s_%s" % (_person, _avatar)
+    if not _person and _avkey:
+        _person = _avkey.split("_")[0]
+    if not _avatar and _person and _avkey.startswith(_person + "_"):
+        _avatar = _avkey[len(_person) + 1:]
+    if not _person and len(_persons_present) == 1:
+        _person = _persons_present[0]
+    _declared_lang = str(_p.get("lang") or "").strip().lower()
+    _lang = _declared_lang if _declared_lang in ("zh", "en") else (_langs[0] if _langs else "zh")
+    if _langs and _lang not in _langs:
+        _lang = _langs[0]
+    params_out = {
+        "lang": _lang,
+        "langs": _langs or ["zh", "en"],       # 内容判不出来时两种都留着，别把播放端锁死
+        "person": _person,
+        "avatar": _avatar,
+        "avkey": _avkey,
+        "avkeys": _avkeys,                     # 本包真的有逐分身视频的分身键
+        "persons": _persons_present,
+        "video_naming": "demo_av_<版本>_<分身>_<页>.mp4（人_形象 亦兼容）",
+    }
     return {"app": "myme", "manifest": 1, "generated": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "personas": personas, "versions": out, "segments": segments,
+            "params": params_out, "personas": personas, "versions": out, "segments": segments,
             "currentVersion": _cur or (_ids[0] if _ids else "")}
 
 
@@ -3613,7 +4260,11 @@ def _build_segments(versions, personas):
     segs = []
     for v in (versions or []):
         pages = v.get("slides") or []
-        has_en = any((p or {}).get("audio_en") for p in pages)
+        # 【v2.6.9 修】原来是 `has_en = any(...)`：只要有 1 页英文配音，整段就标 ready=true，
+        # 用户切过去发现 19 页是哑的，清单却写"可播"——又一次假绿。改成逐页统计缺漏。
+        n_en = sum(1 for p in pages if (p or {}).get("audio_en"))
+        n_pages = len(pages)
+        missing_en = n_pages - n_en
         alt_people = set()
         any_video = False
         for p in pages:
@@ -3625,11 +4276,13 @@ def _build_segments(versions, personas):
         multi_avatar = bool(alt_people)
         for per in people:
             for lg, lg_name in (("zh", "中文"), ("en", "英文")):
-                missing = ""
-                if lg == "en" and not has_en:
-                    missing = "英文配音（当前只有中文，可在完整版重新生成英文讲解）"
-                elif multi_avatar and per["id"] not in alt_people:
-                    missing = "「%s」的分身视频（包内只有其他分身的片子）" % per["name"]
+                # 缺项逐个记、拼成一句话，别用 elif 把第二种缺项整个吃掉
+                miss = []
+                if lg == "en" and missing_en:
+                    miss.append("英文配音缺 %d/%d 页" % (missing_en, n_pages))
+                if multi_avatar and per["id"] not in alt_people:
+                    miss.append("「%s」的分身视频（包内只有其他分身的片子）" % per["name"])
+                missing = "；".join(miss)
                 segs.append({
                     "id": "%s_%s" % (per["id"], lg),
                     "name": per["name"] + " · " + lg_name,
@@ -3638,6 +4291,8 @@ def _build_segments(versions, personas):
                     "lang": lg, "lang_name": lg_name,
                     "ready": not missing, "missing": missing,
                     "vid": v.get("id", ""),
+                    "pages": n_pages,
+                    "pages_ready": (n_en if lg == "en" else n_pages),
                 })
     return segs
 
@@ -3779,8 +4434,73 @@ def check_upgrade(timeout=8):
             "msg": ("本地已是最新版（%s）" % cur) if not has_new else ("可升级到 %s（当前 %s）" % (latest, cur))}
 
 
+def _res_playback_params():
+    """播放参数契约的"当前项目"取值（生成 / 导出 / 导入三处共用）。
+
+    语言统一用 zh / en，分身统一用 person + avatar + avkey（<人>_<形象>）。
+    导出对话框与导出接口都用它，保证同一个项目里"标注的语言与分身"前后一致。
+    """
+    langs = []
+    try:
+        doc = json.load(open(config.SLIDES_FILE, encoding="utf-8")) or {}
+        for _v in (doc.get("versions") or {}).values():
+            for _s in ((_v or {}).get("slides") or []):
+                if _s.get("audio") and "zh" not in langs:
+                    langs.append("zh")
+                if _s.get("audio_en") and "en" not in langs:
+                    langs.append("en")
+    except Exception:
+        pass
+    langs = [x for x in ("zh", "en") if x in langs]
+    person = avatar = ""
+    try:
+        _a = persons.active()
+        person = _a.get("person") or ""
+        avatar = _a.get("avatar") or ""
+    except Exception:
+        pass
+    # 形象全名（给导出对话框显示"金子 · 职业·正装"这种人话）
+    av_name = ""
+    try:
+        for _p in (persons.list_persons().get("persons") or []):
+            if _p.get("id") != person:
+                continue
+            for _av in (_p.get("avatars") or []):
+                if _av.get("id") == avatar:
+                    av_name = "%s · %s" % (_p.get("name") or person, _av.get("name") or avatar)
+    except Exception:
+        pass
+    return {"ok": True,
+            "lang": (langs[0] if langs else "zh"),
+            "langs": langs or ["zh", "en"],
+            "person": person, "avatar": avatar,
+            "avkey": ("%s_%s" % (person, avatar)) if (person and avatar) else "",
+            "avatar_name": av_name}
+
+
+def _playback_readme(man=None):
+    """播放包 README.txt：抬头注明"本包是中文还是英文、分身是谁"，
+    与 manifest.params 用同一组参数名（导入端与人都能据此识别）。"""
+    p = (man or {}).get("params") or {}
+    _L = {"zh": "中文", "en": "英文"}
+    lang = _L.get(p.get("lang") or "", p.get("lang") or "未标注")
+    langs = "、".join(_L.get(x, x) for x in (p.get("langs") or [])) or "未标注"
+    person = p.get("person") or "未标注"
+    avatar = p.get("avatar") or "未标注"
+    avkey = p.get("avkey") or "未标注"
+    head = (
+        "本播放包标注（导入播放器后自动识别；本包没有的语言/分身会自动置灰或不列出）\n"
+        "  lang    配音语言 : %s      （本包实际包含：%s）\n"
+        "  person  分身     : %s\n"
+        "  avatar  形象     : %s\n"
+        "  avkey   分身键   : %s\n"
+        "\n"
+    ) % (lang, langs, person, avatar, avkey)
+    return head + PLAYBACK_README
+
+
 def _res_export_zip(out_zip, cats, only_versions=None, videos=None, quality="lossless",
-                    include_player=False):
+                    include_player=False, params=None):
     """把选定类别导出为一个 zip（slides.json + 各资源目录）。返回文件数。
 
     only_versions: 若给定（版本 id 列表），slides.json 仅保留这些版本。
@@ -3942,7 +4662,8 @@ def _res_export_zip(out_zip, cats, only_versions=None, videos=None, quality="los
                     z.write(fp, "images/" + b); cnt += 1
         if include_player:
             try:
-                man = _build_manifest(slides_doc, only_versions, quality, packed_videos)
+                man = _build_manifest(slides_doc, only_versions, quality, packed_videos,
+                                      params=params)
                 z.writestr("manifest.json", json.dumps(man, ensure_ascii=False, indent=1))
                 cnt += 1
             except Exception as e:
@@ -3953,7 +4674,9 @@ def _res_export_zip(out_zip, cats, only_versions=None, videos=None, quality="los
             # 播放包说明（用户解压后第一眼看到）
             # ⚠ 文件名必须 ASCII：aapt2 打安卓 assets 时非 ASCII 名会 "failed to open file"，
             #    为了让同一个播放包能直接进 APK，这里统一用 README.txt（内容仍是中文）。
-            z.writestr("README.txt", PLAYBACK_README)
+            # ⚠ 文本一律用 \n（zipfile.writestr 不转换换行，但源串别混进 \r）：
+            #    Linux 侧 `#!/bin/sh\r` 会直接 ENOENT，README 也不例外。
+            z.writestr("README.txt", _playback_readme(man))
             cnt += 1
     return cnt
 
@@ -3972,6 +4695,14 @@ PLAYBACK_README = """myme 便携播放包
 【统信 UOS 上播放】
   安装 myme 播放版 deb 后，桌面/开始菜单点「myme 播放版」；
   本质是启动一个本地服务再用浏览器打开同一个播放器，无需额外依赖。
+
+【换成别的播放包】（不用覆盖安装目录）
+  打开播放器，点顶部「📂 导入播放文件」，三条通路任选：
+    ① 导入播放包压缩包（.zip）—— 推荐，直接选完整版导出的 myme_playback_*.zip；
+    ② 导入播放包文件夹 —— 先在系统里解压，再选解压出来的整个文件夹（安卓端会自动展开目录）；
+    ③ 导入清单文件 —— 多选 manifest.json 与 images / audio / video 里的素材。
+  导入后立即播放；点「↺ 恢复到随包自带的播放文件」即可还原。
+  导入时会自动识别本包是中文还是英文、分身是谁（顶栏「本包：…」）。
 
 【目录里都是什么】
   manifest.json  播放清单（版本 / 每页文字 / 配音 / 视频 / 页图）

@@ -5,7 +5,8 @@ myme 三端便携播放包打包（v2.6）
 产物（全部落在 dist/）：
   1. myme-<ver>-win-x64-play.zip      —— Win11 便携播放包：myme-play.exe + 离线播放器 + 示例播放包
   2. myme-<ver>-android-play.apk      —— 安卓 APK：WebView 壳内置同一个播放器与示例播放包
-  3. myme-player_<ver>_all.deb        —— 统信 UOS deb：本地 python3 http 服务 + 浏览器打开播放器
+  3. myme-player_<ver>_<arch>.deb     —— 统信 UOS deb（逐架构）：本地 python3 http 服务 + 浏览器打开播放器
+                                          arch ∈ all / amd64 / arm64 / mips64el / loongarch64
 
 三端共用同一个「便携播放包」数据（完整版导出时勾选「📱 打包为离线便携播放包」得到）：
     manifest.json + player.html + images/ + audio/ + video/ + portraits/
@@ -19,7 +20,8 @@ myme 三端便携播放包打包（v2.6）
   python pack_portable.py           # 三端全出
   python pack_portable.py win       # 只出 Win
   python pack_portable.py apk
-  python pack_portable.py deb
+  python pack_portable.py deb            # 逐架构出 5 个 deb（all/amd64/arm64/mips64el/loongarch64）
+  python pack_portable.py deb-mips64el  # 只出龙芯 3A3000/3A4000 那个（按固化的架构对照表）
   python pack_portable.py bundle    # 只重新生成示例播放包（从当前项目导出）
 """
 import os
@@ -33,6 +35,7 @@ import zipfile
 import tarfile
 import subprocess
 import hashlib
+import re as _re_deb          # 门禁里剥 docstring / 注释用（见 verify_deb）
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DIST = os.path.join(HERE, "dist")
@@ -61,7 +64,20 @@ SEVENZ = r"C:\Program Files\7-Zip\7z.exe"
 DEB_PORT = 7862
 
 PKG = "myme-player"
-DEB_NAME = "myme-player_%s_all.deb" % VER
+# 架构对照表（已固化，按用户口径）：
+#   龙芯 3A3000 / 3A4000 → mips64el；龙芯 3A5000 及以上 → loongarch64；
+#   飞腾 FT2000 / 鲲鹏 → arm64；其余（兆芯 / 海光 / Intel / AMD）→ amd64。
+# 本包是"纯脚本 + 数据"，各架构内容完全相同，**只有 control 的 Architecture 字段不同**。
+# 仍然逐架构出包：dpkg 会拒绝 Architecture 与主机不符的包，
+# 一次给全 5 个（含 all），装机时不用猜该拿哪个。
+DEB_ARCHES = ["all", "amd64", "arm64", "mips64el", "loongarch64"]
+
+
+def deb_name(arch="all"):
+    return "myme-player_%s_%s.deb" % (VER, arch)
+
+
+DEB_NAME = deb_name("all")          # 向后兼容：老脚本/门禁里引用的默认名
 
 
 def log(*a):
@@ -189,6 +205,14 @@ def ensure_bundle():
         log("复用已有播放包：", BUNDLE)
     else:
         build_bundle()
+    # ★ 铁律（v2.9.3 补）：BUNDLE 里的 player.html 是「产物」，ui/player.html 才是「源码」。
+    #   复用旧包时若不强制刷新，就会把上一版的旧播放器原样打进 apk / win-zip / deb——
+    #   典型症状是「源码明明改了，装到机器上界面还是老的」。这里每次都从源码覆写。
+    src_ph = os.path.join(HERE, "ui", "player.html")
+    dst_ph = os.path.join(BUNDLE, "player.html")
+    if os.path.isfile(src_ph):
+        shutil.copy2(src_ph, dst_ph)
+        log("刷新播放器：ui/player.html -> BUNDLE（%d B）" % os.path.getsize(dst_ph))
     try:
         seed_demo_clips(BUNDLE)
     except Exception as e:      # 内置片段只是增强，失败不能阻断出包
@@ -336,156 +360,54 @@ def build_apk():
 
 
 # ==================== 3. 统信 UOS deb ====================
-SERVE_PY = r'''# -*- coding: utf-8 -*-
-"""myme 播放端本地服务：只做静态文件服务，不开任何外网访问。
-
-为什么必须起 http 而不是直接 file:// 打开：浏览器的同源策略会拦掉 file:// 下的
-fetch('manifest.json')，播放器读不到清单就只能白屏。走 127.0.0.1 本机 http 最省事。
-"""
-import os
-import sys
-import functools
-import http.server
-import socketserver
-
-PORT = int(sys.argv[1]) if len(sys.argv) > 1 else %d
-ROOT = sys.argv[2] if len(sys.argv) > 2 else os.path.dirname(os.path.abspath(__file__))
+# 启动器 / 服务 / 诊断页的**真身**放在 deb_assets/ 下（2026-10-16 从本文件迁出）：
+#   · 独立成文件才能被 py_compile、行尾体检、门禁逐条断言；
+#   · 历史事故全出在"就绪探测"这一小段（代理误判 / 缺 curl / 缺 setsid），
+#     拿出来单独仿真复现，比埋在大字符串里靠"看代码"可靠得多。
+DEB_ASSETS = os.path.join(HERE, "deb_assets")
 
 
-class H(http.server.SimpleHTTPRequestHandler):
-    def translate_path(self, path):
-        p = super().translate_path(path)
-        # 把请求路径钉在 ROOT 下，避免越权读取
-        try:
-            rel = os.path.relpath(p, ROOT)
-        except Exception:
-            rel = ""
-        if rel.startswith(".."):
-            p = os.path.join(ROOT, "index.html")
-        return p
-
-    def end_headers(self):
-        self.send_header("Cache-Control", "no-store")
-        super().end_headers()
-
-    def log_message(self, fmt, *args):
-        pass
+def _deb_asset(name, **subst):
+    """读 deb_assets/<name>，把 @KEY@ 占位替换成实参。"""
+    with io.open(os.path.join(DEB_ASSETS, name), encoding="utf-8") as f:
+        s = f.read()
+    for k, v in subst.items():
+        s = s.replace("@%s@" % k, v)
+    return s
 
 
-class S(socketserver.ThreadingTCPServer):
-    allow_reuse_address = True
-    daemon_threads = True
+SERVE_PY = _deb_asset("serve.py", VER=VER)
+LAUNCH_PY = _deb_asset("launch.py", VER=VER)
+LAUNCHER = _deb_asset("myme-player", VER=VER, DIR="/opt/" + PKG,
+                      LOG="/tmp/myme-player.log")
 
-
-if __name__ == "__main__":
-    os.chdir(ROOT)
-    # 端口被占（残留服务/冲突）时依次往后试，并把实际端口写到文件，供启动器打开正确 URL
-    PORTS = [PORT] + [PORT + i for i in range(1, 10)]
-    for p in PORTS:
-        try:
-            httpd = S(("127.0.0.1", p), functools.partial(H, directory=ROOT))
-            httpd.port = p
-            break
-        except OSError:
-            httpd = None
-    if httpd is None:
-        raise SystemExit("无法在端口 %%d~%%d 启动播放服务（均被占用）" %% (PORT, PORT + 9))
-    try:
-        with open("/tmp/myme-player.port", "w") as _pf:
-            _pf.write(str(httpd.port))
-    except OSError:
-        pass
-    print("myme 播放端已启动： http://127.0.0.1:%%d/player.html" %% httpd.port)
-    try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        pass
-''' % DEB_PORT
-
-LAUNCHER = r'''#!/bin/sh
-# myme 播放版启动脚本（统信 UOS / Deepin / 麒麟等 Debian 系通用）
-# 起本机 http 服务（file:// 下浏览器同源策略会拦住 manifest.json，必须走 http），
-# 再用系统默认浏览器打开播放器。全程离线，不联网、不写系统目录。
-#
-# ⚠ 关键修复（"点图标没反应"根因）：serve.py 必须用 setsid 彻底脱离本脚本所在的
-#   进程组/会话后再后台运行。之前用普通 `&` 起子进程，脚本退出时桌面环境把整个
-#   进程组一起杀掉，http 服务根本没起来 → 浏览器打开的是死端口 → 白屏"什么都没出现"。
-#   setsid 让它成为新会话领头进程，桌面环境杀不掉；再加 nohup 双重保险、日志落盘。
-PORT=%d
-DIR=/opt/%s
-LOG=/tmp/myme-player.log
-
-# 0) 依赖自检：python3 缺失时给可见提示，而不是静默失败（之前就是静默失败看不出原因）
-if ! command -v python3 >/dev/null 2>&1; then
-    echo "未找到 python3，无法启动本地播放服务。" > "$LOG"
-    ( command -v xdg-open >/dev/null 2>&1 && xdg-open "$LOG" ) || ( command -v dde-open >/dev/null 2>&1 && dde-open "$LOG" )
-    exit 1
-fi
-
-start_server() {
-    # 清掉可能残留的旧服务（同端口），避免端口被占导致新服务起不来
-    if command -v pkill >/dev/null 2>&1; then pkill -f "$DIR/serve.py" 2>/dev/null || true; fi
-    sleep 0.3
-    # setsid 完全脱离会话后台运行；nohup 双重保险；日志落盘便于排查
-    setsid nohup python3 "$DIR/serve.py" "$PORT" "$DIR" >"$LOG" 2>&1 < /dev/null &
-    echo $! > /tmp/myme-player.pid
-    # 等服务起来（最多 10 秒）
-    i=0
-    while [ $i -lt 50 ]; do
-        if curl -s -o /dev/null "http://127.0.0.1:$PORT/manifest.json" 2>/dev/null; then return 0; fi
-        if command -v wget >/dev/null 2>&1 && wget -q -O /dev/null "http://127.0.0.1:$PORT/manifest.json" 2>/dev/null; then return 0; fi
-        i=$((i+1)); sleep 0.2
-    done
-    return 1
-}
-
-if curl -s -o /dev/null "http://127.0.0.1:$PORT/manifest.json" 2>/dev/null; then
-    echo "服务已在运行（端口 $PORT）"
-else
-    if ! start_server; then
-        # 服务起不来：尽量弹桌面通知，退而打开日志文件，让用户看到真实错误
-        MSG="myme 播放服务启动失败，请查看日志：/tmp/myme-player.log"
-        if command -v notify-send >/dev/null 2>&1; then notify-send -u critical "myme 播放版" "$MSG"; fi
-        ( command -v xdg-open >/dev/null 2>&1 && xdg-open "$LOG" ) || ( command -v dde-open >/dev/null 2>&1 && dde-open "$LOG" )
-        exit 1
-    fi
-fi
-
-URL="http://127.0.0.1:$PORT/player.html"
-# 若服务因端口被占回退到了别的端口，读实际端口拼接 URL
-if [ -f /tmp/myme-player.port ]; then
-    APORT=$(cat /tmp/myme-player.port 2>/dev/null)
-    case "$APORT" in ''|*[!0-9]*) APORT=$PORT;; esac
-    if [ "$APORT" != "$PORT" ]; then URL="http://127.0.0.1:$APORT/player.html"; fi
-fi
-# 多试几种打开方式；xdg-open 在 UOS 上通常能正确路由到浏览器
-if command -v xdg-open >/dev/null 2>&1; then
-    xdg-open "$URL" >/dev/null 2>&1 &
-elif command -v dde-open >/dev/null 2>&1; then
-    dde-open "$URL" >/dev/null 2>&1 &
-elif command -v kde-open >/dev/null 2>&1; then
-    kde-open "$URL" >/dev/null 2>&1 &
-elif command -v gnome-open >/dev/null 2>&1; then
-    gnome-open "$URL" >/dev/null 2>&1 &
-else
-    echo "请手动在浏览器打开： $URL"
-fi
-''' % (DEB_PORT, PKG)
-
-CONTROL = """Package: %s
-Version: %s
+CONTROL_TPL = """Package: %(pkg)s
+Version: %(ver)s
 Section: utils
 Priority: optional
-Architecture: all
+Architecture: %(arch)s
+Installed-Size: %(size)d
 Depends: python3
 Recommends: xdg-utils
+Suggests: fonts-noto-cjk
 Maintainer: myme <myme@local>
-Description: myme 数字分身便携播放版（统信 UOS）
+Homepage: https://github.com/g101400/myme4060
+Description: myme 数字分身便携播放版（统信 UOS / 龙芯等国产平台）
  离线播放 myme 完整版导出的便携播放包（讲解音频 + 数字分身视频 + 页图）。
- 安装后在开始菜单点「myme 播放版」，或执行 /usr/bin/%s。
- 纯脚本与数据（Architecture: all：龙芯 / 兆芯 / 飞腾 / 鲲鹏 / AMD64 通用），
- 不含任何二进制依赖；卸载会带走 /opt/%s 全部内容。
-""" % (PKG, VER, PKG, PKG)
+ 安装后在开始菜单点「myme 播放版」，或执行 /usr/bin/%(pkg)s。
+ 启动方式为「本机 127.0.0.1 上的 python3 静态服务 + 系统浏览器打开播放器」，
+ 不联网、不写系统目录；本包为纯脚本与数据，无任何二进制依赖，
+ 卸载会带走 /opt/%(pkg)s 全部内容。
+"""
+
+
+def control_text(arch="all", size_kb=0):
+    """control 文件正文。
+
+    ★ Architecture 必须与文件名里的架构一致（dpkg 会据此判断能不能装）。
+      旧版一律写 all，与"按架构出包"的口径不符，已按架构对照表逐架构生成。
+    """
+    return CONTROL_TPL % {"pkg": PKG, "ver": VER, "arch": arch, "size": int(size_kb)}
 
 # /usr/bin 命令行入口（.desktop 的 Exec 指向它；水利一张图 模式C 铁律：禁裸命令名）
 USRBIN = """#!/bin/sh
@@ -518,13 +440,14 @@ fix_mode() {
     if [ -f "$1" ]; then chmod "$2" "$1" 2>>"$LOG" || true; fi
 }
 fix_mode "$PKG_DIR/myme-player" 0755
+fix_mode "$PKG_DIR/launch.py" 0644
 fix_mode "$PKG_DIR/serve.py" 0644
 fix_mode /usr/bin/{pkg} 0755
 if [ -d "$PKG_DIR" ]; then chmod -R a+rX "$PKG_DIR" 2>>"$LOG" || true; fi
 
 # 完整性自检：只提示，绝不改变安装结果
 miss=""
-for f in player.html manifest.json serve.py myme-player; do
+for f in player.html manifest.json serve.py launch.py myme-player; do
     [ -e "$PKG_DIR/$f" ] || miss="$miss $f"
 done
 if [ -n "$miss" ]; then
@@ -534,6 +457,16 @@ if [ -n "$miss" ]; then
 else
     echo "myme 播放版 v{ver} 已安装：开始菜单 → 影音 → myme 播放版"
     echo "也可执行： myme-player   或   /opt/{pkg}/myme-player"
+    # 本播放器是「本机 python3 起静态服务 + 浏览器打开」，python3 是唯一硬依赖。
+    # 这里只提示不报错（Depends: python3 已由 dpkg 保证；此处兜底被 --force 强装的情形）。
+    if ! command -v python3 >/dev/null 2>&1 && ! command -v python >/dev/null 2>&1; then
+        echo "⚠ 未检测到 python3：播放服务无法启动，请先安装（sudo apt install python3）。"
+    fi
+    # 机器配了 HTTP 代理时，浏览器访问 127.0.0.1 也可能被代理拦掉（白屏）。
+    # 启动器已把 loopback 写进 no_proxy，这里再提醒一句排障方向。
+    if [ -n "$http_proxy" ] || [ -n "$HTTP_PROXY" ] || [ -n "$all_proxy" ] || [ -n "$ALL_PROXY" ]; then
+        echo "ℹ 检测到系统 HTTP 代理：若浏览器打开白屏，请把 127.0.0.1 / localhost 加入代理例外。"
+    fi
 fi
 
 if command -v update-desktop-database >/dev/null 2>&1; then
@@ -661,7 +594,15 @@ def _tar_xz(src_dir, arc_prefix="."):
     return buf.getvalue()
 
 
-def build_deb():
+def build_deb(arch="all"):
+    """打包统信 UOS deb。
+
+    arch：all / amd64 / arm64 / mips64el / loongarch64（见 DEB_ARCHES）。
+      包体内容完全一致（纯脚本 + 数据），只有 control 的 Architecture 与文件名不同。
+      逐架构出包是为了让 dpkg 在国产平台上"能装得上"，也符合固化的架构对照表。
+    """
+    # 每个架构单独一个暂存目录，避免并发/连续出包互相污染
+    DEB_DIR = os.path.join(TMP, "deb_stage_%s_%s" % (arch, time.strftime("%H%M%S")))
     # 清理上一轮可能残留的顶层散落文件（debian-binary/control），避免污染 data.tar.xz
     for _stray in ("debian-binary", "control"):
         _p = os.path.join(DEB_DIR, _stray)
@@ -687,6 +628,9 @@ def build_deb():
     # ⚠ 必须 write_text（LF）——Windows 的 open(...,"w") 会写出 CRLF，
     #    首行变成 `#!/bin/sh\r` → 内核 execve ENOENT → 桌面点图标毫无反应。
     write_text(os.path.join(opt, "serve.py"), SERVE_PY)
+    # ★ v2.9.3：启动逻辑全在 launch.py（python3），shell 入口只负责找解释器 + 导 no_proxy。
+    #   serve.py 只做静态服务 + /__myme_ping__ 探针。三者都可独立 py_compile/体检。
+    write_text(os.path.join(opt, "launch.py"), LAUNCH_PY)
     write_text(os.path.join(opt, "myme-player"), LAUNCHER, mode=0o755)
     # 图标：一份放 /opt/<pkg>/icon.png（.desktop 用绝对路径引用，模式C 铁律），
     #       一份仍随 hicolor 主题装，兼顾老桌面环境
@@ -720,7 +664,8 @@ def build_deb():
     # control.tar.gz —— 同样强制 GNU_FORMAT（dpkg 用同一个 tar 解析器读它）
     cbuf = io.BytesIO()
     with tarfile.open(fileobj=cbuf, mode="w:gz", format=tarfile.GNU_FORMAT) as tf:
-        for nm, body, mode in (("control", CONTROL, 0o644),
+        # Installed-Size 用 data 段解压后大小（KB）估算，dpkg 用它做安装空间检查
+        for nm, body, mode in (("control", control_text(arch, max(1, len(data) // 1024)), 0o644),
                                ("postinst", POSTINST, 0o755),
                                ("prerm", PRERM, 0o755),
                                ("postrm", POSTRM % PKG, 0o755)):
@@ -734,23 +679,26 @@ def build_deb():
             tf.addfile(ti, io.BytesIO(b))
     ctrl = cbuf.getvalue()
 
-    out = os.path.join(DIST, DEB_NAME)
+    out = os.path.join(DIST, deb_name(arch))
     with open(out, "wb") as f:
         f.write(b"!<arch>\n")
         f.write(_ar_member("debian-binary", b"2.0\n"))
         f.write(_ar_member("control.tar.gz", ctrl))
         f.write(_ar_member("data.tar.xz", data))
-    log("✅ 统信 deb：%s（%.1f MB）" % (out, os.path.getsize(out) / 1048576))
+    log("✅ 统信 deb[%s]：%s（%.1f MB）" % (arch, out, os.path.getsize(out) / 1048576))
     return out
 
 
-def verify_deb(path):
+def verify_deb(path, arch="all"):
     """解包校验：ar 成员齐全 + data.tar.xz 能解出关键文件。
 
     额外做「PAX 头体检」：逐个成员扫描 typeflag，一旦出现 'x'/'g'（PAX 扩展头），
     就直接判定失败——统信 dpkg 会以「不支持的 PAX tar 头部类型 'x'」拒绝安装。
+    另有 v2.9.3 新增的「点图标打不开」专项断言（见下面 ★ 段）。
     """
     import lzma
+    if os.path.basename(path) != deb_name(arch):
+        return "文件名与架构不符：期望 %s，实际 %s" % (deb_name(arch), os.path.basename(path))
     raw = open(path, "rb").read()
     if not raw.startswith(b"!<arch>\n"):
         return "ar 头不对"
@@ -797,7 +745,7 @@ def verify_deb(path):
                             "chmod，而那一失败整个安装就报错" % (lp, oct(m.mode & 0o777)))
                 # b) shell 脚本/桌面项必须 LF 行尾：`#!/bin/sh\r` → 内核 execve ENOENT
                 #    → 桌面点图标毫无反应（"装上了但打不开"）
-                for rel in (lp, "opt/%s/serve.py" % PKG,
+                for rel in (lp, "opt/%s/serve.py" % PKG, "opt/%s/launch.py" % PKG,
                             "usr/share/applications/%s.desktop" % PKG,
                             "usr/bin/%s" % PKG):
                     d = _blob(rel)
@@ -819,8 +767,56 @@ def verify_deb(path):
                     return "usr/bin/%s 在包内不是可执行" % PKG
                 if nm2m.get("opt/%s/icon.png" % PKG) is None:
                     return "data 缺 opt/%s/icon.png" % PKG
+
+                # ★ v2.9.3「装了但打不开 / 点图标没反应」专项门禁（2026-10-16 本地仿真定案）
+                #   旧启动器（纯 sh）用 curl 探测"服务起没起来"，实测三类静默失败：
+                #     ① 机器配了 HTTP 代理时 curl 会走代理，代理回 502 而 curl 仍返回 0
+                #        → 误判"服务已在运行" → **根本不启动服务** → 打开死端口 → 白屏；
+                #     ② 精简系统里 curl / wget 都缺 → 服务其实起来了也判失败（假失败，白等 20s）；
+                #     ③ 没有 setsid 命令 → 后台服务起不来，且诊断只打 stdout，桌面启动看不到。
+                #   本版把探测/脱离/开浏览器/失败诊断全部搬进 python3（launch.py），
+                #   下面逐条断言，任何一个回退都会在门禁里当场炸掉。
+                lsh = _blob(lp).decode("utf-8", "ignore")
+                lpy = _blob("opt/%s/launch.py" % PKG)
+                if lpy is None:
+                    return "data 缺 opt/%s/launch.py（v2.9.3 起启动逻辑必须在 python 侧）" % PKG
+                lpy = lpy.decode("utf-8", "ignore")
+                svo = _blob("opt/%s/serve.py" % PKG) or b""
+                svo = svo.decode("utf-8", "ignore")
+                if 'exec "$PY" "$DIR/launch.py"' not in lsh:
+                    # 断言"字面那行转发语句"，不能只查注释里出现过 launch.py
+                    return "启动器 shell 入口没有 exec 转发到 launch.py"
+                if "export no_proxy" not in lsh:
+                    return "启动器未导出 no_proxy（浏览器把本机地址丢给代理 → 白屏）"
+                if "curl -s -o /dev/null" in lsh:
+                    return "启动器仍用 curl 做就绪探测（有代理时会误判成已就绪 → 不起服务）"
+                for needle, why in (("ProxyHandler({})", "launch.py 探针未显式禁用代理（代理伪造就绪）"),
+                                    ("__myme_ping__", "launch.py 未用 magic token 探针（无法区分别家服务）"),
+                                    ("start_new_session=True", "launch.py 未脱离会话（会退回依赖 setsid 命令）"),
+                                    ("no_proxy", "launch.py 未处理 no_proxy"),
+                                    ("myme-player-error.html", "launch.py 失败时未生成可见诊断页（会静默）")):
+                    if needle not in lpy:
+                        return why
+                # 只看"真代码"：先剜掉模块 docstring，再剥掉注释 ——
+                # 注释里写"旧版用 curl / setsid"是说明历史根因，不该被判成依赖。
+                _code = _re_deb.sub(r'(?s)""".*?"""', "", lpy)        # 剜掉所有 docstring
+                _code = _re_deb.sub(r"(?s)\x27\x27\x27.*?\x27\x27\x27", "", _code)
+                _code = "\n".join(ln.split("#", 1)[0] for ln in _code.splitlines())
+                for bad, why in (("setsid", "仍依赖 setsid 命令（busybox 精简环境没有）"),
+                                 ("curl", "仍依赖 curl"),
+                                 ("wget", "仍依赖 wget")):
+                    for ln in _code.splitlines():
+                        t = ln.strip()
+                        if bad not in t:
+                            continue
+                        if bad == "setsid" and "setsid()" in t:
+                            continue          # os.setsid() 是 Python 自带，允许
+                        return "launch.py " + why + "：" + t[:70]
+                if "__myme_ping__" not in svo or "myme-player-ok" not in svo:
+                    return "serve.py 未实现 /__myme_ping__ 探针（启动器无法判断真实就绪）"
             for need in ("opt/%s/player.html" % PKG, "opt/%s/manifest.json" % PKG,
-                         "opt/%s/serve.py" % PKG, "opt/%s/myme-player" % PKG,
+                         "opt/%s/serve.py" % PKG, "opt/%s/launch.py" % PKG,
+                         "opt/%s/myme-player" % PKG,
                          "usr/share/applications/%s.desktop" % PKG):
                 if not any(m.endswith(need) or m == "./" + need for m in mem):
                     return "data 缺 " + need
@@ -848,6 +844,12 @@ def verify_deb(path):
                     return "postinst 缺完整性自检（安装不完整时用户看不到真正原因）"
                 if "\r\n" in pi:
                     return "postinst 含 CRLF 行尾（内核 execve ENOENT → 安装直接失败）"
+                if "127.0.0.1" not in pi:
+                    return "postinst 未提示「把 127.0.0.1 加入代理例外」（代理下浏览器白屏）"
+                # control 的 Architecture 必须与出包架构一致（dpkg 据此判断能否安装）
+                ctl = ct.extractfile(cset["control"]).read().decode("utf-8", "ignore")
+                if ("Architecture: %s" % arch) not in ctl:
+                    return "control 的 Architecture 不是 %s（与文件名/架构对照表不一致）" % arch
         pos += 60 + size + (size % 2)
     for need in ("debian-binary", "control.tar.gz", "data.tar.xz"):
         if need not in names:
@@ -868,14 +870,30 @@ def main():
         outs.append(build_win())
     if "all" in args or "apk" in args:
         outs.append(build_apk())
-    if "all" in args or "deb" in args:
-        p = build_deb()
-        err = verify_deb(p)
-        if err:
-            log("❌ deb 校验失败：", err)
-        else:
-            log("✅ deb 解包校验通过")
-        outs.append(p)
+    want_deb = ("all" in args or "deb" in args) or any(a.startswith("deb-") for a in args)
+    if want_deb:
+        arches = list(DEB_ARCHES)
+        picked = [a[4:] for a in args if a.startswith("deb-")]
+        if picked:
+            bad = [a for a in picked if a not in DEB_ARCHES]
+            if bad:
+                raise SystemExit("❌ 未知架构：%s（可选：%s）" % (", ".join(bad), ", ".join(DEB_ARCHES)))
+            arches = picked
+        fails = []
+        for arch in arches:
+            p = build_deb(arch)
+            err = verify_deb(p, arch)
+            if err:
+                log("❌ deb[%s] 校验失败：%s" % (arch, err))
+                fails.append("deb[%s]：%s" % (arch, err))
+            else:
+                log("✅ deb[%s] 解包校验通过（启动器/探针/代理/架构 逐条断言）" % arch)
+            outs.append(p)
+        if fails:
+            # 历史上这里只打印 ❌ 就继续，导致"校验没过但脚本退出码 0"，
+            # 上层门禁以为出包成功 —— 校验没过就必须让整条链路红掉。
+            raise SystemExit("❌ deb 解包校验未通过 %d/%d 个：\n  - %s"
+                             % (len(fails), len(arches), "\n  - ".join(fails)))
     print("\n产物：")
     for o in outs:
         if o:

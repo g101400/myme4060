@@ -1,0 +1,47 @@
+#!/bin/sh
+# myme 播放版入口（统信 UOS / Deepin / 麒麟等 Debian 系通用）—— v@VER@
+# ---------------------------------------------------------------------------
+# 这里的逻辑刻意做到最薄：**找到 python3，然后全部交给 launch.py**。
+# 历史三根因都出在这个脚本身上，全部搬到 python 侧根治（2026-10-16 实测）：
+#   ① curl 探测不绕代理 → 代理回 502 也被 curl 当成成功 → 误判"服务已在运行"
+#      → 根本不启动服务 → 浏览器打开死端口 → 白屏；
+#   ② 探测强依赖 curl / wget → 精简系统两者皆缺 → 服务其实起来了也判失败（假失败）；
+#   ③ 依赖 setsid 命令 → busybox 无此命令 → 后台服务起不来，且诊断只打到 stdout，
+#      桌面点图标没有终端 → 用户"看不到任何反应"。
+#   python3 是唯一硬依赖（deb: Depends: python3）；os.setsid() 由 python 自带，
+#   探针、后台脱离、开浏览器、失败诊断全在 launch.py 里完成。
+# ---------------------------------------------------------------------------
+DIR=@DIR@
+LOG=@LOG@
+
+# 便于排障/自测：允许用环境变量覆盖安装位置
+if [ -n "$MYME_PLAYER_DIR" ]; then DIR="$MYME_PLAYER_DIR"; fi
+if [ -n "$MYME_PLAYER_LOG" ]; then LOG="$MYME_PLAYER_LOG"; fi
+
+PY=""
+for c in python3 python; do
+    if command -v "$c" >/dev/null 2>&1; then PY="$c"; break; fi
+done
+
+if [ -z "$PY" ]; then
+    printf '%s\n' \
+        "myme 播放版无法启动：系统里没有 python3。" \
+        "播放服务是一段 python 脚本，请先安装：" \
+        "    sudo apt install python3      （或 sudo yum install python3）" \
+        "安装后重新点击「myme 播放版」即可。" > "$LOG" 2>/dev/null || true
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send -u critical "myme 播放版" "缺少 python3，无法启动。请先安装 python3。" 2>/dev/null || true
+    fi
+    if command -v xdg-open >/dev/null 2>&1; then xdg-open "$LOG" >/dev/null 2>&1 || true; fi
+    exit 1
+fi
+
+# ★ 关键：把本机地址排除在代理之外。
+#   机器配了 HTTP 代理时，浏览器访问 127.0.0.1 也会被代理拦掉（白屏），
+#   curl 则收到代理的 502。这里同时导出 no_proxy / NO_PROXY，
+#   子进程与浏览器都会继承。
+no_proxy="127.0.0.1,localhost,::1${no_proxy:+,$no_proxy}"
+NO_PROXY="$no_proxy"
+export no_proxy NO_PROXY
+
+exec "$PY" "$DIR/launch.py" "$@"

@@ -1,7 +1,7 @@
 {
-  "name": "炎冰数字分身",
-  "short_name": "炎冰分身",
-  "description": "本地数字分身：用炎冰的声音讲 PPT 并自动答疑",
+  "name": "PPT制作及分身演示",
+  "short_name": "myme分身",
+  "description": "本地数字分身：用本人的声音讲 PPT 并自动答疑",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
