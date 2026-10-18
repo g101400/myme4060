@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>myme 便携播放器（离线）</title>
 <style>
-:root{--bg:#0b1020;--panel:#151a2e;--line:#2a3352;--fg:#e8ecf6;--mut:#9aa5c4;--acc:#4f8cff;--ok:#22c55e;--warn:#f59e0b}
+:root{--bg:#f1f5f9;--panel:#ffffff;--line:#e2e8f0;--fg:#0f172a;--mut:#64748b;--acc:#0f766e;--acc2:#14b8a6;--ok:#15803d;--warn:#b45309}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
   font-family:"Microsoft YaHei","PingFang SC",system-ui,-apple-system,sans-serif}
@@ -192,7 +192,7 @@ select#rate{background:#fff;color:var(--fg);border:1px solid var(--line);
   <div class="brand">
     <div class="logo">myme</div>
     <div>
-      <h1>myme 便携播放器<span class="ver">v2.9.4</span></h1>
+      <h1>myme 便携播放器<span class="ver">v2.9.5</span></h1>
       <div class="sub">离线播放 · 纯静态零依赖 · 数据不出本机 · 空白处连点三下可呼出快捷菜单</div>
     </div>
   </div>
@@ -206,6 +206,7 @@ select#rate{background:#fff;color:var(--fg);border:1px solid var(--line);
       <option value="zh">中文</option><option value="en">English</option></select>
     <select id="avSel" title="分身形象（只列出本包已有的分身）" style="display:none"></select>
     <span id="pTag" class="tag" title="本播放包自动识别出的语言与分身"></span>
+    <span id="mHint" class="tag" style="display:none"></span>
     <button id="btnPip" title="显示/隐藏分身画中画">🧑 分身：开</button>
     <span class="sp"></span>
     <button id="btnTopPlay" class="p">▶ 播放</button>
@@ -300,7 +301,7 @@ select#rate{background:#fff;color:var(--fg);border:1px solid var(--line);
 <script src="manifest.js" onerror="void 0"></script>
 <script>
 /* ============================================================
-   myme 便携播放器（纯静态 · 离线 · 零依赖） v2.9.4
+   myme 便携播放器（纯静态 · 离线 · 零依赖） v2.9.5
    ------------------------------------------------------------
    布局（按播放端反馈重做）：
      · 默认以「PPT 演示页图」为主视图（大图）；
@@ -616,6 +617,127 @@ function avLabel(id){
   var hit = personsOf().filter(function(p){ return p.id===id; })[0];
   return hit ? (hit.name||hit.id) : '';
 }
+/* ============================================================
+   v2.9.5「分身 × 语言 × 声音」三方绑定矩阵
+   ------------------------------------------------------------
+   以前只按"整包有没有英文配音"决定置灰，粒度太粗：
+   本包若是「炎冰·中文 + 炎冰·英文 + 金子·中文」，
+   选金子时英文照样可选，一点就出炎冰的声音 —— 正是用户说的"串"。
+   现在按【这个人自己有没有这种配音】逐项判定：
+     · 分身没有该语言配音 → 语言项置灰并写明「无」，同时自动回落到可用的那个并提示；
+     · 分身连一种配音都没有（只有画面）→ 分身项置灰并写明「仅画面」；
+     · 段内缺页（英文只配了 12/19 页）→ 仍可播，但明确告知缺几页。
+   判定依据是导出时写进清单的 params.voices（老包没有则退化为逐页 audio_person，
+   再没有就当作"未记录"不误判）。
+   ============================================================ */
+function voicesMap(){
+  var V = (M && M.params && M.params.voices) || null;
+  if(V && Object.keys(V).length) return V;
+  var out = {};
+  (M && M.versions || []).forEach(function(v){
+    (v.slides||[]).forEach(function(s){
+      if(s.audio){ var a=s.audio_person||''; out[a]=out[a]||{zh:false,en:false}; out[a].zh=true; }
+      if(s.audio_en){ var b=s.audio_person_en||s.audio_person||''; out[b]=out[b]||{zh:false,en:false}; out[b].en=true; }
+    });
+  });
+  return out;
+}
+function hasVoice(person,lang){
+  var V = voicesMap();
+  var keys = Object.keys(V||{});
+  if(!keys.length) return true;                      // 老包没记录 → 不误判
+  var v = V[person];
+  if(v) return !!v[lang];
+  /* 只有「未记录」那一桶（'' 键）时同样不误判：那是老包/未写 audio_person 的情况，
+     宁可让用户切过去听到声音，也不要凭空白白置灰。 */
+  if(V[''] && (V[''].zh || V[''].en)) return true;
+  return false;
+}
+/* 本包这种语言的配音到底是谁（用于提示"英文是炎冰配的，金子没有"）
+   优先级：当前所选分身自己有 → 清单标注的配音者 → 任一个真有的 */
+function voiceOwner(lang){
+  var V = voicesMap() || {}, P = (M && M.params) || {};
+  var keys = Object.keys(V);
+  if(V[AV_SEL] && V[AV_SEL][lang]) return AV_SEL;
+  if(P.voice_person){
+    if(!keys.length) return P.voice_person;               // 老包只写了标注
+    if(V[P.voice_person] && V[P.voice_person][lang]) return P.voice_person;
+  }
+  var hit='';
+  keys.forEach(function(k){ if(!hit && V[k] && V[k][lang]) hit = k; });
+  return hit;
+}
+/* 按「分身 + 语言」找片段（注意与按 id 找的 segById 不是一回事，别混用） */
+function segByPL(person, lang){
+  return (M && M.segments || []).filter(function(g){
+    return g.person===person && g.lang===lang;
+  })[0] || null;
+}
+function canPlay(person,lang){
+  /* 第一层：整包有没有这种语言的配音（清单 params.langs 为准，判不出来时放行） */
+  var L = detectParams().langs || [];
+  if(L.length && L.indexOf(lang) < 0){
+    return {ok:false, why:'本包没有'+(lang==='en'?'英文':'中文')+'配音（整包只有'
+                         +L.map(function(x){return x==='en'?'英文':'中文';}).join('、')+'）'};
+  }
+  /* 第二层：这个人自己有没有这种语言的配音 */
+  if(!hasVoice(person,lang)){
+    var own = voiceOwner(lang);
+    return {ok:false, why:'本包没有「'+(avLabel(person)||person)+'」的'+(lang==='en'?'英文':'中文')+'配音'
+                          +(own?('（本包该语言配音是「'+(avLabel(own)||own)+'」的）'):'')};
+  }
+  var g = segByPL(person,lang);
+  if(g && !g.ready) return {ok:true, warn:g.missing};
+  return {ok:true};
+}
+/* 依据当前选择重算两个下拉的可用性 + 顶部提示（灰选而不是藏起来） */
+function refreshAvailability(){
+  var ls=$('langSel'), as=$('avSel'), hint=$('mHint');
+  var notes=[];
+  try{
+  if(ls && ls.options && ls.options.length){
+    [].forEach.call(ls.options, function(o){
+      var r = canPlay(AV_SEL, o.value);
+      o.disabled = !r.ok;
+      o.textContent = (o.value==='en'?'English':'中文') + (r.ok ? '' : ' · 无');
+      o.title = r.ok ? (r.warn||'') : ('不可选：'+r.why);
+    });
+    var cur=[].filter.call(ls.options, function(o){ return o.value===LANG; })[0];
+    if(cur && cur.disabled){
+      var alt=[].filter.call(ls.options, function(o){ return !o.disabled; })[0];
+      if(alt){
+        var from=(LANG==='en'?'英文':'中文'), to=(alt.value==='en'?'英文':'中文');
+        LANG=alt.value; ls.value=LANG;
+        toast('「'+(avLabel(AV_SEL)||AV_SEL)+'」没有'+from+'配音，已切到'+to+'（本包'+from+'配音是'
+              +(avLabel(voiceOwner(from==='英文'?'en':'zh'))||'另一位分身')+'的）');
+        syncSegSel(); updatePTag();
+      }
+    }
+  }
+  }catch(e){ if(window.__MYME_DEBUG) console.warn('[矩阵-语言]', e && (e.stack||e.message)); }
+  try{
+  if(as && as.options && as.options.length){
+    [].forEach.call(as.options, function(o){
+      var anyV = hasVoice(o.value,'zh') || hasVoice(o.value,'en');
+      o.disabled = !anyV;
+      var base = avLabel(o.value) || o.value;
+      o.textContent = base + (anyV ? '' : ' · 仅画面');
+      o.title = anyV ? '' : '本包只有这个分身的画面，没有配音（声音不可替换，所以不建议选）';
+    });
+    var names=[].filter.call(as.options, function(o){ return o.disabled; })
+                  .map(function(o){ return avLabel(o.value)||o.value; });
+    if(names.length) notes.push('「'+names.join('、')+'」仅有画面无配音');
+  }
+  }catch(e){}
+  try{
+  var own = voiceOwner(LANG);
+  if(own && own!==AV_SEL) notes.push('本包'+(LANG==='en'?'英文':'中文')+'配音是「'+(avLabel(own)||own)+'」');
+  if(hint){
+    if(notes.length){ hint.style.display=''; hint.textContent='ⓘ '+notes.join(' · '); hint.title=notes.join('\n'); }
+    else { hint.style.display='none'; hint.textContent=''; }
+  }
+  }catch(e){}
+}
 /* 扫一遍本包实际有什么：配音语言、逐分身视频 */
 function scanMedia(){
   var zh=false, en=false, avk={};
@@ -679,6 +801,7 @@ function applyParams(){
       as.value = AV_SEL;
     } else { as.style.display='none'; AV_SEL='default'; }
   }
+  refreshAvailability();      // 按「这个人有没有这种配音」逐项灰选 + 顶部提示
   return dp;
 }
 /* 顶栏一句话摘要：本包是中文还是英文、分身是谁 */
@@ -766,6 +889,7 @@ function setSeg(id, autoplay){
   }
   var ls=$('langSel'); if(ls) ls.value=LANG;
   var as=$('avSel'); if(as) as.value=AV_SEL;
+  refreshAvailability();
   syncSegSel(); updatePTag(); renderPip(cur());
   if(vswitched) renderList();
   if(!g.ready) toast('片段「'+g.name+'」缺 '+g.missing+'；可用上方下拉切到别的片段对比测试');
@@ -847,6 +971,14 @@ function play(){
      绝不能静默播中文（用户会以为"英文选项是坏的"），必须明确告知并给出可操作的下一步。 */
   if(LANG==='en' && !s.audio_en){
     toast('本页没有英文配音（第 '+(IDX+1)+' 页），已回落到中文；可在完整版重新生成英文讲解');
+  }
+  /* ⚠ v2.9.5 逐页再核一次"这一页的声音是不是这个人"：
+     段级灰选能挡住选不到，但旧包/手动改参数仍可能落到"金子脸 + 炎冰声"，
+     这时必须当场说清楚，绝不假装无缝。 */
+  var _ap = (LANG==='en') ? (s.audio_person_en || s.audio_person || '') : (s.audio_person || '');
+  if(_ap && AV_SEL && AV_SEL!=='default' && _ap!==AV_SEL){
+    toast('第 '+(IDX+1)+' 页的配音是「'+(avLabel(_ap)||_ap)+'」的声音'
+          +'（本包没有「'+(avLabel(AV_SEL)||AV_SEL)+'」的配音，可在完整版用该分身重新生成）');
   }
   var au = (LANG==='en' && s.audio_en) ? s.audio_en : s.audio;
   if(au){
@@ -931,7 +1063,7 @@ $('btnPip').onclick=function(){
 $('pipClose').onclick=function(){ $('btnPip').click(); };
 $('segSel').onchange=function(){ setSeg(this.value, false); renderList(); show(); };
 $('langSel').onchange=function(){
-  LANG=this.value; syncSegSel(); updatePTag();
+  LANG=this.value; refreshAvailability(); syncSegSel(); updatePTag();
   // 整包压根没英文时给一次性提醒（逐页缺失由 play() 提示），别让用户以为英文选项是坏的
   if(LANG==='en'){
     var anyEn=(M.versions||[]).some(function(v){ return (v.slides||[]).some(function(s){return !!s.audio_en;}); });
@@ -940,7 +1072,7 @@ $('langSel').onchange=function(){
   if(!$('aud').paused || !$('pipVid').paused) play();
 };
 $('avSel').onchange=function(){
-  AV_SEL=this.value; syncSegSel(); updatePTag(); renderPip(cur());
+  AV_SEL=this.value; refreshAvailability(); syncSegSel(); updatePTag(); renderPip(cur());
   // 形象切换即人切换：提示声纹也会跟着换（一一对应），避免"选了金子声音还是炎冰"的错觉
   var opt=this.options[this.selectedIndex];
   toast('已切换分身：'+(opt?opt.text:AV_SEL)+'（形象与声纹已同步切换）');

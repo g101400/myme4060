@@ -163,7 +163,7 @@ kb_export.export / kb_qa.answer / make_ppt.gen_outline / kb_wiki.generate_wiki
 | `notebooklm generate audio/slide-deck/…` | `kb_export.export(...)` 走本机管道 |
 | 飞书 `lark-cli docs +create` | 本地 Markdown / docx / pptx 落盘 |
 
-## 附：myme APP 三端交付与防卡死约定（v2.9.4）
+## 附：myme APP 三端交付与防卡死约定（v2.9.5）
 
 本知识库能力内置在 **myme（PPT 制作及分身演示）** 这个本地 APP 里；APP 的交付与交互约定如下，
 改 APP 前先读《三端对照表.md》（同目录）。
@@ -172,9 +172,9 @@ kb_export.export / kb_qa.answer / make_ppt.gen_outline / kb_wiki.generate_wiki
 
 | 平台 | 角色 | 产物 |
 |---|---|---|
-| Windows | 创作端 + 播放端 | `myme-2.9.4-win-x64-full.msi`（WiX）/ `myme-setup.exe` + `runtime.7z` / `win-x64-play.zip` |
-| 统信 UOS / 麒麟 / Deepin | 纯播放端 | `myme-player_2.9.4_<arch>.deb`，**逐 CPU 架构出包**（all/amd64/arm64/mips64el/loongarch64） |
-| 安卓 | 纯播放端 | `myme-2.9.4-android-play.apk`（原生 WebView + SAF 文件授权） |
+| Windows | 创作端 + 播放端 | `myme-2.9.5-win-x64-full.msi`（WiX）/ `myme-setup.exe` + `runtime.7z` / `win-x64-play.zip` |
+| 统信 UOS / 麒麟 / Deepin | 纯播放端 | `myme-player_2.9.5_<arch>.deb`，**逐 CPU 架构出包**（all/amd64/arm64/mips64el/loongarch64） |
+| 安卓 | 纯播放端 | `myme-2.9.5-android-play.apk`（原生 WebView + SAF 文件授权） |
 | iOS | PWA | `myme-ios-pwa.zip` |
 
 **CPU 架构对照（固化，别再猜）**：3A3000/3A4000 → `mips64el`；3A5000+ → `loongarch64`；
@@ -193,6 +193,10 @@ FT2000 / 鲲鹏 → `arm64`；其余 → `amd64`。`uname -m` 可当场确认。
 - 版本号**单一真相源**是 `config.VERSION`；`pack_full.py` / `pack_portable.py` 都从它动态取，别写死字面量。
 - **三端设计 token 必须一致**：藏青导航 `#0f172a` + 青绿主色 `#0f766e` / 辅色 `#14b8a6` + 圆角(12/9) + 同一字体栈；主程序加载**不得**把 `--accent` 重置回旧蓝，不得残留靛蓝 `#4f46e5` / 旧蓝 `#1d4ed8` 字面量。
 - **缺失项灰选 + 提示**：分身 / 语言中本包没有的项（配音语言、分身、片段）在 UI 上**置灰并明确提示**，不藏不漏，避免"打开才发现没声音 / 切了个寂寞"。
+- **脸 / 声音 / 语言三方同源（v2.9.5 铁律）**：每页配音必须记录 `audio_person` / `audio_person_en`，
+  导出汇总成 `params.voices = {分身: {zh, en}}`；播放端 `canPlay(person, lang)` 逐人逐语言判定，
+  缺的组合**灰掉 + 写明原因**，绝不静默用别人的声音顶替（炎冰 / 金子不许串）。
+  判定链见《三端对照表.md》§10，验收用 `node _harness_lang_matrix.js`（26 条断言）。
 - **功能只增不减**：可调顺序，严禁删掉任何已有功能与菜单。
 - 统信端启动逻辑在 `deb_assets/launch.py`：探针必须**显式空代理** + magic token（`/__myme_ping__` → `myme-player-ok`）；
   绝不用 `curl` 判 HTTP 就绪（`curl` 对任何应答都返回 0，内网代理会把它骗成"服务已在运行" → 白屏）。

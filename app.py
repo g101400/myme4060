@@ -184,6 +184,13 @@ def _job_worker(jid, tmp_path, lang, words, narr_map=None, narr_stats=None,
     """
     try:
         _job_update(jid, stage="解析 PPT 与并入知识库…")
+        # v2.9.5：记下本次实际用的分身 id，写进每页 audio_person
+        _pid_used = (person or "").strip()
+        if not _pid_used:
+            try:
+                _pid_used = (persons.active() or {}).get("person") or ""
+            except Exception:
+                _pid_used = ""
         slides = pptx_parse.parse(tmp_path)
         # 缓存页内容，供前端"讲解时同步展示该页"与"答疑定位相关页"
         global SLIDES
@@ -221,6 +228,7 @@ def _job_worker(jid, tmp_path, lang, words, narr_map=None, narr_stats=None,
                                    ref=resolve_voice(person))
             item = {"idx": sl["idx"], "title": sl.get("title", ""),
                     "narration": text,
+                    "audio_person": _pid_used,
                     "audio": ("/api/audio?name=" + os.path.basename(out)) if ok else None}
             results.append(item)
             if ok:
@@ -243,6 +251,7 @@ def _job_worker(jid, tmp_path, lang, words, narr_map=None, narr_stats=None,
             if it:
                 sl["audio"] = it["audio"] if it.get("audio") else None
                 sl["narration"] = it["narration"]
+                sl["audio_person"] = it.get("audio_person") or _pid_used
         full_url = "/api/audio?name=full_narration.wav" if full else None
         # —— 独立版本落库：给 version_id 时结果只写入该版本，不污染当前演示态 ——
         if version_id:
@@ -785,9 +794,21 @@ def _job_worker_translate(jid):
         _job_update(jid, done=True, error=str(e), stage="失败")
 
 
-def _job_worker_version(jid, name, lang, words):
-    """后台：基于当前 PPT 原稿重新生成一套讲稿+炎冰语音，存为新版本并设为当前。"""
+def _job_worker_version(jid, name, lang, words, person=None):
+    """后台：基于当前 PPT 原稿重新生成一套讲稿+分身语音，存为新版本并设为当前。
+
+    v2.9.5：显式带上 person（分身 id），声纹 / 讲稿语言 / 配音全从这一个 pid 派生，
+    并把「这一页是谁的声音」写进 audio_person —— 导出包据此判定"分身 × 语言"哪几段真的能播。
+    """
     try:
+        pid = (person or "").strip()
+        if not pid:
+            try:
+                pid = (persons.active() or {}).get("person") or ""
+            except Exception:
+                pid = ""
+        _ref_voice = resolve_voice(pid) if pid else resolve_voice()
+        _pname = _cur_person_label(pid)
         src_path = SLIDES_META.get("source_path")
         if src_path and os.path.exists(src_path):
             base = pptx_parse.parse(src_path)
@@ -805,9 +826,11 @@ def _job_worker_version(jid, name, lang, words):
             from qa_brain import generate_narration
             text = generate_narration(sl, lang=lang, words=words, model="qwen3.5:9b")
             out = os.path.join(config.DIR_NARR, "narr_%s_%02d.wav" % (vid, sl["idx"]))
-            ok = narrate.synth_one(text, lang, out, seed=TTS_SEED_BASE + i, ref=resolve_voice())
+            ok = narrate.synth_one(text, lang, out, seed=TTS_SEED_BASE + i, ref=_ref_voice)
             item = {"idx": sl["idx"], "title": sl.get("title", ""),
                     "narration": text, "narration_en": "",
+                    "audio_person": pid,
+                    "audio_person_en": pid,
                     "audio": ("/api/audio?name=" + os.path.basename(out)) if ok else None}
             vslides.append(item)
             if ok:
@@ -848,7 +871,7 @@ def _job_worker_version(jid, name, lang, words):
                 out_en = os.path.join(config.DIR_NARR, "narr_%s_%02d_en.wav" % (vid, sl["idx"]))
                 try:
                     ok_en = narrate.synth_one(en, "English", out_en,
-                                              seed=TTS_SEED_BASE + 100 + i, ref=resolve_voice())
+                                              seed=TTS_SEED_BASE + 100 + i, ref=_ref_voice)
                 except Exception as e:
                     print("[narr] 英文配音失败（跳过该页）：", e)
                     ok_en = False
@@ -860,6 +883,7 @@ def _job_worker_version(jid, name, lang, words):
                 for sl0 in base:
                     if sl0["idx"] == vs.get("idx"):
                         vs["narration_en"] = sl0.get("narration_en", "")
+                        vs["audio_person_en"] = pid
                         vs["audio_en"] = ("/api/audio?name=" + os.path.basename(
                             "narr_%s_%02d_en.wav" % (vid, sl0["idx"]))) if (sl0.get("narration_en")
                             and os.path.isfile(os.path.join(config.DIR_NARR,
@@ -1545,7 +1569,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 narr_map, narr_stats = deck_narration.parse_narration_text(
                     deck_narration.read_narration_file(safe(narr)))
             jid = _job_new()
-            _job_update(jid, narr_stats=narr_stats, narr_pages=len(narr_map))
+            # v2.9.5：备用通道同样锁定分身，别让"顶栏选金子、备用导入却是炎冰的声音"
+            _bp = (data.get("person") or "").strip() or None
+            if _bp:
+                try:
+                    persons.set_active(_bp, (data.get("avatar") or "").strip() or None)
+                except Exception:
+                    pass
+            else:
+                try:
+                    _bp = persons.active().get("person") or None
+                except Exception:
+                    _bp = None
+            _job_update(jid, narr_stats=narr_stats, narr_pages=len(narr_map),
+                        person=_bp or "", voice=os.path.basename(resolve_voice(_bp)))
             # 版本隔离：默认为本次导入新建独立版本（不覆盖当前演示态）；
             # 前端显式传 version 且已存在时更新该版本。
             ver_in = (data.get("version") or "").strip()
@@ -1557,7 +1594,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 ver_name = "备用讲解 · %s" % os.path.basename(src)
             t = threading.Thread(target=_job_worker, args=(jid, tmp, lang, words),
                                  kwargs={"narr_map": narr_map, "narr_stats": narr_stats,
-                                         "version_id": ver_id, "version_name": ver_name},
+                                         "version_id": ver_id, "version_name": ver_name,
+                                         "person": _bp},
                                  daemon=True)
             t.start()
             self._json({"job": jid, "stage": "已提交，开始处理…",
@@ -1657,11 +1695,23 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 words = int(data.get("words", 120) or 120); words = max(40, min(300, words))
                 if not SLIDES:
                     self._json({"error": "请先在「① 准备工作」导入并生成讲解"}); return
+                # v2.9.5：讲稿 / 配音 / 形象三者同源 —— 请求里带 person 就先锁进 persons.json，
+                # 再从同一个 pid 解析声纹，绝不出现"界面选金子、配音还是炎冰"。
+                pid = (data.get("person") or "").strip() or None
+                if pid:
+                    try:
+                        persons.set_active(pid)
+                    except Exception:
+                        pass
                 jid = _job_new(total=len(SLIDES))
                 t = threading.Thread(target=_job_worker_version,
-                                    args=(jid, name, lang, words), daemon=True)
+                                    args=(jid, name, lang, words, pid), daemon=True)
                 t.start()
-                self._json({"job": jid, "stage": "已提交，开始生成新讲解版本…"}); return
+                _pname = _cur_person_label(pid)
+                _vfile = os.path.basename(resolve_voice(pid)) if resolve_voice(pid) else ""
+                self._json({"job": jid, "person": pid or "",
+                            "voice": _vfile,
+                            "stage": "已提交：使用「%s」的声纹（%s）· %s讲稿" % (_pname, _vfile or "未找到", lang)}); return
             if act == "switch":
                 vid = data.get("id")
                 if vid and vid in VERSIONS:
@@ -4079,7 +4129,8 @@ def _find_file(name, dirs):
     return ""
 
 
-def _build_manifest(slides_doc, only_versions, quality, packed_videos, params=None):
+def _build_manifest(slides_doc, only_versions, quality, packed_videos, params=None,
+                    packed_images=None):
     """生成便携播放包的 manifest.json：把 /api/xxx?name= 的引用改写成包内相对路径。
 
     播放端（安卓 APK / 统信 deb / Win 便携包里的 player.html）只读这一个文件，
@@ -4132,6 +4183,12 @@ def _build_manifest(slides_doc, only_versions, quality, packed_videos, params=No
                 imgs = s.get("images") or []
                 if imgs:
                     img = _basename_of_url(imgs[0])
+            # v2.9.5：只写"包里真的有的"图。
+            # 旧行为是照抄 src 里的文件名，而页图渲染件（p01.png …）可能早已不在任何
+            # 搜索目录里 → 清单写着 images/p01.png、包里根本没有 → 播放端一片空白，
+            # 用户只会以为"播放器坏了"。宁可 img 为空（播放端回退纯文本版式），也不撒谎。
+            if img and packed_images is not None and img not in packed_images:
+                img = ""
             au = _basename_of_url(s.get("audio"))
             if au and wav2mp3 and au.lower().endswith(".wav"):
                 au = au[:-4] + ".mp3"
@@ -4155,6 +4212,10 @@ def _build_manifest(slides_doc, only_versions, quality, packed_videos, params=No
                 "img": ("images/" + img) if img else "",
                 "audio": ("audio/" + au) if au else "",
                 "audio_en": ("audio/" + aue) if aue else "",
+                # v2.9.5：这一页的中/英配音究竟是谁的声音（分身 id）。
+                # 播放端凭它判断「金子 · 英文」这种组合到底是真能播、还是只有图没声。
+                "audio_person": s.get("audio_person") or "",
+                "audio_person_en": s.get("audio_person_en") or s.get("audio_person") or "",
                 "video": ("video/" + vname) if vname in packed_videos else "",
                 "videoAlt": video_alt,
             })
@@ -4222,6 +4283,22 @@ def _build_manifest(slides_doc, only_versions, quality, packed_videos, params=No
     _lang = _declared_lang if _declared_lang in ("zh", "en") else (_langs[0] if _langs else "zh")
     if _langs and _lang not in _langs:
         _lang = _langs[0]
+    # v2.9.5：本包每个分身的配音有无（供播放端做「分身 × 语言」互斥灰选）
+    _voices = {}
+    for _v in out:
+        for _s in _v["slides"]:
+            if _s.get("audio"):
+                _k = _s.get("audio_person") or ""
+                _voices.setdefault(_k, {"zh": False, "en": False})["zh"] = True
+            if _s.get("audio_en"):
+                _k = _s.get("audio_person_en") or _s.get("audio_person") or ""
+                _voices.setdefault(_k, {"zh": False, "en": False})["en"] = True
+    _voice_person = ""
+    if _person and _voices.get(_person):
+        _voice_person = _person
+    elif _voices:
+        # 标注分身没有自己的配音时，如实写清"本包其实是誰的声音"
+        _voice_person = next((k for k in _voices if k), sorted(_voices)[0])
     params_out = {
         "lang": _lang,
         "langs": _langs or ["zh", "en"],       # 内容判不出来时两种都留着，别把播放端锁死
@@ -4230,6 +4307,8 @@ def _build_manifest(slides_doc, only_versions, quality, packed_videos, params=No
         "avkey": _avkey,
         "avkeys": _avkeys,                     # 本包真的有逐分身视频的分身键
         "persons": _persons_present,
+        "voice_person": _voice_person,         # 本包配音实际是谁（空=老包未记录）
+        "voices": _voices,                     # {分身id: {zh:bool, en:bool}}
         "video_naming": "demo_av_<版本>_<分身>_<页>.mp4（人_形象 亦兼容）",
     }
     return {"app": "myme", "manifest": 1, "generated": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -4265,6 +4344,12 @@ def _build_segments(versions, personas):
         n_en = sum(1 for p in pages if (p or {}).get("audio_en"))
         n_pages = len(pages)
         missing_en = n_pages - n_en
+        # v2.9.5：配音到底是谁的声音（老包没有 audio_person → 空集，维持原行为不误判）
+        voice_zh = {(p or {}).get("audio_person") or "" for p in pages if (p or {}).get("audio")}
+        voice_en = {((p or {}).get("audio_person_en") or (p or {}).get("audio_person") or "")
+                    for p in pages if (p or {}).get("audio_en")}
+        voice_all = {x for x in (voice_zh | voice_en) if x}
+        voice_names = "、".join(_cur_person_label(x) for x in sorted(voice_all)) if voice_all else ""
         alt_people = set()
         any_video = False
         for p in pages:
@@ -4278,6 +4363,10 @@ def _build_segments(versions, personas):
             for lg, lg_name in (("zh", "中文"), ("en", "英文")):
                 # 缺项逐个记、拼成一句话，别用 elif 把第二种缺项整个吃掉
                 miss = []
+                # ① 最要命的一种：脸是这个人、声音却是另一个人的（用户点名的"串"）
+                has_voice = (per["id"] in voice_all) if voice_all else True
+                if not has_voice:
+                    miss.append("「%s」的配音（本包配音是「%s」的声音）" % (per["name"], voice_names))
                 if lg == "en" and missing_en:
                     miss.append("英文配音缺 %d/%d 页" % (missing_en, n_pages))
                 if multi_avatar and per["id"] not in alt_people:
@@ -4290,6 +4379,8 @@ def _build_segments(versions, personas):
                     "vname": v.get("name") or v.get("id", ""),
                     "lang": lg, "lang_name": lg_name,
                     "ready": not missing, "missing": missing,
+                    "voice_ok": has_voice,          # 声音是不是这个人
+                    "voice_person": voice_names if not has_voice else per["id"],
                     "vid": v.get("id", ""),
                     "pages": n_pages,
                     "pages_ready": (n_en if lg == "en" else n_pages),
@@ -4653,17 +4744,19 @@ def _res_export_zip(out_zip, cats, only_versions=None, videos=None, quality="los
             _img_dirs = (config.DIR_TEST, config.DIR_KB,
                          os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_out"),
                          os.path.join(os.path.dirname(os.path.abspath(__file__)), "slide_img"))
+            packed_imgs = set()
             for b in refs:
                 if b in seen:
                     continue
                 fp = _find_file(b, _img_dirs)
                 if fp:
                     seen.add(b)
+                    packed_imgs.add(b)
                     z.write(fp, "images/" + b); cnt += 1
         if include_player:
             try:
                 man = _build_manifest(slides_doc, only_versions, quality, packed_videos,
-                                      params=params)
+                                      params=params, packed_images=packed_imgs)
                 z.writestr("manifest.json", json.dumps(man, ensure_ascii=False, indent=1))
                 cnt += 1
             except Exception as e:

@@ -32,7 +32,7 @@ DIST = os.path.join(HERE, "dist")
 sys.path.insert(0, HERE)
 import pack_portable as _PP          # 单一真相源：版本号只从打包脚本读
 VER = _PP.VER
-EXPECT_VCODE = 10                     # 随版本 bump 手动 +1（与 AndroidManifest 对齐）
+EXPECT_VCODE = 12                     # 随版本 bump 手动 +1（与 AndroidManifest 对齐）
 PKG = "myme-player"
 # SDK 位置：环境变量优先，其次自动探测（本机 SDK 曾在 D:/Android，2026-10-15 起装在用户目录）
 def _find_build_tools():
@@ -372,14 +372,41 @@ def l3_deb(arch="all"):
 
 
 def l3_others():
-    print("\n=== Layer 3d：其余产物 ===")
-    for fn, minsz in (("myme-%s-win-x64-full.msi" % VER, 300 * 1048576),
-                      ("myme-%s-runtime.7z" % VER, 300 * 1048576),
-                      ("myme-setup.exe", 10 * 1048576)):
+    print("\n=== Layer 3d：Windows 安装包 ===")
+    # 2.9.5 起 Win 双份：WiX MSI（perUser，装 %LocalAppData%\myme）+ NSIS EXE（免管理员）
+    for fn, minsz, tip in (
+            ("myme-%s-win-x64-setup.msi" % VER, 10 * 1048576, "WiX MSI"),
+            ("myme-%s-win-x64-setup.exe" % VER, 10 * 1048576, "NSIS EXE")):
         p = os.path.join(DIST, fn)
         ok = os.path.isfile(p) and os.path.getsize(p) >= minsz
-        check("产物 %s" % fn, ok,
+        check("产物 %s（%s）" % (fn, tip), ok,
               ("%.1f MB" % (os.path.getsize(p) / 1048576)) if os.path.isfile(p) else "缺失")
+
+    # MSI 必须真能"装"：OLE 复合文档头 + Property 表里带本次版本号 + 塞进了 myme.exe。
+    # （2026-10-18 事故：wix 退出码 0、产物落成 8.3 短名 dist\MYME-S~1.MSI，
+    #   只看返回码会误判"没出文件"；这里把"文件像不像 MSI"变成硬判据。）
+    msi = os.path.join(DIST, "myme-%s-win-x64-setup.msi" % VER)
+    if os.path.isfile(msi):
+        with open(msi, "rb") as f:
+            raw = f.read()
+        check("MSI 是 OLE 复合文档（d0cf11e0 头）", raw[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1",
+              raw[:8].hex())
+        check("MSI 内 ProductVersion 含 %s" % VER, VER.encode() in raw)
+        check("MSI 内已打包 myme.exe", b"myme.exe" in raw)
+        _stray = [n for n in os.listdir(DIST) if n.upper().startswith("MY") and "~" in n
+                  and n.upper().endswith(".MSI")]
+        check("MSI 里没有未清理的 8.3 短名残留物", not _stray,
+              ("发现 %s：请 mv 回长文件名" % ", ".join(_stray)) if _stray else "")
+
+    print("\n=== Layer 3e：完整安装包（可选，含重依赖） ===")
+    # 这两件是"创作端全功能离线包"，体积 600MB+，按需出；
+    # 缺失只提示不判红（非默认分发件），避免"没打全量包 = 发版失败"。
+    for fn in ("myme-%s-win-x64-full.msi" % VER, "myme-%s-runtime.7z" % VER):
+        p = os.path.join(DIST, fn)
+        if os.path.isfile(p) and os.path.getsize(p) >= 300 * 1048576:
+            check("产物 %s" % fn, True, "%.1f MB" % (os.path.getsize(p) / 1048576))
+        else:
+            print("  ⚠ 可选产物 %s 未出（跑 python pack_full.py 可补）" % fn)
 
 
 def main():

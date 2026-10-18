@@ -26,7 +26,7 @@ header{position:sticky;top:0;z-index:60;background:var(--panel);
 .brand .logo{width:34px;height:34px;border-radius:8px;flex:0 0 auto;
   background:linear-gradient(135deg,var(--accent),#14b8a6);
   display:grid;place-items:center;color:#fff;font-weight:700;font-size:15px;
-  box-shadow:0 2px 8px rgba(29,78,216,.28)}
+  box-shadow:0 2px 8px rgba(15,118,110,.28)}
 .brand h1{margin:0;font-size:17px;font-weight:700;letter-spacing:.3px}
 .brand .sub{font-size:12px;color:var(--muted);margin-top:1px}
 .menubar{display:flex;gap:2px;padding:0 14px;flex-wrap:wrap}
@@ -108,7 +108,7 @@ input[type=file],textarea,select,input[type=text]{
 textarea{resize:vertical;min-height:64px}
 select{cursor:pointer}
 button.btn{background:var(--accent);color:#fff;border:0;border-radius:7px;padding:9px 16px;
-  font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;box-shadow:0 2px 6px rgba(29,78,216,.22)}
+  font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;box-shadow:0 2px 6px rgba(15,118,110,.22)}
 button.btn:hover{background:var(--accent-deep)}
 button.btn:disabled{background:#9aa4b8;cursor:not-allowed;box-shadow:none}
 button.ghost{background:#fff;color:var(--text);border:1px solid var(--line);box-shadow:none;font-weight:500}
@@ -166,7 +166,7 @@ button.ghost:hover{background:var(--accent-soft)}
 .demo-wrap:fullscreen .statusbar{padding:8px 14px}
 /* ============ 进度 ============ */
 .bar{height:9px;background:#e8edf5;border-radius:6px;overflow:hidden;margin:10px 0 6px}
-.bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),#60a5fa);
+.bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2,#14b8a6));
   transition:width .4s}
 /* ============ 列表 ============ */
 .list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
@@ -211,12 +211,12 @@ input[type=color]{width:52px;height:30px;padding:1px;border:1px solid var(--line
 .sb-text .en{color:#94a3b8;font-size:13.5px;margin-top:5px;display:block;line-height:1.6}
 .fs-btn{position:absolute;top:10px;right:10px;z-index:6;background:rgba(15,23,42,.7);color:#e2e8f0;
   border:1px solid #334155;border-radius:7px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}
-.fs-btn:hover{background:rgba(29,78,216,.85)}
+.fs-btn:hover{background:rgba(15,118,110,.85)}
 .fs-controls{display:none;position:absolute;left:0;right:0;bottom:0;z-index:6;justify-content:center;
   gap:8px;padding:10px;background:linear-gradient(0deg,rgba(15,23,42,.85),rgba(15,23,42,0))}
 .fs-controls button{background:rgba(15,23,42,.72);color:#e2e8f0;border:1px solid #334155;border-radius:8px;
   padding:8px 14px;font:inherit;font-size:15px;cursor:pointer}
-.fs-controls button:hover{background:rgba(29,78,216,.85)}
+.fs-controls button:hover{background:rgba(15,118,110,.85)}
 /* 全屏态：幻灯片铺满，状态栏固定在底部；分身（右栏）被覆盖即隐藏，当前分身语音继续后台播放 */
 .demo-wrap:fullscreen{display:flex;flex-direction:column;width:100vw;height:100vh;padding:0;background:#0f1420}
 .demo-wrap:fullscreen .stage{flex:1;min-height:0;border:0;border-radius:0;align-items:center;background:#0f1420;padding:18px}
@@ -412,7 +412,7 @@ header .kbdhint{font-size:11.5px;color:#94a3b8}
   <div class="brand">
     <div class="logo">myme</div>
     <div class="tx">
-      <h1>__APP__<span class="ver" id="verBadge">v2.9.4</span></h1>
+      <h1>__APP__<span class="ver" id="verBadge">v2.9.5</span></h1>
       <div class="sub">当前分身：__NAME__ · 本地运行 · 声音复刻 + 口型驱动 · 数据不出本机</div>
     </div>
     <div class="hact">
@@ -866,6 +866,9 @@ header .kbdhint{font-size:11.5px;color:#94a3b8}
             讲稿写法：用「## 第 1 页」「第 2 页」这类标题分页即可，无标题时按段落顺序配页。
           </div>
           <div class="row" style="margin-top:8px">
+            <div style="flex:1;min-width:150px"><label>讲解分身（决定声音与形象）</label>
+              <select id="p1sel" onchange="onPickPerson(this.value)"
+                      title="选谁来讲：声纹、形象、讲稿人称三处同时对齐，不会串"></select></div>
             <div style="flex:1;min-width:150px"><label>讲解语言</label>
               <select id="lang1"><option>中文</option><option>英文</option></select></div>
             <div style="flex:1;min-width:150px"><label>讲解长度（决定耗时）</label>
@@ -873,11 +876,12 @@ header .kbdhint{font-size:11.5px;color:#94a3b8}
                 <option value="120" selected>标准 ·约120字/页</option>
                 <option value="200">详尽 ·约200字/页（慢）</option></select></div>
           </div>
+          <div style="margin-top:6px;font-size:12px;line-height:1.6;color:var(--muted)" id="p1hint"></div>
           <div class="row" style="margin-top:12px">
             <button class="btn" id="b1">🎙️ 生成当前分身语音讲解</button>
             <button class="btn ghost" id="b1s">停止</button>
           </div>
-          <div class="card" style="margin-top:12px;background:rgba(46,125,255,.05)">
+          <div class="card" style="margin-top:12px;background:rgba(15,118,110,.05)">
             <h3 style="font-size:14px"><span class="dot"></span>备用方案 · 从素材目录直接取用</h3>
             <div class="muted" style="font-size:12px;line-height:1.6">
               上传通道不便时，可直接从备用素材目录 <b id="bkDir">D:/Users/ppt</b> 取用：
@@ -1288,6 +1292,28 @@ function renderScopePersona(){
     hint.textContent = '当前：'+(p.name||'')+(av?(' · '+av.name):'')
       +' —— 项目决定资料归属，分身决定声音与人设，形象决定画面';
   }
+  /* v2.9.5：④ 生成讲解 里的「讲解分身」与顶栏同一个真相源（persons.json），
+     并当场说清"这次用谁的声纹、配套什么语言"，避免选了一套、合成成另一套。 */
+  const p1=$('p1sel');
+  if(p1){
+    p1.innerHTML = ps.length
+      ? ps.map(x=>'<option value="'+x.id+'"'+(x.id===S.curPerson?' selected':'')+'>'+esc(x.name)+'</option>').join('')
+      : '<option value="">（尚无分身·请到「⑤ 制作视频 → 分身管理」添加）</option>';
+    if(S.curPerson) p1.value=S.curPerson;
+  }
+  const h1=$('p1hint');
+  if(h1){
+    if(!ps.length){
+      h1.innerHTML = '⚠️ 还没有分身：请先到「⑤ 制作视频」页的「分身管理」添加人（声音）与形象，再回来生成讲解。';
+    }else{
+      const nm=(p&&p.name)||'';
+      const vf=S.voice?('声纹 <b>'+esc(S.voice)+'</b>'):'当前声纹';
+      const lg=($('lang1')&&$('lang1').value)||'中文';
+      h1.innerHTML = '本次将用 <b>'+esc(nm)+'</b> 的 '+vf+' 合成 <b>'+esc(lg)+'</b> 讲解'
+        +'（同时会生成一份英文讲稿与英文配音，供播放端切换）。'
+        +'<br>声音与形象一一绑定：换分身就换声音，不会出现「选了金子却是炎冰的声音」。';
+    }
+  }
 }
 async function onPickPerson(pid){
   const ps=S.persons.persons||[];
@@ -1316,8 +1342,10 @@ async function applyScope(pid,aid){
     if(r&&r.ok&&r.active){
       S.curPerson=r.active.person||S.curPerson;
       S.curAvatar=r.active.avatar||S.curAvatar;
+      if(r.voice) S.voice=r.voice;
       const hint=$('projHint');
       if(hint&&r.voice) hint.textContent += ' · 声纹 '+r.voice;
+      if(typeof renderScopePersona==='function') renderScopePersona();
     }else if(r&&r.error){ toast('切换分身失败：'+r.error); }
   }catch(e){ /* 网络异常时不阻塞界面，下次操作会再试 */ }
 }
@@ -1718,7 +1746,7 @@ $('mClose').onclick=closeModal;
 $('mask').onclick=e=>{if(e.target===$('mask'))closeModal();};
 
 /* 当前应用版本（与 config.VERSION / 打包版本号一致；帮助「关于 / 软件配置清单」由此取） */
-const MYME_VERSION="2.9.4";
+const MYME_VERSION="2.9.5";
 $('mask').onclick=e=>{if(e.target===$('mask'))closeModal();};
 
 function dlgAbout(){openModal('关于',`
@@ -1835,11 +1863,11 @@ function dlgSoftware(){openModal('软件配置清单列表',`
 
   <h4 style="margin:12px 0 4px">分发包怎么选（装给别人的第一步）</h4>
   <ul class="flist">
-    <li><span class="fk">myme-2.9.4-win-x64-full.msi</span><span class="fv">完整创作端，含 LivePortrait + ts_deps；<b>perUser 免管理员</b>，装到用户目录</span></li>
-    <li><span class="fk">myme-setup.exe + myme-2.9.4-runtime.7z</span><span class="fv">精简安装包 + 绿色伴随目录；解压后在「设置 → 运行时目录配置」登记</span></li>
-    <li><span class="fk">myme-2.9.4-win-x64-play.zip</span><span class="fv">Windows 便携播放包，解压双击 playback/player.html 即播</span></li>
-    <li><span class="fk">myme-2.9.4-android-play.apk</span><span class="fv">安卓离线播放，装完点图标即播，不联网</span></li>
-    <li><span class="fk">myme-player_2.9.4_&lt;arch&gt;.deb</span><span class="fv">统信/麒麟/Deepin，<b>五架构分别出包</b>：all / amd64 / arm64 / mips64el / loongarch64。龙芯 3A3000·3A4000 取 <b>mips64el</b>、3A5000 及以上取 <b>loongarch64</b>、飞腾 FT2000·鲲鹏取 <b>arm64</b>、其余（兆芯/海光/Intel/AMD）取 <b>amd64</b>；本地 python3 服务 + 浏览器，不装 PyQt6</span></li>
+    <li><span class="fk">myme-2.9.5-win-x64-full.msi</span><span class="fv">完整创作端，含 LivePortrait + ts_deps；<b>perUser 免管理员</b>，装到用户目录</span></li>
+    <li><span class="fk">myme-setup.exe + myme-2.9.5-runtime.7z</span><span class="fv">精简安装包 + 绿色伴随目录；解压后在「设置 → 运行时目录配置」登记</span></li>
+    <li><span class="fk">myme-2.9.5-win-x64-play.zip</span><span class="fv">Windows 便携播放包，解压双击 playback/player.html 即播</span></li>
+    <li><span class="fk">myme-2.9.5-android-play.apk</span><span class="fv">安卓离线播放，装完点图标即播，不联网</span></li>
+    <li><span class="fk">myme-player_2.9.5_&lt;arch&gt;.deb</span><span class="fv">统信/麒麟/Deepin，<b>五架构分别出包</b>：all / amd64 / arm64 / mips64el / loongarch64。龙芯 3A3000·3A4000 取 <b>mips64el</b>、3A5000 及以上取 <b>loongarch64</b>、飞腾 FT2000·鲲鹏取 <b>arm64</b>、其余（兆芯/海光/Intel/AMD）取 <b>amd64</b>；本地 python3 服务 + 浏览器，不装 PyQt6</span></li>
   </ul>
 
   <h4 style="margin:12px 0 4px">运行时 · 基础</h4>
@@ -1913,6 +1941,25 @@ async function runUpgradeCheck(manual){
 function mdLite(t){ return esc(t).replace(/\r/g,'').split('\n').slice(0,24)
   .map(l=>l.replace(/^###\s?/,'• ').replace(/^##\s?/,'• ').replace(/^#\s?/,'• ').replace(/^- /,'　· ')).join('<br>'); }
 function dlgChangelog(){openModal('版本变更',`
+  <h4 style="margin:0 0 6px">v2.9.5（10-18 第二轮：分身×语言×声音三方绑定 · 逐项灰选提示 · 讲解分身显式选择 · 三端包重出）</h4>
+  <ul class="flist">
+    <li><b>「分身 × 语言 × 声音」矩阵落地（治"串"的根）</b>：以前只按"整包有没有英文配音"置灰，粒度太粗——
+        本包若是「炎冰·中文 + 炎冰·英文 + 金子·中文」，选金子时英文仍可选，一点就出炎冰的声音。
+        现在每页配音都记录<b>实际是谁的声音</b>（<code>audio_person</code> / <code>audio_person_en</code>），
+        导出时算成 <code>params.voices = {分身: {zh, en}}</code>，播放端据此<b>按人逐项</b>判定能不能播。</li>
+    <li><b>缺失项灰选 + 当众说明（绝不静默换成别人的声音）</b>：选金子而本包没有金子配音时，语言项置灰并标「· 无」，
+        自动回落到可用语言并弹出「「金子」没有英文配音，已切到中文（本包英文配音是「炎冰」的）」；
+        只有画面没有配音的分身标「仅画面」并置灰；段内缺页（英文只配了 12/19 页）照样提示缺几页。</li>
+    <li><b>生成讲解处显式选分身</b>：④「生成讲解」与「新增讲解版本」都加了「讲解分身（声音）」下拉，
+        与顶栏同一个真相源（<code>persons.json</code>），旁边写清"本次用谁的声纹 + 什么语言 + 会同时出英文讲稿"；
+        提交时把 person 一起带上，后端再锁一次，杜绝"界面一套、合成另一套"。</li>
+    <li><b>导出前先看清「配音是谁」</b>：导出对话框「本包标注」新增 voice 一行，写明本包配音来自哪位分身、
+        其他分身会被置灰，避免误以为"金子也配了音"。</li>
+    <li><b>三端一致</b>：以上逻辑在 Windows 主程序 / 便携播放版 / 统信 deb / 安卓 APK 同一份
+        <code>player.html</code>（源码与安卓镜像<b>字节一致</b>门禁照旧）里生效，视觉 token 不变。</li>
+    <li><b>版本号对齐 2.9.5</b>：<code>config.VERSION</code> 单一真相源驱动徽标 / 关于 / 安装包名，
+        安卓 <code>versionCode 12</code>、<code>version_info.txt</code> → 2.9.5.0、WiX → 2.9.5。</li>
+  </ul>
   <h4 style="margin:0 0 6px">v2.9.4（10-18 设计系统彻底收口 · 分身/语言绑定再核验 · 缺失灰选 · 三端版本对齐）</h4>
   <ul class="flist">
     <li><b>设计系统彻底收口（前后左右一致）</b>：此前主程序加载时会把主色<b>重置回旧蓝</b>，
@@ -3307,6 +3354,7 @@ $('b1').onclick=async()=>{
     if(fn){ try{ narr=await fn.text(); }catch(e){ narr=''; } }
     if(narr) $('pbt1').textContent='已读取讲解文本，上传中…';
     const r=await postJSON('/api/process',{data:await readB64(f),ext:'.pptx',
+      person:S.curPerson||null,avatar:S.curAvatar||null,
       lang:$('lang1').value,words:parseInt($('len1').value,10),narr:narr});
     if(r.error){$('o1').className='out bad';$('o1').textContent='❌ '+r.error;$('b1').disabled=false;return;}
     let lastN=-1;
@@ -3380,6 +3428,7 @@ if($('bkGo')) $('bkGo').onclick=async()=>{
   $('bkHint').textContent='已提交：'+deck+(narr?(' + '+narr):'（无讲稿 · 自动生成）');
   try{
     const r=await postJSON('/api/backup_import',{act:'deck',deck:deck,narr:narr,
+      person:S.curPerson||null,avatar:S.curAvatar||null,
       lang:$('lang1').value,words:parseInt($('len1').value,10)});
     if(r.error){ $('bkHint').textContent='❌ '+r.error; return; }
     $('o1').className='out';$('o1').textContent='⏳ 备用方案生成中：'+r.source;
@@ -4007,9 +4056,15 @@ async function switchVersion(id){
   }catch(e){}
 }
 function dlgNewVersion(){
+  const _ps=(S.persons&&S.persons.persons)||[];
+  const _pOpts=_ps.length
+    ? _ps.map(x=>'<option value="'+x.id+'"'+(x.id===S.curPerson?' selected':'')+'>'+esc(x.name)+'</option>').join('')
+    : '<option value="">（尚无分身）</option>';
   openModal('新增讲解版本',
     `<label>版本名称</label><input type="text" id="nv_name" placeholder="如：精简版 / 英文版 / 领导汇报版">
      <div class="row" style="margin-top:8px">
+       <div style="flex:1;min-width:140px"><label>讲解分身（声音）</label>
+         <select id="nv_person">${_pOpts}</select></div>
        <div style="flex:1;min-width:140px"><label>讲解语言</label>
          <select id="nv_lang"><option>中文</option><option>英文</option></select></div>
        <div style="flex:1;min-width:140px"><label>讲解长度</label>
@@ -4023,11 +4078,14 @@ function dlgNewVersion(){
 }
 async function createVersion(){
   const name=($('nv_name')&&$('nv_name').value||'').trim();
+  const person=($('nv_person')&&$('nv_person').value)||S.curPerson||null;
   const lang=$('nv_lang')?$('nv_lang').value:'中文';
   const words=parseInt(($('nv_len')&&$('nv_len').value)||'120',10);
   closeModal();
-  const r=await postJSON('/api/versions',{act:'create',name,lang,words});
+  if(person&&person!==S.curPerson){ await onPickPerson(person); }
+  const r=await postJSON('/api/versions',{act:'create',name,lang,words,person});
   if(r.error){ alert('❌ '+r.error); return; }
+  $('demoStatus').textContent=r.stage||'已提交，开始生成…';
   pollVersion(r.job);
 }
 let verPoll=null;
@@ -4420,17 +4478,24 @@ async function openExportPlayback(){
   const pLangs=(P.langs||[]).map(x=>LangN[x]||x).join('、')||'未检测';
   const pMain=LangN[P.lang]||P.lang||'未标注';
   const pWho=P.avatar_name||([P.person,P.avatar].filter(Boolean).join(' · '))||'未标注';
+  /* v2.9.5：把"配音到底是谁的声音"摆在导出前，导出的包就不会被误当成"金子也配了音" */
+  const _owners=Array.from(new Set((S.slides||[]).map(s=>s.audio_person).filter(Boolean)));
+  const _pList=(S.persons&&S.persons.persons)||[];
+  const vWhoTxt=_owners.length
+    ? _owners.map(id=>{const q=_pList.find(x=>x.id===id);return q?q.name:id;}).join('、')
+    : '未记录（旧数据，播放端按未标注处理，不误判置灰）';
   const paramsBox=`
     <div class="exSec" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px">
       <b>🏷 本包标注（导入播放文件时自动识别，本包没有的选项会自动置灰）</b>
       <ul class="flist" style="margin:6px 0 0">
         <li><span class="fk">lang（配音语言）</span><span class="fv">${esc(pMain)}　·　本包实际包含：${esc(pLangs)}</span></li>
         <li><span class="fk">person / avatar（分身）</span><span class="fv">${esc(pWho)}</span></li>
+        <li><span class="fk">voice（配音是谁）</span><span class="fv">${esc(vWhoTxt)}　·　只有这个人的配音能播，其他分身会置灰并写明原因</span></li>
         <li><span class="fk">avkey（分身键）</span><span class="fv">${esc(P.avkey||'未标注')}　<code>person_avatar</code>，与逐页视频名中的那段一致</span></li>
       </ul>
       <p class="muted" style="margin:6px 0 0">生成讲解、导出播放文件、导入播放文件三处使用这同一组参数（也写进包内
         <code>manifest.json</code> 的 <code>params</code> 与 <code>README.txt</code>），所以播放端导入后能自动认出：
-        只有中文配音时英文置灰；本包只有金子时分身里不出现炎冰。</p>
+        只有中文配音时英文置灰；本包只有金子时分身里不出现炎冰；<b>有画面没配音的分身会标「仅画面」</b>。</p>
     </div>`;
   const vers=(S.versions||[]);
   const verChk = vers.map(v=>'<label class="chk"><input type="checkbox" class="exVer" value="'+esc(v.id)+'" checked> '
@@ -4849,7 +4914,7 @@ $qm('dmPpt').onclick = async () => {
 /* ================= v2.9 深度加工：图谱 / Agent / 分块 / 追踪 ================= */
 const _esc = esc;
 const _fmtSteps = (steps) => (steps || []).map(s =>
-  '<div style="margin:6px 0;padding:6px 8px;border-left:2px solid rgba(46,125,255,.35)">' +
+  '<div style="margin:6px 0;padding:6px 8px;border-left:2px solid rgba(15,118,110,.35)">' +
   '<div class="muted" style="font-size:12px">第' + s.i + '步' +
   (s.thought ? ' · ' + _esc(String(s.thought).slice(0, 80)) : '') + '</div>' +
   (s.action ? '<div>🔧 <b>' + _esc(s.action) + '</b>' +

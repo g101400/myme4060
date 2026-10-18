@@ -325,6 +325,25 @@ def _inline_manifest(root):
 
 def build_apk():
     assets = os.path.join(APK_PROJ, "assets")
+    # v2.9.5：先清空 assets 再灌包。
+    # copytree(dirs_exist_ok=True) 只会"覆盖 + 新增"，**不会删除**上一版残留 ——
+    # 实测示例包从 144 MB 压到 47 MB 后重打，APK 反而从 48 MB 虚胖到 158 MB，
+    # 原因是旧的大图/音频还躺在 assets 里被一起打进包。
+    if os.path.isdir(assets):
+        for _n in os.listdir(assets):
+            _p = os.path.join(assets, _n)
+            try:
+                if os.path.isdir(_p):
+                    for _dp, _dns, _fns in os.walk(_p, topdown=False):
+                        for _f in _fns:
+                            try: os.remove(os.path.join(_dp, _f))
+                            except OSError: pass
+                        try: os.rmdir(_dp)
+                        except OSError: pass
+                else:
+                    os.remove(_p)
+            except OSError:
+                pass
     shutil.copytree(BUNDLE, assets, dirs_exist_ok=True)
     _ascii_asset_names(assets)
     _inline_manifest(assets)

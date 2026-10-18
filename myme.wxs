@@ -4,13 +4,15 @@
     不需要管理员提权。双击安装时不再因写入 ProgramFiles 需要 UAC 而报
     2503 / 2502 错误。
   -->
-  <Package Name="PPT制作及分身演示 (myme)" Manufacturer="myme" Version="2.9.4"
+  <Package Name="PPT制作及分身演示 (myme)" Manufacturer="myme" Version="2.9.5"
            Scope="perUser" UpgradeCode="a1b2c3d4-0000-1111-2222-333344445555">
     <SummaryInformation Description="本地 PPT 制作与分身演示：用你的声音讲 PPT 并自动答疑（本地部署 PWA）" />
-    <!-- 单文件 MSI（cab 内嵌）。注意：本机(win32)生成含 ~59MB exe 的 msi 时，wix 进程在
-         "Generating database" 阶段被杀（疑似 OLE 复合文档流嵌入大 PE 被实时防护/内存限制拦截），
-         已临时改用 7z 自解压安装包（仓库根 _build_sfx.py -> dist/myme-setup.exe）。
-         在正常环境可直接 `wix build myme.wxs -o dist/myme-setup.msi` 出单文件 MSI。 -->
+    <!-- 单文件 MSI（cab 内嵌）。
+         2026-10-18 实测（wix.exe 7.0.0）：`wix build myme.wxs -o dist\myme-2.9.5-win-x64-setup.msi`
+         退出码 0，产物**确实生成**，但在 Git Bash 下输出名会被折叠成 8.3 短名
+         （dist\MYME-S~1.MSI / MY7619~1.MSI），看起来像"没出文件"。
+         出包后必须 `ls dist/*.MSI` 核对并 `mv` 回长文件名，再校 Property 表 ProductVersion。
+         同一版本另出 NSIS 版（dist\myme-2.9.5-win-x64-setup.exe）作为双保险。 -->
     <MediaTemplate EmbedCab="yes" />
     <MajorUpgrade DowngradeErrorMessage="已安装较新版本，请先卸载。" />
     <Feature Id="Main" Title="PPT制作及分身演示" Level="1">
